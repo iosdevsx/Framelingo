@@ -1,0 +1,663 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A00000000000000000000001 /* External/FFmpegKit/ffmpegkit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000011 /* External/FFmpegKit/ffmpegkit.framework */; };
+		A00000000000000000000002 /* External/FFmpegKit/libavcodec.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000012 /* External/FFmpegKit/libavcodec.framework */; };
+		A00000000000000000000003 /* External/FFmpegKit/libavdevice.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000013 /* External/FFmpegKit/libavdevice.framework */; };
+		A00000000000000000000004 /* External/FFmpegKit/libavfilter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000014 /* External/FFmpegKit/libavfilter.framework */; };
+		A00000000000000000000005 /* External/FFmpegKit/libavformat.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000015 /* External/FFmpegKit/libavformat.framework */; };
+		A00000000000000000000006 /* External/FFmpegKit/libavutil.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000016 /* External/FFmpegKit/libavutil.framework */; };
+		A00000000000000000000007 /* External/FFmpegKit/libswresample.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000017 /* External/FFmpegKit/libswresample.framework */; };
+		A00000000000000000000008 /* External/FFmpegKit/libswscale.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000018 /* External/FFmpegKit/libswscale.framework */; };
+		A00000000000000000000021 /* External/FFmpegKit/ffmpegkit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000011 /* External/FFmpegKit/ffmpegkit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A00000000000000000000022 /* External/FFmpegKit/libavcodec.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000012 /* External/FFmpegKit/libavcodec.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A00000000000000000000023 /* External/FFmpegKit/libavdevice.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000013 /* External/FFmpegKit/libavdevice.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A00000000000000000000024 /* External/FFmpegKit/libavfilter.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000014 /* External/FFmpegKit/libavfilter.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A00000000000000000000025 /* External/FFmpegKit/libavformat.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000015 /* External/FFmpegKit/libavformat.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A00000000000000000000026 /* External/FFmpegKit/libavutil.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000016 /* External/FFmpegKit/libavutil.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A00000000000000000000027 /* External/FFmpegKit/libswresample.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000017 /* External/FFmpegKit/libswresample.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A00000000000000000000028 /* External/FFmpegKit/libswscale.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000018 /* External/FFmpegKit/libswscale.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A00000000000000000000050 /* BundledTools/Whisper in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000051 /* BundledTools/Whisper */; };
+		B10000000000000000000002 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = B10000000000000000000001 /* FluidAudio */; };
+		C10000000000000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = C10000000000000000000002 /* Sparkle */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		8CBA44582F9FB00100693B6B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8CBA442D2F9FAE3A00693B6B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8CBA44342F9FAE3A00693B6B;
+			remoteInfo = Framelingo;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A00000000000000000000030 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				A00000000000000000000021 /* External/FFmpegKit/ffmpegkit.framework in Embed Frameworks */,
+				A00000000000000000000022 /* External/FFmpegKit/libavcodec.framework in Embed Frameworks */,
+				A00000000000000000000023 /* External/FFmpegKit/libavdevice.framework in Embed Frameworks */,
+				A00000000000000000000024 /* External/FFmpegKit/libavfilter.framework in Embed Frameworks */,
+				A00000000000000000000025 /* External/FFmpegKit/libavformat.framework in Embed Frameworks */,
+				A00000000000000000000026 /* External/FFmpegKit/libavutil.framework in Embed Frameworks */,
+				A00000000000000000000027 /* External/FFmpegKit/libswresample.framework in Embed Frameworks */,
+				A00000000000000000000028 /* External/FFmpegKit/libswscale.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		8CBA44352F9FAE3A00693B6B /* Framelingo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Framelingo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8CBA44502F9FB00100693B6B /* FramelingoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FramelingoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000011 /* External/FFmpegKit/ffmpegkit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/ffmpegkit.framework"; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000012 /* External/FFmpegKit/libavcodec.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/libavcodec.framework"; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000013 /* External/FFmpegKit/libavdevice.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/libavdevice.framework"; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000014 /* External/FFmpegKit/libavfilter.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/libavfilter.framework"; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000015 /* External/FFmpegKit/libavformat.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/libavformat.framework"; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000016 /* External/FFmpegKit/libavutil.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/libavutil.framework"; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000017 /* External/FFmpegKit/libswresample.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/libswresample.framework"; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000018 /* External/FFmpegKit/libswscale.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/libswscale.framework"; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000051 /* BundledTools/Whisper */ = {isa = PBXFileReference; lastKnownFileType = folder; path = BundledTools/Whisper; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		8CBA44372F9FAE3A00693B6B /* Framelingo */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Framelingo;
+			sourceTree = "<group>";
+		};
+		8CBA44512F9FB00100693B6B /* FramelingoTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = FramelingoTests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8CBA44322F9FAE3A00693B6B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000001 /* External/FFmpegKit/ffmpegkit.framework in Frameworks */,
+				A00000000000000000000002 /* External/FFmpegKit/libavcodec.framework in Frameworks */,
+				A00000000000000000000003 /* External/FFmpegKit/libavdevice.framework in Frameworks */,
+				A00000000000000000000004 /* External/FFmpegKit/libavfilter.framework in Frameworks */,
+				A00000000000000000000005 /* External/FFmpegKit/libavformat.framework in Frameworks */,
+				A00000000000000000000006 /* External/FFmpegKit/libavutil.framework in Frameworks */,
+				A00000000000000000000007 /* External/FFmpegKit/libswresample.framework in Frameworks */,
+				A00000000000000000000008 /* External/FFmpegKit/libswscale.framework in Frameworks */,
+				B10000000000000000000002 /* FluidAudio in Frameworks */,
+				C10000000000000000000001 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8CBA44542F9FB00100693B6B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		8CBA442C2F9FAE3A00693B6B = {
+			isa = PBXGroup;
+			children = (
+				8CBA44372F9FAE3A00693B6B /* Framelingo */,
+				8CBA44512F9FB00100693B6B /* FramelingoTests */,
+				A00000000000000000000051 /* BundledTools/Whisper */,
+				A00000000000000000000040 /* FFmpegKit Frameworks */,
+				8CBA44362F9FAE3A00693B6B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		8CBA44362F9FAE3A00693B6B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8CBA44352F9FAE3A00693B6B /* Framelingo.app */,
+				8CBA44502F9FB00100693B6B /* FramelingoTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000040 /* FFmpegKit Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000011 /* External/FFmpegKit/ffmpegkit.framework */,
+				A00000000000000000000012 /* External/FFmpegKit/libavcodec.framework */,
+				A00000000000000000000013 /* External/FFmpegKit/libavdevice.framework */,
+				A00000000000000000000014 /* External/FFmpegKit/libavfilter.framework */,
+				A00000000000000000000015 /* External/FFmpegKit/libavformat.framework */,
+				A00000000000000000000016 /* External/FFmpegKit/libavutil.framework */,
+				A00000000000000000000017 /* External/FFmpegKit/libswresample.framework */,
+				A00000000000000000000018 /* External/FFmpegKit/libswscale.framework */,
+			);
+			name = "FFmpegKit Frameworks";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8CBA44342F9FAE3A00693B6B /* Framelingo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8CBA44402F9FAE3C00693B6B /* Build configuration list for PBXNativeTarget "Framelingo" */;
+			buildPhases = (
+				8CBA44312F9FAE3A00693B6B /* Sources */,
+				8CBA44322F9FAE3A00693B6B /* Frameworks */,
+				A00000000000000000000030 /* Embed Frameworks */,
+				8CBA44332F9FAE3A00693B6B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				8CBA44372F9FAE3A00693B6B /* Framelingo */,
+			);
+			name = Framelingo;
+			packageProductDependencies = (
+				B10000000000000000000001 /* FluidAudio */,
+				C10000000000000000000002 /* Sparkle */,
+			);
+			productName = Framelingo;
+			productReference = 8CBA44352F9FAE3A00693B6B /* Framelingo.app */;
+			productType = "com.apple.product-type.application";
+		};
+		8CBA44552F9FB00100693B6B /* FramelingoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8CBA445B2F9FB00100693B6B /* Build configuration list for PBXNativeTarget "FramelingoTests" */;
+			buildPhases = (
+				8CBA44532F9FB00100693B6B /* Sources */,
+				8CBA44542F9FB00100693B6B /* Frameworks */,
+				8CBA44562F9FB00100693B6B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				8CBA44592F9FB00100693B6B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				8CBA44512F9FB00100693B6B /* FramelingoTests */,
+			);
+			name = FramelingoTests;
+			packageProductDependencies = (
+			);
+			productName = FramelingoTests;
+			productReference = 8CBA44502F9FB00100693B6B /* FramelingoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		8CBA442D2F9FAE3A00693B6B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2630;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					8CBA44342F9FAE3A00693B6B = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					8CBA44552F9FB00100693B6B = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 8CBA44342F9FAE3A00693B6B;
+					};
+				};
+			};
+			buildConfigurationList = 8CBA44302F9FAE3A00693B6B /* Build configuration list for PBXProject "Framelingo" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 8CBA442C2F9FAE3A00693B6B;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B10000000000000000000000 /* XCRemoteSwiftPackageReference "FluidAudio" */,
+				C10000000000000000000000 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 8CBA44362F9FAE3A00693B6B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8CBA44342F9FAE3A00693B6B /* Framelingo */,
+				8CBA44552F9FB00100693B6B /* FramelingoTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8CBA44332F9FAE3A00693B6B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000050 /* BundledTools/Whisper in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8CBA44562F9FB00100693B6B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8CBA44312F9FAE3A00693B6B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8CBA44532F9FB00100693B6B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		8CBA44592F9FB00100693B6B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8CBA44342F9FAE3A00693B6B /* Framelingo */;
+			targetProxy = 8CBA44582F9FB00100693B6B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		8CBA443E2F9FAE3C00693B6B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = TWW7UPTWB8;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		8CBA443F2F9FAE3C00693B6B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = TWW7UPTWB8;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		8CBA44412F9FAE3C00693B6B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = TWW7UPTWB8;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/External/FFmpegKit",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				MARKETING_VERSION = 1.1;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					AudioToolbox,
+					"-framework",
+					AVFoundation,
+					"-framework",
+					CoreAudio,
+					"-framework",
+					CoreImage,
+					"-framework",
+					CoreMedia,
+					"-framework",
+					CoreVideo,
+					"-framework",
+					OpenCL,
+					"-framework",
+					OpenGL,
+					"-framework",
+					Security,
+					"-framework",
+					VideoToolbox,
+					"-lz",
+					"-lbz2",
+					"-lc++",
+					"-liconv",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.somegreatapp.Framelingo;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		8CBA44422F9FAE3C00693B6B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = TWW7UPTWB8;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/External/FFmpegKit",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				MARKETING_VERSION = 1.1;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					AudioToolbox,
+					"-framework",
+					AVFoundation,
+					"-framework",
+					CoreAudio,
+					"-framework",
+					CoreImage,
+					"-framework",
+					CoreMedia,
+					"-framework",
+					CoreVideo,
+					"-framework",
+					OpenCL,
+					"-framework",
+					OpenGL,
+					"-framework",
+					Security,
+					"-framework",
+					VideoToolbox,
+					"-lz",
+					"-lbz2",
+					"-lc++",
+					"-liconv",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.somegreatapp.Framelingo;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		8CBA445C2F9FB00100693B6B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TWW7UPTWB8;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/External/FFmpegKit",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.somegreatapp.FramelingoTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Framelingo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Framelingo";
+			};
+			name = Debug;
+		};
+		8CBA445D2F9FB00100693B6B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TWW7UPTWB8;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/External/FFmpegKit",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.somegreatapp.FramelingoTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Framelingo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Framelingo";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		8CBA44302F9FAE3A00693B6B /* Build configuration list for PBXProject "Framelingo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8CBA443E2F9FAE3C00693B6B /* Debug */,
+				8CBA443F2F9FAE3C00693B6B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		8CBA44402F9FAE3C00693B6B /* Build configuration list for PBXNativeTarget "Framelingo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8CBA44412F9FAE3C00693B6B /* Debug */,
+				8CBA44422F9FAE3C00693B6B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		8CBA445B2F9FB00100693B6B /* Build configuration list for PBXNativeTarget "FramelingoTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8CBA445C2F9FB00100693B6B /* Debug */,
+				8CBA445D2F9FB00100693B6B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B10000000000000000000000 /* XCRemoteSwiftPackageReference "FluidAudio" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/FluidInference/FluidAudio.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.14.1;
+			};
+		};
+		C10000000000000000000000 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.9.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B10000000000000000000001 /* FluidAudio */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B10000000000000000000000 /* XCRemoteSwiftPackageReference "FluidAudio" */;
+			productName = FluidAudio;
+		};
+		C10000000000000000000002 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C10000000000000000000000 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 8CBA442D2F9FAE3A00693B6B /* Project object */;
+}
