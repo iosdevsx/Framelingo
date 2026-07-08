@@ -82,9 +82,13 @@ struct WordLevelSubtitleAlignmentEngine: SubtitleAlignmentEngine {
         var groups: [[WordTiming]] = []
         var currentGroup: [WordTiming] = []
         var currentSpeakerID: Int?
+        let smoothedSpeakerIDs = smoothedSpeakerIDs(
+            words: sortedWords,
+            speakerSegments: speakerSegments,
+            options: options
+        )
 
-        for word in sortedWords {
-            let wordSpeakerID = speakerSegment(for: word, in: speakerSegments)?.speakerId
+        for (word, wordSpeakerID) in zip(sortedWords, smoothedSpeakerIDs) {
             if shouldStartNewGroup(
                 nextWord: word,
                 nextSpeakerID: wordSpeakerID,
@@ -127,6 +131,39 @@ struct WordLevelSubtitleAlignmentEngine: SubtitleAlignmentEngine {
             indexedCue.index = offset + 1
             return indexedCue
         }
+    }
+
+    func smoothedSpeakerIDs(
+        words: [WordTiming],
+        speakerSegments: [SpeakerSegment],
+        options: SubtitleAlignmentOptions
+    ) -> [Int?] {
+        let rawSpeakerIDs = words.map { word in
+            speakerSegment(for: word, in: speakerSegments)?.speakerId
+        }
+        let minimumRunLength = max(1, options.minWordsPerSpeakerRun)
+        guard minimumRunLength > 1, rawSpeakerIDs.count > 1 else {
+            return rawSpeakerIDs
+        }
+
+        let runs = speakerRuns(in: rawSpeakerIDs)
+        var smoothedSpeakerIDs = rawSpeakerIDs
+        for (runIndex, run) in runs.enumerated() where run.range.count < minimumRunLength {
+            let replacementSpeakerID: Int?
+            if runIndex > runs.startIndex {
+                replacementSpeakerID = runs[runIndex - 1].speakerID
+            } else if runIndex + 1 < runs.endIndex {
+                replacementSpeakerID = runs[runIndex + 1].speakerID
+            } else {
+                replacementSpeakerID = run.speakerID
+            }
+
+            for index in run.range {
+                smoothedSpeakerIDs[index] = replacementSpeakerID
+            }
+        }
+
+        return smoothedSpeakerIDs
     }
 
     func align(
@@ -266,6 +303,24 @@ struct WordLevelSubtitleAlignmentEngine: SubtitleAlignmentEngine {
             .filter { $0.duration > 0 }
             .max(by: { $0.duration < $1.duration })?
             .segment
+    }
+
+    private func speakerRuns(in speakerIDs: [Int?]) -> [(range: Range<Int>, speakerID: Int?)] {
+        var runs: [(range: Range<Int>, speakerID: Int?)] = []
+        var startIndex = speakerIDs.startIndex
+
+        while startIndex < speakerIDs.endIndex {
+            let speakerID = speakerIDs[startIndex]
+            var endIndex = speakerIDs.index(after: startIndex)
+            while endIndex < speakerIDs.endIndex, speakerIDs[endIndex] == speakerID {
+                endIndex = speakerIDs.index(after: endIndex)
+            }
+
+            runs.append((startIndex..<endIndex, speakerID))
+            startIndex = endIndex
+        }
+
+        return runs
     }
 
     private func translatedText(

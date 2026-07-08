@@ -11,10 +11,10 @@ struct SubtitleSegmentationSettings: Equatable {
 struct SubtitleSegmentationService {
     var settings = SubtitleSegmentationSettings()
 
-    func segment(_ segments: [SubtitleSegment]) -> [SubtitleSegment] {
+    func segment(_ segments: [SubtitleSegment], words: [WordTiming] = []) -> [SubtitleSegment] {
         let splitSegments = segments
             .sorted { $0.startMs == $1.startMs ? $0.index < $1.index : $0.startMs < $1.startMs }
-            .flatMap(splitIfNeeded)
+            .flatMap { splitIfNeeded($0, words: words) }
 
         return splitSegments.enumerated().map { offset, segment in
             var updatedSegment = segment
@@ -23,7 +23,7 @@ struct SubtitleSegmentationService {
         }
     }
 
-    private func splitIfNeeded(_ segment: SubtitleSegment) -> [SubtitleSegment] {
+    private func splitIfNeeded(_ segment: SubtitleSegment, words: [WordTiming]) -> [SubtitleSegment] {
         let text = segment.originalText
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
@@ -40,7 +40,10 @@ struct SubtitleSegmentationService {
             return [updatedSegment]
         }
 
-        return mergeShortTrailingSegments(distributeTiming(segment: segment, chunks: chunks))
+        let timedSegments = wordBoundaryTiming(segment: segment, chunks: chunks, words: words)
+            ?? distributeTiming(segment: segment, chunks: chunks)
+
+        return mergeShortTrailingSegments(timedSegments)
     }
 
     private func textChunks(for text: String) -> [String] {
@@ -156,6 +159,92 @@ struct SubtitleSegmentationService {
         return result.isEmpty ? [segment] : result
     }
 
+    private func wordBoundaryTiming(segment: SubtitleSegment, chunks: [String], words: [WordTiming]) -> [SubtitleSegment]? {
+        guard !words.isEmpty else {
+            return nil
+        }
+
+        let selectedWords = words
+            .filter { word in
+                let midpointMs = (word.start + word.end) * 500
+                return midpointMs >= Double(segment.startMs) && midpointMs <= Double(segment.endMs)
+            }
+            .sorted { lhs, rhs in
+                lhs.start == rhs.start ? lhs.end < rhs.end : lhs.start < rhs.start
+            }
+
+        guard !selectedWords.isEmpty else {
+            return nil
+        }
+
+        let chunkTokens = chunks.map { tokens(in: $0) }
+        let totalChunkTokenCount = chunkTokens.reduce(0) { $0 + $1.count }
+        guard totalChunkTokenCount == selectedWords.count else {
+            return nil
+        }
+
+        var cursor = selectedWords.startIndex
+        var matchedRuns: [[WordTiming]] = []
+        for tokens in chunkTokens {
+            guard !tokens.isEmpty else {
+                return nil
+            }
+
+            let endIndex = selectedWords.index(cursor, offsetBy: tokens.count)
+            let run = Array(selectedWords[cursor..<endIndex])
+            guard let firstToken = tokens.first,
+                  let firstWord = run.first else {
+                return nil
+            }
+
+            let normalizedFirstToken = normalizedToken(firstToken)
+            let normalizedFirstWord = normalizedToken(firstWord.text)
+            guard !normalizedFirstToken.isEmpty,
+                  normalizedFirstToken == normalizedFirstWord else {
+                return nil
+            }
+
+            matchedRuns.append(run)
+            cursor = endIndex
+        }
+
+        var result: [SubtitleSegment] = []
+        for (offset, run) in matchedRuns.enumerated() {
+            guard let firstWord = run.first, let lastWord = run.last else {
+                return nil
+            }
+
+            let wordStartMs = clamp(milliseconds(fromSeconds: firstWord.start), min: segment.startMs, max: segment.endMs)
+            let wordEndMs = clamp(milliseconds(fromSeconds: lastWord.end), min: segment.startMs, max: segment.endMs)
+            let startMs: Int
+            if let previous = result.last {
+                startMs = max(wordStartMs, min(segment.endMs, previous.endMs + settings.gapMs))
+            } else {
+                startMs = wordStartMs
+            }
+            let endMs = max(startMs, wordEndMs)
+
+            guard endMs > startMs else {
+                return nil
+            }
+
+            result.append(SubtitleSegment(
+                id: UUID(),
+                index: segment.index + offset,
+                startMs: startMs,
+                endMs: endMs,
+                originalText: chunks[offset],
+                translatedText: "",
+                speaker: segment.speaker,
+                speakerId: segment.speakerId,
+                confidence: segment.confidence,
+                warnings: segment.warnings
+            ))
+        }
+
+        return result.isEmpty ? nil : result
+    }
+
     private func mergeShortTrailingSegments(_ segments: [SubtitleSegment]) -> [SubtitleSegment] {
         var result: [SubtitleSegment] = []
 
@@ -206,5 +295,25 @@ struct SubtitleSegmentationService {
         if right.isEmpty { return left }
 
         return "\(left) \(right)"
+    }
+
+    private func tokens(in text: String) -> [String] {
+        text.components(separatedBy: .whitespacesAndNewlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func normalizedToken(_ token: String) -> String {
+        String(token.lowercased().unicodeScalars.filter { scalar in
+            !CharacterSet.punctuationCharacters.contains(scalar)
+        })
+    }
+
+    private func milliseconds(fromSeconds seconds: TimeInterval) -> Int {
+        Int((seconds * 1_000).rounded())
+    }
+
+    private func clamp(_ value: Int, min minValue: Int, max maxValue: Int) -> Int {
+        min(max(value, minValue), maxValue)
     }
 }

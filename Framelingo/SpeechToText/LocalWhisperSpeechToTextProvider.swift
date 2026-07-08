@@ -106,10 +106,16 @@ struct LocalWhisperSpeechToTextProvider: SpeechToTextProvider {
 
         let srt = try String(contentsOf: srtURL, encoding: .utf8)
         let segments = try parseSRT(srt)
-        let segmentedSubtitles = segmentationService.segment(segments)
 
         let jsonURL = outputBaseURL.appendingPathExtension("json")
-        let words = (try? parseWordTimings(from: jsonURL)) ?? []
+        let words: [WordTiming]
+        do {
+            words = try parseWordTimings(from: jsonURL)
+        } catch {
+            // Word timings are optional; missing or malformed JSON keeps the SRT transcript usable.
+            words = []
+        }
+        let segmentedSubtitles = segmentationService.segment(segments, words: words)
 
         return TranscriptionResult(
             segments: segmentedSubtitles,

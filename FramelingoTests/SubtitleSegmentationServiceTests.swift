@@ -88,6 +88,107 @@ struct SubtitleSegmentationServiceTests {
     }
 
     @Test
+    func testUsesWordBoundariesWhenSplitTokensMatchWordTimings() {
+        let service = SubtitleSegmentationService()
+        let result = service.segment(
+            [
+                segment(
+                    start: 0,
+                    end: 4_000,
+                    text: "Alpha bravo charlie delta. Echo foxtrot golf hotel."
+                )
+            ],
+            words: [
+                word("Alpha", startMs: 0, endMs: 300),
+                word("bravo", startMs: 400, endMs: 700),
+                word("charlie", startMs: 800, endMs: 1_100),
+                word("delta", startMs: 1_200, endMs: 1_500),
+                word("Echo", startMs: 1_700, endMs: 2_000),
+                word("foxtrot", startMs: 2_100, endMs: 2_400),
+                word("golf", startMs: 2_500, endMs: 2_800),
+                word("hotel", startMs: 2_900, endMs: 3_200)
+            ]
+        )
+
+        #expect(result.count == 2)
+        guard result.count == 2 else { return }
+        #expect(result[0].startMs == 0)
+        #expect(result[0].endMs == 1_500)
+        #expect(result[1].startMs == 1_700)
+        #expect(result[1].endMs == 3_200)
+    }
+
+    @Test
+    func testTokenCountMismatchFallsBackPerSegment() {
+        var settings = SubtitleSegmentationSettings()
+        settings.minCharactersPerSegment = 0
+        let service = SubtitleSegmentationService(settings: settings)
+        let result = service.segment(
+            [
+                segment(start: 0, end: 4_000, text: "One two. Three four."),
+                segment(start: 5_000, end: 9_000, text: "Five six. Seven eight.")
+            ],
+            words: [
+                word("One", startMs: 0, endMs: 300),
+                word("two", startMs: 400, endMs: 700),
+                word("Three", startMs: 800, endMs: 1_100),
+                word("Five", startMs: 5_000, endMs: 5_300),
+                word("six", startMs: 5_400, endMs: 5_700),
+                word("Seven", startMs: 6_000, endMs: 6_300),
+                word("eight", startMs: 6_400, endMs: 6_700)
+            ]
+        )
+
+        #expect(result.count == 4)
+        guard result.count == 4 else { return }
+        #expect(result[0].originalText == "One two.")
+        #expect(result[0].endMs != 700)
+        #expect(result[1].endMs == 4_000)
+        #expect(result[2].startMs == 5_000)
+        #expect(result[2].endMs == 5_700)
+        #expect(result[3].startMs == 6_000)
+        #expect(result[3].endMs == 6_700)
+    }
+
+    @Test
+    func testPunctuationAttachedChunkTokensValidateAgainstWords() {
+        var settings = SubtitleSegmentationSettings()
+        settings.minCharactersPerSegment = 0
+        let service = SubtitleSegmentationService(settings: settings)
+        let result = service.segment(
+            [
+                segment(start: 0, end: 3_000, text: "Hello, world. Again soon.")
+            ],
+            words: [
+                word("Hello", startMs: 100, endMs: 300),
+                word("world", startMs: 400, endMs: 800),
+                word("Again", startMs: 1_000, endMs: 1_300),
+                word("soon", startMs: 1_400, endMs: 1_700)
+            ]
+        )
+
+        #expect(result.count == 2)
+        guard result.count == 2 else { return }
+        #expect(result[0].startMs == 100)
+        #expect(result[0].endMs == 800)
+        #expect(result[1].startMs == 1_000)
+        #expect(result[1].endMs == 1_700)
+    }
+
+    @Test
+    func testEmptyWordsPreservesCharProportionalFallback() {
+        let service = SubtitleSegmentationService()
+        let input = segment(start: 0, end: 8_000, text: "One sentence. Two sentence.")
+
+        let defaultResult = service.segment([input])
+        let emptyWordsResult = service.segment([input], words: [])
+
+        #expect(emptyWordsResult.map(\.originalText) == defaultResult.map(\.originalText))
+        #expect(emptyWordsResult.map(\.startMs) == defaultResult.map(\.startMs))
+        #expect(emptyWordsResult.map(\.endMs) == defaultResult.map(\.endMs))
+    }
+
+    @Test
     func testMergesVeryShortTrailingSentenceIntoPreviousSegment() {
         let service = SubtitleSegmentationService()
         let result = service.segment([
@@ -122,6 +223,14 @@ struct SubtitleSegmentationServiceTests {
             translatedText: "",
             speaker: nil,
             confidence: nil
+        )
+    }
+
+    private func word(_ text: String, startMs: Int, endMs: Int) -> WordTiming {
+        WordTiming(
+            text: text,
+            start: Double(startMs) / 1_000,
+            end: Double(endMs) / 1_000
         )
     }
 }
