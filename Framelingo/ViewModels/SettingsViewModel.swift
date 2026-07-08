@@ -76,11 +76,28 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
+    var isVADModelInstalled: Bool {
+        !settings.whisperVADModelPath.isEmpty
+            && FileManager.default.fileExists(atPath: settings.whisperVADModelPath)
+    }
+
+    var isVADEnabled: Bool {
+        get {
+            settings.whisperVADEnabled
+        }
+        set {
+            settings.whisperVADEnabled = newValue
+            save()
+        }
+    }
+
     var whisperStatusText: String {
         if settings.speechToTextProviderName == SpeechToTextProviderName.localWhisper,
            !settings.whisperExecutablePath.isEmpty,
            !settings.whisperModelPath.isEmpty {
-            return "Local Whisper is configured."
+            return isVADModelInstalled
+                ? "Local Whisper is configured. VAD model installed."
+                : "Local Whisper is configured. VAD model not installed — reinstall to enable voice activity detection."
         }
 
         return "Local Whisper is not installed."
@@ -100,13 +117,20 @@ final class SettingsViewModel: ObservableObject {
 
         do {
             let model = selectedWhisperModel
-            let installation = try await whisperInstaller.install(model: model) { progress in
+            let installation = try await whisperInstaller.install(model: model) { stage, progress in
                 await MainActor.run {
                     self.whisperInstallProgress = progress
+                    let downloadName: String
+                    switch stage {
+                    case .transcriptionModel:
+                        downloadName = "\(model.displayName) model"
+                    case .vadModel:
+                        downloadName = "voice detection (VAD) model"
+                    }
                     if let progress {
-                        self.whisperInstallMessage = "Downloading \(model.displayName) model... \(Int((progress * 100).rounded()))%"
+                        self.whisperInstallMessage = "Downloading \(downloadName)... \(Int((progress * 100).rounded()))%"
                     } else {
-                        self.whisperInstallMessage = "Downloading \(model.displayName) model..."
+                        self.whisperInstallMessage = "Downloading \(downloadName)..."
                     }
                 }
             }
@@ -115,9 +139,14 @@ final class SettingsViewModel: ObservableObject {
             settings.whisperExecutablePath = installation.executableURL.path
             settings.whisperModelName = installation.model.rawValue
             settings.whisperModelPath = installation.modelURL.path
+            settings.whisperVADModelPath = installation.vadModelURL?.path ?? ""
             save()
             whisperInstallProgress = 1
-            whisperInstallMessage = "Local Whisper installed and selected for speech-to-text."
+            if let vadError = installation.vadModelErrorMessage {
+                whisperInstallMessage = "Local Whisper installed and selected for speech-to-text. \(vadError)"
+            } else {
+                whisperInstallMessage = "Local Whisper installed and selected for speech-to-text."
+            }
         } catch let error as LocalizedError {
             whisperInstallProgress = nil
             whisperInstallMessage = error.errorDescription ?? "Could not install Whisper."
