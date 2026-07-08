@@ -62,14 +62,14 @@
 /* Begin PBXFileReference section */
 		8CBA44352F9FAE3A00693B6B /* Framelingo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Framelingo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8CBA44502F9FB00100693B6B /* FramelingoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FramelingoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		A00000000000000000000011 /* External/FFmpegKit/ffmpegkit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/ffmpegkit.framework"; sourceTree = SOURCE_ROOT; };
-		A00000000000000000000012 /* External/FFmpegKit/libavcodec.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/libavcodec.framework"; sourceTree = SOURCE_ROOT; };
-		A00000000000000000000013 /* External/FFmpegKit/libavdevice.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/libavdevice.framework"; sourceTree = SOURCE_ROOT; };
-		A00000000000000000000014 /* External/FFmpegKit/libavfilter.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/libavfilter.framework"; sourceTree = SOURCE_ROOT; };
-		A00000000000000000000015 /* External/FFmpegKit/libavformat.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/libavformat.framework"; sourceTree = SOURCE_ROOT; };
-		A00000000000000000000016 /* External/FFmpegKit/libavutil.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/libavutil.framework"; sourceTree = SOURCE_ROOT; };
-		A00000000000000000000017 /* External/FFmpegKit/libswresample.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/libswresample.framework"; sourceTree = SOURCE_ROOT; };
-		A00000000000000000000018 /* External/FFmpegKit/libswscale.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "External/FFmpegKit/libswscale.framework"; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000011 /* External/FFmpegKit/ffmpegkit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = External/FFmpegKit/ffmpegkit.framework; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000012 /* External/FFmpegKit/libavcodec.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = External/FFmpegKit/libavcodec.framework; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000013 /* External/FFmpegKit/libavdevice.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = External/FFmpegKit/libavdevice.framework; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000014 /* External/FFmpegKit/libavfilter.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = External/FFmpegKit/libavfilter.framework; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000015 /* External/FFmpegKit/libavformat.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = External/FFmpegKit/libavformat.framework; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000016 /* External/FFmpegKit/libavutil.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = External/FFmpegKit/libavutil.framework; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000017 /* External/FFmpegKit/libswresample.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = External/FFmpegKit/libswresample.framework; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000018 /* External/FFmpegKit/libswscale.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = External/FFmpegKit/libswscale.framework; sourceTree = SOURCE_ROOT; };
 		A00000000000000000000051 /* BundledTools/Whisper */ = {isa = PBXFileReference; lastKnownFileType = folder; path = BundledTools/Whisper; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 

@@ -114,12 +114,29 @@ struct SettingsView: View {
                 settingsRow(label: "Model") {
                     Picker("", selection: whisperModelBinding) {
                         ForEach(WhisperModel.allCases) { model in
-                            Text("\(model.displayName) (\(model.approximateSizeText))").tag(model)
+                            Text(whisperModelLabel(for: model)).tag(model)
                         }
                     }
                     .labelsHidden()
                     .frame(width: 220)
                     .disabled(viewModel.isInstallingWhisper)
+                }
+
+                cardDivider
+
+                settingsRow(label: "Voice Activity Detection") {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Toggle("", isOn: whisperVADBinding)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .disabled(!viewModel.isVADModelInstalled || viewModel.isInstallingWhisper)
+
+                        Text(vadHelpText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
+                            .frame(maxWidth: 320, alignment: .trailing)
+                    }
                 }
 
                 cardDivider
@@ -537,6 +554,24 @@ struct SettingsView: View {
     }
 
     // MARK: - Bindings and helpers (preserved from original)
+
+    private func whisperModelLabel(for model: WhisperModel) -> String {
+        let base = "\(model.displayName) (\(model.approximateSizeText))"
+        return model.isRecommended ? "\(base) — Recommended" : base
+    }
+
+    private var whisperVADBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.isVADEnabled },
+            set: { viewModel.isVADEnabled = $0 }
+        )
+    }
+
+    private var vadHelpText: String {
+        viewModel.isVADModelInstalled
+            ? "Improves timestamp accuracy by skipping silence and music. Turn off if quiet speech goes missing."
+            : "Unavailable — install Local Whisper to download the VAD model."
+    }
 
     private var whisperModelBinding: Binding<WhisperModel> {
         Binding(

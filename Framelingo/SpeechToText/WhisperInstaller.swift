@@ -4,6 +4,9 @@ struct WhisperInstallation: Equatable {
     var executableURL: URL
     var modelURL: URL
     var model: WhisperModel
+    /// nil when the VAD model download failed; transcription stays usable without VAD.
+    var vadModelURL: URL?
+    var vadModelErrorMessage: String?
 }
 
 enum WhisperInstallerError: LocalizedError {
@@ -23,6 +26,11 @@ enum WhisperInstallerError: LocalizedError {
     }
 }
 
+enum WhisperInstallStage: Sendable {
+    case transcriptionModel
+    case vadModel
+}
+
 struct WhisperInstaller {
     private let fileManager: FileManager
 
@@ -32,17 +40,41 @@ struct WhisperInstaller {
 
     func install(
         model: WhisperModel,
-        progressHandler: @escaping @Sendable (Double?) async -> Void
+        progressHandler: @escaping @Sendable (WhisperInstallStage, Double?) async -> Void
     ) async throws -> WhisperInstallation {
         guard let executableURL = findWhisperExecutable() else {
             throw WhisperInstallerError.executableNotFound
         }
 
-        let modelURL = try await ensureModelInstalled(model, progressHandler: progressHandler)
+        let modelURL = try await ensureFileInstalled(
+            fileName: model.fileName,
+            downloadURL: model.downloadURL
+        ) { progress in
+            await progressHandler(.transcriptionModel, progress)
+        }
+
+        // The VAD model is optional: a failed download must not invalidate the
+        // freshly installed transcription model, so the error is carried in the
+        // result instead of being thrown.
+        var vadModelURL: URL?
+        var vadModelErrorMessage: String?
+        do {
+            vadModelURL = try await ensureFileInstalled(
+                fileName: WhisperVADModel.fileName,
+                downloadURL: WhisperVADModel.downloadURL
+            ) { progress in
+                await progressHandler(.vadModel, progress)
+            }
+        } catch {
+            vadModelErrorMessage = "Could not download the voice activity detection (VAD) model. Transcription will work without VAD — run Install again to retry."
+        }
+
         return WhisperInstallation(
             executableURL: executableURL,
             modelURL: modelURL,
-            model: model
+            model: model,
+            vadModelURL: vadModelURL,
+            vadModelErrorMessage: vadModelErrorMessage
         )
     }
 
@@ -91,11 +123,24 @@ struct WhisperInstaller {
         return fileManager.fileExists(atPath: url.path)
     }
 
-    private func ensureModelInstalled(
-        _ model: WhisperModel,
+    func installedVADModelURL() throws -> URL {
+        try modelsDirectoryURL().appendingPathComponent(WhisperVADModel.fileName)
+    }
+
+    func isVADModelInstalled() -> Bool {
+        guard let url = try? installedVADModelURL() else {
+            return false
+        }
+
+        return fileManager.fileExists(atPath: url.path)
+    }
+
+    private func ensureFileInstalled(
+        fileName: String,
+        downloadURL: URL,
         progressHandler: @escaping @Sendable (Double?) async -> Void
     ) async throws -> URL {
-        let destinationURL = try installedModelURL(for: model)
+        let destinationURL = try modelsDirectoryURL().appendingPathComponent(fileName)
         if fileManager.fileExists(atPath: destinationURL.path) {
             await progressHandler(1)
             return destinationURL
@@ -108,14 +153,14 @@ struct WhisperInstaller {
 
         let temporaryURL = destinationURL
             .deletingLastPathComponent()
-            .appendingPathComponent("\(model.fileName).download")
+            .appendingPathComponent("\(fileName).download")
 
         if fileManager.fileExists(atPath: temporaryURL.path) {
             try fileManager.removeItem(at: temporaryURL)
         }
 
         do {
-            let (bytes, response) = try await URLSession.shared.bytes(from: model.downloadURL)
+            let (bytes, response) = try await URLSession.shared.bytes(from: downloadURL)
             let expectedLength = response.expectedContentLength
             fileManager.createFile(atPath: temporaryURL.path, contents: nil)
 

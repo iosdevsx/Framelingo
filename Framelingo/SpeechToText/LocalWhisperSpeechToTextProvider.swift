@@ -3,7 +3,72 @@ import Foundation
 struct LocalWhisperSpeechToTextProvider: SpeechToTextProvider {
     var executableURL: URL
     var modelURL: URL
+    var whisperModelName: String?
+    var vadEnabled: Bool = false
+    var vadModelURL: URL?
     var segmentationService = SubtitleSegmentationService()
+
+    /// Maps the app's language display names (`ProjectViewModel.availableLanguages`)
+    /// to whisper.cpp language codes. Unmapped names fall back to auto-detection.
+    static let languageCodes: [String: String] = [
+        "english": "en",
+        "russian": "ru",
+        "spanish": "es",
+        "french": "fr",
+        "german": "de",
+        "italian": "it",
+        "portuguese": "pt",
+        "chinese": "zh",
+        "japanese": "ja",
+        "korean": "ko"
+    ]
+
+    static func makeArguments(
+        modelURL: URL,
+        audioURL: URL,
+        outputBaseURL: URL,
+        sourceLanguage: String?,
+        whisperModelName: String?,
+        vadEnabled: Bool,
+        vadModelURL: URL?,
+        fileManager: FileManager = .default
+    ) -> [String] {
+        // whisper-cli defaults to `-l en` when the flag is omitted, so `-l` is always passed.
+        let languageName = sourceLanguage?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() ?? ""
+        let languageCode = languageCodes[languageName] ?? "auto"
+
+        var arguments = [
+            "-m", modelURL.path,
+            "-f", audioURL.path,
+            "-l", languageCode,
+            "-osrt",
+            "-ojf",
+            "-of", outputBaseURL.path,
+            "-pp",
+            "-nt"
+        ]
+
+        // DTW needs a preset matching the loaded model's architecture; an unknown
+        // model name (manually configured path) degrades to heuristic timestamps.
+        if let whisperModelName,
+           let model = WhisperModel(rawValue: whisperModelName) {
+            arguments.append(contentsOf: ["--dtw", model.dtwPreset])
+        }
+
+        if vadEnabled,
+           let vadModelURL,
+           fileManager.fileExists(atPath: vadModelURL.path) {
+            arguments.append(contentsOf: [
+                "--vad",
+                "--vad-model", vadModelURL.path,
+                "--vad-speech-pad-ms", "100"
+            ])
+        }
+
+        return arguments
+    }
 
     func transcribe(_ input: TranscriptionInput) async throws -> TranscriptionResult {
         guard let audioURL = input.audioURL else {
@@ -20,16 +85,15 @@ struct LocalWhisperSpeechToTextProvider: SpeechToTextProvider {
             withIntermediateDirectories: true
         )
 
-        let arguments = [
-            "-m", modelURL.path,
-            "-f", audioURL.path,
-            "-l", "auto",
-            "-osrt",
-            "-ojf",
-            "-of", outputBaseURL.path,
-            "-pp",
-            "-nt"
-        ]
+        let arguments = Self.makeArguments(
+            modelURL: modelURL,
+            audioURL: audioURL,
+            outputBaseURL: outputBaseURL,
+            sourceLanguage: input.sourceLanguage,
+            whisperModelName: whisperModelName,
+            vadEnabled: vadEnabled,
+            vadModelURL: vadModelURL
+        )
 
         await input.progressHandler?(0.15, "Running Whisper...")
         try await runWhisper(arguments: arguments, progressHandler: input.progressHandler)
@@ -262,9 +326,17 @@ enum SpeechToTextProviderFactory {
             throw WhisperTranscriptionError.modelMissing
         }
 
+        let vadModelPath = settings.whisperVADModelPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        let vadModelURL: URL? = !vadModelPath.isEmpty && FileManager.default.fileExists(atPath: vadModelPath)
+            ? URL(fileURLWithPath: vadModelPath)
+            : nil
+
         return LocalWhisperSpeechToTextProvider(
             executableURL: URL(fileURLWithPath: executablePath),
-            modelURL: URL(fileURLWithPath: modelPath)
+            modelURL: URL(fileURLWithPath: modelPath),
+            whisperModelName: settings.whisperModelName,
+            vadEnabled: settings.whisperVADEnabled,
+            vadModelURL: vadModelURL
         )
     }
 }

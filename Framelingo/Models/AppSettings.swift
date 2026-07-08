@@ -7,6 +7,8 @@ struct AppSettings: Codable, Equatable {
     var whisperExecutablePath: String
     var whisperModelName: String
     var whisperModelPath: String
+    var whisperVADModelPath: String
+    var whisperVADEnabled: Bool
     var defaultExportFormat: ExportFormat
     var subtitleFontSize: Double
     var subtitleBackgroundOpacity: Double
@@ -19,6 +21,8 @@ struct AppSettings: Codable, Equatable {
         whisperExecutablePath: "",
         whisperModelName: WhisperModel.base.rawValue,
         whisperModelPath: "",
+        whisperVADModelPath: "",
+        whisperVADEnabled: true,
         defaultExportFormat: .srt,
         subtitleFontSize: 16,
         subtitleBackgroundOpacity: 0.65,
@@ -32,6 +36,8 @@ struct AppSettings: Codable, Equatable {
         case whisperExecutablePath
         case whisperModelName
         case whisperModelPath
+        case whisperVADModelPath
+        case whisperVADEnabled
         case defaultExportFormat
         case subtitleFontSize
         case subtitleBackgroundOpacity
@@ -45,6 +51,8 @@ struct AppSettings: Codable, Equatable {
         whisperExecutablePath: String,
         whisperModelName: String,
         whisperModelPath: String,
+        whisperVADModelPath: String,
+        whisperVADEnabled: Bool,
         defaultExportFormat: ExportFormat,
         subtitleFontSize: Double,
         subtitleBackgroundOpacity: Double,
@@ -56,6 +64,8 @@ struct AppSettings: Codable, Equatable {
         self.whisperExecutablePath = whisperExecutablePath
         self.whisperModelName = whisperModelName
         self.whisperModelPath = whisperModelPath
+        self.whisperVADModelPath = whisperVADModelPath
+        self.whisperVADEnabled = whisperVADEnabled
         self.defaultExportFormat = defaultExportFormat
         self.subtitleFontSize = subtitleFontSize
         self.subtitleBackgroundOpacity = subtitleBackgroundOpacity
@@ -71,6 +81,8 @@ struct AppSettings: Codable, Equatable {
         whisperExecutablePath = try container.decodeIfPresent(String.self, forKey: .whisperExecutablePath) ?? defaults.whisperExecutablePath
         whisperModelName = try container.decodeIfPresent(String.self, forKey: .whisperModelName) ?? defaults.whisperModelName
         whisperModelPath = try container.decodeIfPresent(String.self, forKey: .whisperModelPath) ?? defaults.whisperModelPath
+        whisperVADModelPath = try container.decodeIfPresent(String.self, forKey: .whisperVADModelPath) ?? defaults.whisperVADModelPath
+        whisperVADEnabled = try container.decodeIfPresent(Bool.self, forKey: .whisperVADEnabled) ?? defaults.whisperVADEnabled
         defaultExportFormat = try container.decodeIfPresent(ExportFormat.self, forKey: .defaultExportFormat) ?? defaults.defaultExportFormat
         subtitleFontSize = try container.decodeIfPresent(Double.self, forKey: .subtitleFontSize) ?? defaults.subtitleFontSize
         subtitleBackgroundOpacity = try container.decodeIfPresent(Double.self, forKey: .subtitleBackgroundOpacity) ?? defaults.subtitleBackgroundOpacity
