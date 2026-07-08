@@ -71,6 +71,7 @@ struct SubtitleAlignmentOptions: Codable, Hashable {
     var startPadding: TimeInterval
     var endPadding: TimeInterval
     var lowConfidenceThreshold: Double
+    var minWordsPerSpeakerRun: Int
 
     init(
         maxCueDuration: TimeInterval = 6.0,
@@ -80,7 +81,8 @@ struct SubtitleAlignmentOptions: Codable, Hashable {
         pauseSplitThreshold: TimeInterval = 0.7,
         startPadding: TimeInterval = 0.05,
         endPadding: TimeInterval = 0.10,
-        lowConfidenceThreshold: Double = 0.55
+        lowConfidenceThreshold: Double = 0.55,
+        minWordsPerSpeakerRun: Int = 2
     ) {
         self.maxCueDuration = maxCueDuration
         self.minCueDuration = minCueDuration
@@ -90,5 +92,32 @@ struct SubtitleAlignmentOptions: Codable, Hashable {
         self.startPadding = startPadding
         self.endPadding = endPadding
         self.lowConfidenceThreshold = lowConfidenceThreshold
+        self.minWordsPerSpeakerRun = minWordsPerSpeakerRun
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case maxCueDuration
+        case minCueDuration
+        case maxCharsPerCue
+        case maxCharsPerLine
+        case pauseSplitThreshold
+        case startPadding
+        case endPadding
+        case lowConfidenceThreshold
+        case minWordsPerSpeakerRun
+    }
+
+    init(from decoder: Decoder) throws {
+        let defaults = Self()
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        maxCueDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .maxCueDuration) ?? defaults.maxCueDuration
+        minCueDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .minCueDuration) ?? defaults.minCueDuration
+        maxCharsPerCue = try container.decodeIfPresent(Int.self, forKey: .maxCharsPerCue) ?? defaults.maxCharsPerCue
+        maxCharsPerLine = try container.decodeIfPresent(Int.self, forKey: .maxCharsPerLine) ?? defaults.maxCharsPerLine
+        pauseSplitThreshold = try container.decodeIfPresent(TimeInterval.self, forKey: .pauseSplitThreshold) ?? defaults.pauseSplitThreshold
+        startPadding = try container.decodeIfPresent(TimeInterval.self, forKey: .startPadding) ?? defaults.startPadding
+        endPadding = try container.decodeIfPresent(TimeInterval.self, forKey: .endPadding) ?? defaults.endPadding
+        lowConfidenceThreshold = try container.decodeIfPresent(Double.self, forKey: .lowConfidenceThreshold) ?? defaults.lowConfidenceThreshold
+        minWordsPerSpeakerRun = try container.decodeIfPresent(Int.self, forKey: .minWordsPerSpeakerRun) ?? defaults.minWordsPerSpeakerRun
     }
 }

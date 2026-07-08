@@ -47,6 +47,7 @@ final class ProjectViewModel: ObservableObject {
     private var activeTextEditSegmentID: UUID?
     private var activeTextEditSnapshot: ProjectUndoSnapshot?
     private let undoLimit = 200
+    private static let diarizationWarningMessage = "Transcription complete. Speaker analysis failed; subtitle timings were not refined."
 
     init(appState: AppState) {
         self.appState = appState
@@ -727,11 +728,15 @@ final class ProjectViewModel: ObservableObject {
                 currentProject.mediaFile.durationMs = durationMs
             }
 
-            currentProject = await performDiarizationAndAlignment(for: currentProject)
+            let diarizationOutcome = try await performDiarizationAndAlignment(for: currentProject)
+            currentProject = diarizationOutcome.project
 
             currentProject.status = .ready
             currentProject.updatedAt = Date()
-            appState.finishTranscriptionActivity(success: true)
+            appState.finishTranscriptionActivity(
+                success: true,
+                message: transcriptionCompletionMessage(diarizationFailureMessage: diarizationOutcome.failureMessage)
+            )
 
             applyProject(currentProject)
             try await appState.projectRepository.saveProject(currentProject)
@@ -1095,8 +1100,7 @@ final class ProjectViewModel: ObservableObject {
         }
     }
 
-    private func performDiarizationAndAlignment(for project: Project) async -> Project {
-        var project = project
+    private func performDiarizationAndAlignment(for project: Project) async throws -> (project: Project, failureMessage: String?) {
         do {
             appState.updateTranscriptionActivity(statusText: "Analyzing speakers...", progress: 0.95)
             let audioURL = try await appState.audioPreparationService.preparedAudioURL(
@@ -1117,13 +1121,40 @@ final class ProjectViewModel: ObservableObject {
                 options: SubtitleAlignmentOptions()
             )
 
-            project.speakerSegments = speakerSegments
-            project.speakerLabels = speakerLabels(for: speakerSegments, existingLabels: project.speakerLabels)
-            project.subtitles = SubtitleTimingValidator.reindexed(alignedSubtitles)
+            var alignedProject = project
+            alignedProject.speakerSegments = speakerSegments
+            alignedProject.speakerLabels = speakerLabels(for: speakerSegments, existingLabels: project.speakerLabels)
+            alignedProject.subtitles = SubtitleTimingValidator.reindexed(alignedSubtitles)
+            return (alignedProject, nil)
+        } catch let error as CancellationError {
+            throw error
         } catch {
-            // Diarization is best-effort; transcription result is preserved on failure
+            return (project, diarizationFailureMessage(from: error))
         }
-        return project
+    }
+
+    private func transcriptionCompletionMessage(diarizationFailureMessage: String?) -> String? {
+        guard let diarizationFailureMessage else {
+            return nil
+        }
+
+        let detail = diarizationFailureMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !detail.isEmpty else {
+            return Self.diarizationWarningMessage
+        }
+
+        return "\(Self.diarizationWarningMessage) \(detail)"
+    }
+
+    private func diarizationFailureMessage(from error: Error) -> String {
+        if let localizedError = error as? LocalizedError,
+           let description = localizedError.errorDescription?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !description.isEmpty {
+            return description
+        }
+
+        let description = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        return description.isEmpty ? "Speaker analysis failed." : description
     }
 
     private func syntheticWordTimings(from subtitles: [SubtitleSegment]) -> [WordTiming] {

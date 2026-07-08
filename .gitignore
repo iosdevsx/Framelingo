@@ -10,6 +10,7 @@ __pycache__/
 *.pyc
 /.agents/
 /.claude/
+/.codex/
 /AGENTS.md
 /CLAUDE.md
 /design-system/

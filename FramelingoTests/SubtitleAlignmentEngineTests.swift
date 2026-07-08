@@ -88,7 +88,7 @@ struct SubtitleAlignmentEngineTests {
             words: words,
             existingCues: [],
             speakerSegments: speakers,
-            options: SubtitleAlignmentOptions(minCueDuration: 0.1)
+            options: SubtitleAlignmentOptions(minCueDuration: 0.1, minWordsPerSpeakerRun: 1)
         )
 
         #expect(aligned.count == 2)
@@ -96,6 +96,107 @@ struct SubtitleAlignmentEngineTests {
         #expect(aligned[0].originalText == "Hello there")
         #expect(aligned[1].speakerId == 1)
         #expect(aligned[1].originalText == "Hi")
+    }
+
+    @Test
+    func testWordLevelIgnoresSingleUnassignedWordRun() async throws {
+        let words = [
+            word("one", start: 0.0, end: 0.3),
+            word("two", start: 0.35, end: 0.65),
+            word("three", start: 0.7, end: 1.0),
+            word("four", start: 1.05, end: 1.35),
+            word("five", start: 1.4, end: 1.7)
+        ]
+        let speakers = [
+            SpeakerSegment(speakerId: 0, start: 0.0, end: 0.68),
+            SpeakerSegment(speakerId: 0, start: 1.02, end: 1.8)
+        ]
+
+        let aligned = try await WordLevelSubtitleAlignmentEngine().align(
+            words: words,
+            existingCues: [],
+            speakerSegments: speakers,
+            options: SubtitleAlignmentOptions(minCueDuration: 0.1)
+        )
+
+        #expect(aligned.count == 1)
+        guard aligned.count == 1 else { return }
+        #expect(aligned[0].speakerId == 0)
+        #expect(aligned[0].originalText == "one two three four five")
+    }
+
+    @Test
+    func testWordLevelSplitsAtSpeakerRunMeetingMinimumLength() async throws {
+        let words = [
+            word("alpha", start: 0.0, end: 0.3),
+            word("bravo", start: 0.35, end: 0.65),
+            word("charlie", start: 0.7, end: 1.0),
+            word("delta", start: 1.05, end: 1.35)
+        ]
+        let speakers = [
+            SpeakerSegment(speakerId: 0, start: 0.0, end: 0.7),
+            SpeakerSegment(speakerId: 1, start: 0.7, end: 1.5)
+        ]
+
+        let aligned = try await WordLevelSubtitleAlignmentEngine().align(
+            words: words,
+            existingCues: [],
+            speakerSegments: speakers,
+            options: SubtitleAlignmentOptions(minCueDuration: 0.1, minWordsPerSpeakerRun: 2)
+        )
+
+        #expect(aligned.count == 2)
+        guard aligned.count == 2 else { return }
+        #expect(aligned[0].speakerId == 0)
+        #expect(aligned[0].originalText == "alpha bravo")
+        #expect(aligned[1].speakerId == 1)
+        #expect(aligned[1].originalText == "charlie delta")
+    }
+
+    @Test
+    func testLeadingShortSpeakerRunAdoptsFollowingSpeaker() async throws {
+        let words = [
+            word("wait", start: 0.0, end: 0.3),
+            word("start", start: 0.35, end: 0.65),
+            word("again", start: 0.7, end: 1.0),
+            word("now", start: 1.05, end: 1.35)
+        ]
+        let speakers = [
+            SpeakerSegment(speakerId: 0, start: 0.0, end: 0.32),
+            SpeakerSegment(speakerId: 1, start: 0.35, end: 1.5)
+        ]
+
+        let aligned = try await WordLevelSubtitleAlignmentEngine().align(
+            words: words,
+            existingCues: [],
+            speakerSegments: speakers,
+            options: SubtitleAlignmentOptions(minCueDuration: 0.1, minWordsPerSpeakerRun: 2)
+        )
+
+        #expect(aligned.count == 1)
+        guard aligned.count == 1 else { return }
+        #expect(aligned[0].speakerId == 1)
+        #expect(aligned[0].originalText == "wait start again now")
+    }
+
+    @Test
+    func testSubtitleAlignmentOptionsDecodeOlderJSONWithDefaultSpeakerRunLength() throws {
+        let data = Data("""
+        {
+          "maxCueDuration": 6.0,
+          "minCueDuration": 0.8,
+          "maxCharsPerCue": 84,
+          "maxCharsPerLine": 42,
+          "pauseSplitThreshold": 0.7,
+          "startPadding": 0.05,
+          "endPadding": 0.10,
+          "lowConfidenceThreshold": 0.55
+        }
+        """.utf8)
+
+        let options = try JSONDecoder().decode(SubtitleAlignmentOptions.self, from: data)
+
+        #expect(options.minWordsPerSpeakerRun == 2)
     }
 
     @Test
@@ -222,5 +323,9 @@ struct SubtitleAlignmentEngineTests {
             originalText: text,
             translatedText: translatedText
         )
+    }
+
+    private func word(_ text: String, start: TimeInterval, end: TimeInterval) -> WordTiming {
+        WordTiming(text: text, start: start, end: end)
     }
 }

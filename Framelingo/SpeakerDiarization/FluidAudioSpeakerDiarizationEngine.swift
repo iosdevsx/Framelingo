@@ -27,6 +27,46 @@ enum DiarizationError: LocalizedError, Equatable {
 final class FluidAudioSpeakerDiarizationEngine: SpeakerDiarizationEngine {
     private let modelStore: DiarizationModelStore
     private let progressHandler: DiarizationProgressHandler?
+    private static let diarizerConfig = OfflineDiarizerConfig(
+        // Baseline clustering distance. Lower values split speakers more aggressively; higher values merge similar speakers.
+        clusteringThreshold: 0.6,
+        // Baseline VBx warm-start precision. Deviations need measured rationale, not guesswork.
+        Fa: 0.07,
+        // Baseline VBx warm-start recall. Raising it can merge borderline speaker turns.
+        Fb: 0.8,
+        // Baseline segmentation window. Shorter windows cost more inference and can destabilize embeddings.
+        windowDuration: 10.0,
+        // Baseline sample rate expected by FluidAudio's offline diarization models.
+        sampleRate: 16_000,
+        // Baseline step ratio. Lower values increase overlap and cost; higher values reduce temporal resolution.
+        segmentationStepRatio: 0.2,
+        // Baseline embedding batch size, kept at the library's PLDA-safe maximum.
+        embeddingBatchSize: 32,
+        // Baseline overlap masking. Disabling it can contaminate embeddings during overlapping speech.
+        embeddingExcludeOverlap: true,
+        // Baseline extraction behavior. Skipping embeddings trades accuracy for speed and needs measured support.
+        embeddingSkipStrategy: .none,
+        // Baseline minimum segment duration. Lower values admit short fragments; higher values suppress short turns.
+        minSegmentDuration: 1.0,
+        // Baseline post-processing merge gap. Raising it merges nearby turns more aggressively.
+        minGapDuration: 0.1,
+        // Baseline exclusive output. Disabling it allows overlapping speaker segments in the app model.
+        exclusiveSegments: true,
+        // Baseline speech onset threshold. Lower values admit weaker speech; higher values can miss quiet starts.
+        speechOnsetThreshold: 0.5,
+        // Baseline speech offset threshold. Lower values extend speech; higher values can cut endings early.
+        speechOffsetThreshold: 0.5,
+        // Baseline segmentation onset duration. Raising it filters brief speech activations.
+        segmentationMinDurationOn: 0.0,
+        // Baseline segmentation offset duration. Raising it merges short pauses into speech.
+        segmentationMinDurationOff: 0.0,
+        // Baseline VBx iteration cap. Raising it costs more CPU with no current product evidence.
+        maxVBxIterations: 20,
+        // Baseline VBx convergence tolerance. Lower values may cost more CPU for marginal changes.
+        convergenceTolerance: 1e-4,
+        // Baseline export behavior. Embeddings are not persisted by the app.
+        embeddingExportPath: nil
+    )
 
     init(
         modelStore: DiarizationModelStore = DiarizationModelStore(),
@@ -45,7 +85,10 @@ final class FluidAudioSpeakerDiarizationEngine: SpeakerDiarizationEngine {
         let modelDirectory = try modelStore.ensureModelDirectoryExists()
         await progressHandler?(nil, modelStore.modelsArePresent() ? "Loading speaker models..." : "Downloading speaker models...")
 
-        let manager = OfflineDiarizerManager(config: .default)
+        // Keep this aligned with FluidAudio 0.14.1's documented baseline. Any
+        // deviation requires an OpenSpec rationale, and future tuning should be
+        // informed by `whisper-timestamp-accuracy` timing results.
+        let manager = OfflineDiarizerManager(config: Self.diarizerConfig)
         do {
             let models = try await OfflineDiarizerModels.load(
                 from: modelDirectory,
