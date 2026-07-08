@@ -88,4 +88,5 @@ enum WhisperVADModel {
 enum SpeechToTextProviderName {
     static let mock = "Mock Speech-to-Text"
     static let localWhisper = "Local Whisper"
+    static let localParakeet = "Local Parakeet"
 }

@@ -94,9 +94,13 @@ struct SettingsView: View {
             settingsCard {
                 // Providers
                 settingsRow(label: "Speech-to-Text") {
-                    TextField("Provider", text: $viewModel.settings.speechToTextProviderName)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 200)
+                    Picker("", selection: speechToTextProviderBinding) {
+                        ForEach(speechToTextProviderNames, id: \.self) { providerName in
+                            Text(providerName).tag(providerName)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 220)
                 }
 
                 cardDivider
@@ -180,6 +184,45 @@ struct SettingsView: View {
                         Text(msg)
                             .font(.caption)
                             .foregroundStyle(whisperInstallMessageColor)
+                            .textSelection(.enabled)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+            }
+
+            sectionHeading2("Parakeet (Local Transcription)")
+
+            settingsCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: viewModel.isParakeetModelInstalled ? "checkmark.circle.fill" : "arrow.down.circle")
+                            .foregroundStyle(viewModel.isParakeetModelInstalled ? .green : .secondary)
+                        Text(viewModel.parakeetStatusText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button {
+                        Task { await viewModel.installParakeetModels() }
+                    } label: {
+                        Label("Download Parakeet Models", systemImage: "arrow.down.circle")
+                    }
+                    .disabled(viewModel.isInstallingParakeet || viewModel.isParakeetModelInstalled)
+
+                    if viewModel.isInstallingParakeet {
+                        ProgressView(value: viewModel.parakeetInstallProgress)
+                            .frame(width: 240)
+                    }
+
+                    Text("Supports 25 European languages. Unsupported project languages use Local Whisper when it is installed.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if let msg = viewModel.parakeetInstallMessage {
+                        Text(msg)
+                            .font(.caption)
+                            .foregroundStyle(parakeetInstallMessageColor)
                             .textSelection(.enabled)
                     }
                 }
@@ -580,8 +623,30 @@ struct SettingsView: View {
         )
     }
 
+    private var speechToTextProviderBinding: Binding<String> {
+        Binding(
+            get: { viewModel.settings.speechToTextProviderName },
+            set: { providerName in
+                viewModel.settings.speechToTextProviderName = providerName
+                viewModel.save()
+            }
+        )
+    }
+
+    private var speechToTextProviderNames: [String] {
+        [
+            SpeechToTextProviderName.mock,
+            SpeechToTextProviderName.localWhisper,
+            SpeechToTextProviderName.localParakeet
+        ]
+    }
+
     private var whisperInstallMessageColor: Color {
         viewModel.settings.speechToTextProviderName == SpeechToTextProviderName.localWhisper ? .secondary : .red
+    }
+
+    private var parakeetInstallMessageColor: Color {
+        viewModel.isInstallingParakeet || viewModel.parakeetInstallProgress == 1 ? .secondary : .red
     }
 
     private var availableFonts: [String] {

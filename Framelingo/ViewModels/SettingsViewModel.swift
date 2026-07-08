@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import FluidAudio
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
@@ -10,10 +11,14 @@ final class SettingsViewModel: ObservableObject {
     @Published var whisperInstallMessage: String?
     @Published var whisperInstallProgress: Double?
     @Published var isInstallingWhisper = false
+    @Published var parakeetInstallMessage: String?
+    @Published var parakeetInstallProgress: Double?
+    @Published var isInstallingParakeet = false
     @Published var selectedProject: Project?
 
     private let appState: AppState
     private let whisperInstaller = WhisperInstaller()
+    private let parakeetModelStore = ParakeetModelStore()
     private var projectSaveTask: Task<Void, Never>?
 
     init(appState: AppState) {
@@ -103,6 +108,16 @@ final class SettingsViewModel: ObservableObject {
         return "Local Whisper is not installed."
     }
 
+    var isParakeetModelInstalled: Bool {
+        parakeetModelStore.modelsArePresent()
+    }
+
+    var parakeetStatusText: String {
+        isParakeetModelInstalled
+            ? "Parakeet models are installed."
+            : "Parakeet models will download on first use (\(ParakeetModelStore.approximateDownloadSizeText))."
+    }
+
     func installWhisper() async {
         guard !isInstallingWhisper else {
             return
@@ -153,6 +168,37 @@ final class SettingsViewModel: ObservableObject {
         } catch {
             whisperInstallProgress = nil
             whisperInstallMessage = "Could not install Whisper."
+        }
+    }
+
+    func installParakeetModels() async {
+        guard !isInstallingParakeet else {
+            return
+        }
+
+        isInstallingParakeet = true
+        parakeetInstallProgress = nil
+        parakeetInstallMessage = "Preparing Parakeet models..."
+        defer {
+            isInstallingParakeet = false
+        }
+
+        do {
+            _ = try await parakeetModelStore.downloadAndLoadModels { progress in
+                Task { @MainActor in
+                    self.parakeetInstallProgress = progress.fractionCompleted
+                    self.parakeetInstallMessage = "\(ParakeetModelStore.statusText(for: progress)) \(Int((progress.fractionCompleted * 100).rounded()))%"
+                }
+            }
+
+            parakeetInstallProgress = 1
+            parakeetInstallMessage = "Parakeet models installed."
+        } catch let error as LocalizedError {
+            parakeetInstallProgress = nil
+            parakeetInstallMessage = error.errorDescription ?? "Could not install Parakeet models."
+        } catch {
+            parakeetInstallProgress = nil
+            parakeetInstallMessage = "Could not install Parakeet models."
         }
     }
 

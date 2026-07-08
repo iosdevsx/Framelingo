@@ -315,10 +315,19 @@ private struct WhisperJSONOffsets: Decodable {
 
 enum SpeechToTextProviderFactory {
     static func makeProvider(settings: AppSettings) throws -> SpeechToTextProvider {
-        guard settings.speechToTextProviderName == SpeechToTextProviderName.localWhisper else {
+        switch settings.speechToTextProviderName {
+        case SpeechToTextProviderName.localWhisper:
+            return try makeLocalWhisperProvider(settings: settings)
+        case SpeechToTextProviderName.localParakeet:
+            return ParakeetSpeechToTextProvider(
+                fallback: makeLocalWhisperFallback(settings: settings)
+            )
+        default:
             return MockSpeechToTextProvider()
         }
+    }
 
+    private static func makeLocalWhisperProvider(settings: AppSettings) throws -> LocalWhisperSpeechToTextProvider {
         let executablePath = settings.whisperExecutablePath.trimmingCharacters(in: .whitespacesAndNewlines)
         let modelPath = settings.whisperModelPath.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -344,5 +353,15 @@ enum SpeechToTextProviderFactory {
             vadEnabled: settings.whisperVADEnabled,
             vadModelURL: vadModelURL
         )
+    }
+
+    private static func makeLocalWhisperFallback(settings: AppSettings) -> LocalWhisperSpeechToTextProvider? {
+        do {
+            return try makeLocalWhisperProvider(settings: settings)
+        } catch {
+            // Optional Parakeet fallback: selecting Parakeet should not fail just
+            // because Local Whisper has not been installed yet.
+            return nil
+        }
     }
 }
