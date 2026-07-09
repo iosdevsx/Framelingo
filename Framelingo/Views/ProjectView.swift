@@ -185,11 +185,6 @@ struct ProjectView: View {
                 project: project,
                 viewModel: viewModel,
                 onExportVideo: {
-                    guard !project.hasEditedTimeline else {
-                        alertMessage = "Edited timeline export is not implemented yet."
-                        return
-                    }
-
                     exportVideoViewModel = viewModel.makeExportVideoViewModel(for: project)
                 },
                 onExportProjectFile: {

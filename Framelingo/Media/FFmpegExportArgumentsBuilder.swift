@@ -25,7 +25,14 @@ enum ExportClipPlanResolver {
     /// Returns `nil` when the project has no virtual cuts (export the full video),
     /// otherwise the kept source ranges in timeline order.
     static func clips(for project: Project) throws -> [ExportClipRange]? {
-        guard let timeline = project.editTimeline, timeline.hasVirtualCuts else {
+        guard let timeline = project.editTimeline, !timeline.clips.isEmpty else {
+            return nil
+        }
+
+        // hasEditedTimeline covers tail trims (single clip from source 0 that is
+        // shorter than the source); hasVirtualCuts covers degenerate timelines
+        // that must fail visibly rather than silently export the full video.
+        guard project.hasEditedTimeline || timeline.hasVirtualCuts else {
             return nil
         }
 
