@@ -111,6 +111,60 @@ struct ParakeetSpeechToTextProviderTests {
     }
 
     @Test
+    func testFillLargeGapsUsesBestSingleWindowCandidate() {
+        let primaryWords = [
+            WordTiming(text: "zones", start: 430.24, end: 430.48),
+            WordTiming(text: "Well", start: 442.40, end: 442.64)
+        ]
+        let weakCandidate = [
+            WordTiming(text: "so", start: 430.64, end: 430.80)
+        ]
+        let strongCandidate = [
+            WordTiming(text: "so", start: 430.64, end: 430.80),
+            WordTiming(text: "you", start: 430.80, end: 430.88),
+            WordTiming(text: "can", start: 430.88, end: 431.04),
+            WordTiming(text: "charge", start: 431.04, end: 431.28),
+            WordTiming(text: "battery", start: 431.36, end: 431.76),
+            WordTiming(text: "tough", start: 441.28, end: 441.60),
+            WordTiming(text: "one.", start: 441.60, end: 442.24)
+        ]
+
+        let words = ParakeetSpeechToTextProvider.fillLargeGaps(
+            in: primaryWords,
+            using: [weakCandidate, strongCandidate]
+        )
+
+        #expect(words.map(\.text) == [
+            "zones",
+            "so",
+            "you",
+            "can",
+            "charge",
+            "battery",
+            "tough",
+            "one.",
+            "Well"
+        ])
+    }
+
+    @Test
+    func testFillLargeGapsPreservesPrimaryRepeatedWords() {
+        let primaryWords = [
+            WordTiming(text: "I", start: 457.28, end: 457.44),
+            WordTiming(text: "I", start: 457.44, end: 457.60),
+            WordTiming(text: "started", start: 457.60, end: 458.08),
+            WordTiming(text: "strong", start: 458.32, end: 458.72)
+        ]
+
+        let words = ParakeetSpeechToTextProvider.fillLargeGaps(
+            in: primaryWords,
+            using: []
+        )
+
+        #expect(words.map(\.text) == ["I", "I", "started", "strong"])
+    }
+
+    @Test
     func testFactorySelectsKnownProvidersAndFallsBackForUnknownName() throws {
         let fileManager = FileManager.default
         let directory = fileManager.temporaryDirectory

@@ -9,6 +9,8 @@ struct ParakeetSpeechToTextProvider: SpeechToTextProvider {
     private static let windowedTranscriptionThreshold: TimeInterval = 80
     private static let windowDuration: TimeInterval = 80
     private static let windowOverlap: TimeInterval = 50
+    private static let gapFillThreshold: TimeInterval = 2
+    private static let gapFillBoundaryTolerance: TimeInterval = 0.05
     private static let expectedSampleRate: Double = 16_000
 
     var modelStore: ParakeetModelStore
@@ -174,7 +176,8 @@ struct ParakeetSpeechToTextProvider: SpeechToTextProvider {
             let audioFile = try AVAudioFile(forReading: audioURL)
             try validatePreparedAudio(audioFile)
 
-            var words: [WordTiming] = []
+            var committedWords: [WordTiming] = []
+            var candidateWordGroups: [[WordTiming]] = []
             for (offset, window) in windows.enumerated() {
                 try Task.checkCancellation()
                 await reportWindowProgress(
@@ -197,9 +200,9 @@ struct ParakeetSpeechToTextProvider: SpeechToTextProvider {
                 let windowWords = wordTimingMerger
                     .merge(result.tokenTimings ?? [])
                     .compactMap { offsetWord($0, by: window.start, clampedTo: window) }
-                    .filter { window.containsCommitted($0) }
 
-                words.append(contentsOf: windowWords)
+                candidateWordGroups.append(windowWords)
+                committedWords.append(contentsOf: windowWords.filter { window.containsCommitted($0) })
                 await reportWindowProgress(
                     offset: offset + 1,
                     total: windows.count,
@@ -207,9 +210,10 @@ struct ParakeetSpeechToTextProvider: SpeechToTextProvider {
                 )
             }
 
-            return words.sorted { lhs, rhs in
-                lhs.start == rhs.start ? lhs.end < rhs.end : lhs.start < rhs.start
-            }
+            return Self.fillLargeGaps(
+                in: Self.sortedWords(committedWords),
+                using: candidateWordGroups
+            )
         } catch let error as CancellationError {
             throw error
         } catch let error as ParakeetTranscriptionError {
@@ -345,6 +349,75 @@ struct ParakeetSpeechToTextProvider: SpeechToTextProvider {
 
     private func milliseconds(fromSeconds seconds: TimeInterval) -> Int {
         Int((seconds * 1_000).rounded())
+    }
+
+    static func fillLargeGaps(
+        in primaryWords: [WordTiming],
+        using candidateWordGroups: [[WordTiming]]
+    ) -> [WordTiming] {
+        let primaryWords = sortedWords(primaryWords)
+        guard primaryWords.count > 1 else {
+            return primaryWords
+        }
+
+        var result: [WordTiming] = []
+
+        for index in primaryWords.indices {
+            let word = primaryWords[index]
+            result.append(word)
+
+            guard index < primaryWords.index(before: primaryWords.endIndex) else {
+                continue
+            }
+
+            let nextWord = primaryWords[primaryWords.index(after: index)]
+            let gapStart = word.end
+            let gapEnd = nextWord.start
+            guard gapEnd - gapStart >= Self.gapFillThreshold else {
+                continue
+            }
+
+            result.append(contentsOf: bestGapFill(
+                from: candidateWordGroups,
+                gapStart: gapStart,
+                gapEnd: gapEnd
+            ))
+        }
+
+        return result
+    }
+
+    private static func sortedWords(_ words: [WordTiming]) -> [WordTiming] {
+        words.sorted { lhs, rhs in
+            lhs.start == rhs.start ? lhs.end < rhs.end : lhs.start < rhs.start
+        }
+    }
+
+    private static func bestGapFill(
+        from candidateWordGroups: [[WordTiming]],
+        gapStart: TimeInterval,
+        gapEnd: TimeInterval
+    ) -> [WordTiming] {
+        candidateWordGroups
+            .map { group in
+                sortedWords(group).filter { candidate in
+                    let midpoint = (candidate.start + candidate.end) / 2
+                    return midpoint > gapStart + Self.gapFillBoundaryTolerance
+                        && midpoint < gapEnd - Self.gapFillBoundaryTolerance
+                }
+            }
+            .max { lhs, rhs in
+                gapFillScore(lhs) < gapFillScore(rhs)
+            } ?? []
+    }
+
+    private static func gapFillScore(_ words: [WordTiming]) -> Double {
+        guard let firstWord = words.first,
+              let lastWord = words.last else {
+            return 0
+        }
+
+        return Double(words.count) + max(0, lastWord.end - firstWord.start)
     }
 }
 
