@@ -362,7 +362,8 @@ struct ProjectView: View {
     }
 
     private func unifiedTimelineToolbar(_ project: Project) -> some View {
-        let durationMs: Int? = projectMode == .edit ? viewModel.timelineDurationMs(for: project) : project.mediaFile.durationMs
+        let timelineDurationMs = viewModel.timelineDurationMs(for: project)
+        let durationMs: Int? = timelineDurationMs > 0 ? timelineDurationMs : nil
         return ProjectPlaybackToolbarView(
             mode: projectMode,
             currentTimeMs: viewModel.currentTimeMs,
@@ -476,8 +477,10 @@ struct ProjectView: View {
         timeObserver = player?.addPeriodicTimeObserver(forInterval: interval, queue: .main) { time in
             let sourceMilliseconds = Int((time.seconds * 1_000).rounded())
             Task { @MainActor in
-                if projectMode == .edit, isPlaying {
-                    handleEditPlaybackTick(sourceTimeMs: sourceMilliseconds)
+                if usesCutAwarePlayback {
+                    if isPlaying {
+                        handleEditPlaybackTick(sourceTimeMs: sourceMilliseconds)
+                    }
                 } else if projectMode == .subtitles {
                     viewModel.seekTo(ms: sourceMilliseconds)
                 }
@@ -497,8 +500,15 @@ struct ProjectView: View {
         accessedMediaURL = nil
     }
 
+    // Once the edit timeline has virtual cuts, subtitles and currentTimeMs are
+    // in timeline time in every mode, so raw player time can no longer drive
+    // playback — it would run through and past the removed ranges.
+    private var usesCutAwarePlayback: Bool {
+        projectMode == .edit || viewModel.project?.hasEditedTimeline == true
+    }
+
     private func togglePlayback() {
-        if projectMode == .edit {
+        if usesCutAwarePlayback {
             toggleEditPlayback()
             return
         }
@@ -517,6 +527,11 @@ struct ProjectView: View {
     }
 
     private func seek(to milliseconds: Int) {
+        if usesCutAwarePlayback {
+            seekEdit(to: milliseconds)
+            return
+        }
+
         let time = CMTime(seconds: Double(milliseconds) / 1_000, preferredTimescale: 600)
         player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
         viewModel.seekTo(ms: milliseconds)
