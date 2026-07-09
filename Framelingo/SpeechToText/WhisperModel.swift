@@ -90,3 +90,4 @@ enum SpeechToTextProviderName {
     static let localWhisper = "Local Whisper"
     static let localParakeet = "Local Parakeet"
 }
+
