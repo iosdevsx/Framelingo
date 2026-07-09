@@ -70,6 +70,47 @@ struct ParakeetSpeechToTextProviderTests {
     }
 
     @Test
+    func testAudioWindowPlanKeepsShortAudioInSingleWindow() {
+        let windows = ParakeetAudioWindow.plan(
+            duration: 60,
+            windowDuration: 90,
+            overlap: 10
+        )
+
+        #expect(windows == [
+            ParakeetAudioWindow(start: 0, end: 60, commitStart: 0, commitEnd: 60)
+        ])
+    }
+
+    @Test
+    func testAudioWindowPlanSplitsLongAudioWithMidpointCommits() {
+        let windows = ParakeetAudioWindow.plan(
+            duration: 200,
+            windowDuration: 80,
+            overlap: 50
+        )
+
+        #expect(windows == [
+            ParakeetAudioWindow(start: 0, end: 80, commitStart: 0, commitEnd: 55),
+            ParakeetAudioWindow(start: 30, end: 110, commitStart: 55, commitEnd: 85),
+            ParakeetAudioWindow(start: 60, end: 140, commitStart: 85, commitEnd: 115),
+            ParakeetAudioWindow(start: 90, end: 170, commitStart: 115, commitEnd: 145),
+            ParakeetAudioWindow(start: 120, end: 200, commitStart: 145, commitEnd: 175),
+            ParakeetAudioWindow(start: 150, end: 200, commitStart: 175, commitEnd: 190),
+            ParakeetAudioWindow(start: 180, end: 200, commitStart: 190, commitEnd: 200)
+        ])
+    }
+
+    @Test
+    func testAudioWindowCommitRegionUsesWordMidpoint() {
+        let window = ParakeetAudioWindow(start: 30, end: 110, commitStart: 55, commitEnd: 85)
+
+        #expect(window.containsCommitted(WordTiming(text: "inside", start: 54.8, end: 55.4)))
+        #expect(!window.containsCommitted(WordTiming(text: "before", start: 54.0, end: 54.8)))
+        #expect(!window.containsCommitted(WordTiming(text: "after", start: 84.8, end: 85.2)))
+    }
+
+    @Test
     func testFactorySelectsKnownProvidersAndFallsBackForUnknownName() throws {
         let fileManager = FileManager.default
         let directory = fileManager.temporaryDirectory
