@@ -278,6 +278,10 @@ final class AppState: ObservableObject {
     // Safe: nonisolated — reads only its `project` parameter, never AppState's
     // @Published or instance state, so it can be computed without a MainActor hop.
     private static nonisolated func exportDurationMs(for project: Project) -> Int? {
+        if let timeline = project.editTimeline, timeline.hasVirtualCuts, timeline.totalDurationMs > 0 {
+            return timeline.totalDurationMs
+        }
+
         if let durationMs = project.mediaFile.durationMs, durationMs > 0 {
             return durationMs
         }
@@ -384,6 +388,13 @@ private enum VideoExportWorker {
             throw ExportVideoError.mediaFileMissing
         }
 
+        let clips: [ExportClipRange]?
+        do {
+            clips = try ExportClipPlanResolver.clips(for: project)
+        } catch {
+            throw ExportVideoError.editTimelineEmpty
+        }
+
         await statusHandler("Generating subtitles...")
         let workingDirectoryURL = try temporaryExportWorkingDirectory(
             projectID: project.id,
@@ -407,6 +418,7 @@ private enum VideoExportWorker {
             subtitlesURL: subtitlesURL,
             outputURL: outputURL,
             settings: settings,
+            clips: clips,
             progressHandler: progressHandler
         )
     }
