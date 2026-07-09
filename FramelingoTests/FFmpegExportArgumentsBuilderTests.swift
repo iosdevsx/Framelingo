@@ -27,6 +27,29 @@ final class FFmpegExportArgumentsBuilderTests: XCTestCase {
         XCTAssertNil(try ExportClipPlanResolver.clips(for: makeProject(editTimeline: timeline)))
     }
 
+    func testResolverDetectsTailTrimAgainstSourceDuration() throws {
+        // Keeping only the first 10s of a 60s video leaves a single clip
+        // starting at source 0 — invisible to EditTimeline.hasVirtualCuts.
+        let timeline = EditTimeline(
+            clips: [
+                TimelineClip(
+                    id: UUID(),
+                    sourceStartMs: 0,
+                    sourceEndMs: 10_000,
+                    timelineStartMs: 0,
+                    timelineEndMs: 10_000
+                )
+            ],
+            totalDurationMs: 10_000
+        )
+
+        let clips = try XCTUnwrap(
+            ExportClipPlanResolver.clips(for: makeProject(editTimeline: timeline, mediaDurationMs: 60_000))
+        )
+
+        XCTAssertEqual(clips, [ExportClipRange(sourceStartMs: 0, sourceEndMs: 10_000)])
+    }
+
     func testResolverReturnsClipsSortedByTimelineStart() throws {
         let timeline = EditTimeline(
             clips: [
@@ -236,7 +259,7 @@ final class FFmpegExportArgumentsBuilderTests: XCTestCase {
 
     // MARK: - Fixtures
 
-    private func makeProject(editTimeline: EditTimeline?) -> Project {
+    private func makeProject(editTimeline: EditTimeline?, mediaDurationMs: Int = 10_000) -> Project {
         Project(
             id: UUID(),
             name: "Test",
@@ -248,7 +271,7 @@ final class FFmpegExportArgumentsBuilderTests: XCTestCase {
                 fileName: "video.mp4",
                 fileExtension: "mp4",
                 sizeBytes: 1,
-                durationMs: 10_000
+                durationMs: mediaDurationMs
             ),
             sourceLanguage: "en",
             targetLanguage: "ru",

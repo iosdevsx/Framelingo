@@ -278,7 +278,7 @@ final class AppState: ObservableObject {
     // Safe: nonisolated — reads only its `project` parameter, never AppState's
     // @Published or instance state, so it can be computed without a MainActor hop.
     private static nonisolated func exportDurationMs(for project: Project) -> Int? {
-        if let timeline = project.editTimeline, timeline.hasVirtualCuts, timeline.totalDurationMs > 0 {
+        if project.hasEditedTimeline, let timeline = project.editTimeline, timeline.totalDurationMs > 0 {
             return timeline.totalDurationMs
         }
 

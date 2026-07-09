@@ -24,7 +24,31 @@ struct Project: Identifiable, Codable, Equatable {
     }
 
     var hasEditedTimeline: Bool {
-        editTimeline?.hasVirtualCuts == true
+        guard let editTimeline, !editTimeline.isEmpty else {
+            return false
+        }
+
+        if editTimeline.hasVirtualCuts {
+            return true
+        }
+
+        // A tail trim leaves a single clip starting at source 0, which
+        // hasVirtualCuts cannot distinguish from an untouched timeline —
+        // only a comparison against the source duration can.
+        guard let sourceDurationMs, sourceDurationMs > 0 else {
+            return false
+        }
+
+        return editTimeline.totalDurationMs < sourceDurationMs
+    }
+
+    private var sourceDurationMs: Int? {
+        if let durationMs = mediaFile.durationMs, durationMs > 0 {
+            return durationMs
+        }
+
+        let subtitleDurationMs = subtitles.map(\.endMs).max() ?? 0
+        return subtitleDurationMs > 0 ? subtitleDurationMs : nil
     }
 
     func speaker(for segment: SubtitleSegment) -> Speaker? {
