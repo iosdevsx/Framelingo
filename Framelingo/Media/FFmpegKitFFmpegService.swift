@@ -51,6 +51,7 @@ final class FFmpegKitFFmpegService: FFmpegService {
         subtitlesURL: URL,
         outputURL: URL,
         settings: VideoExportSettings,
+        clips: [ExportClipRange]?,
         progressHandler: FFmpegProgressHandler?
     ) async throws -> URL {
         let videoAccess = videoURL.startAccessingSecurityScopedResource()
@@ -73,29 +74,51 @@ final class FFmpegKitFFmpegService: FFmpegService {
             withIntermediateDirectories: true
         )
 
-        let h264Arguments = [
-            "-y",
-            "-i", videoURL.path,
-            "-vf", "ass=\(escapedSubtitleFilterPath(subtitlesURL.path))",
+        func arguments(codecArguments: [String], includeAudio: Bool) -> [String] {
+            var arguments = ["-y", "-i", videoURL.path]
+            arguments += FFmpegExportArgumentsBuilder.filterArguments(
+                clips: clips,
+                subtitlesPath: subtitlesURL.path,
+                includeAudio: includeAudio
+            )
+            arguments += codecArguments
+            arguments += FFmpegExportArgumentsBuilder.audioCodecArguments(
+                clips: clips,
+                includeAudio: includeAudio
+            )
+            arguments.append(outputURL.path)
+            return arguments
+        }
+
+        func runWithAudioFallback(codecArguments: [String]) async throws {
+            do {
+                try await runFFmpeg(
+                    arguments: arguments(codecArguments: codecArguments, includeAudio: true),
+                    progressHandler: progressHandler
+                )
+            } catch FFmpegServiceError.processFailed(_, _, let standardError)
+                where clips?.isEmpty == false
+                && FFmpegExportArgumentsBuilder.indicatesMissingAudioStream(standardError) {
+                try await runFFmpeg(
+                    arguments: arguments(codecArguments: codecArguments, includeAudio: false),
+                    progressHandler: progressHandler
+                )
+            }
+        }
+
+        let h264CodecArguments = [
             "-c:v", "libx264",
             "-crf", "\(settings.quality.crf)",
-            "-preset", settings.preset.rawValue,
-            "-c:a", "copy",
-            outputURL.path
+            "-preset", settings.preset.rawValue
         ]
 
         do {
-            try await runFFmpeg(arguments: h264Arguments, progressHandler: progressHandler)
+            try await runWithAudioFallback(codecArguments: h264CodecArguments)
         } catch FFmpegServiceError.processFailed(_, _, let standardError) where shouldRetryWithNativeMPEG4(standardError) {
-            try await runFFmpeg(arguments: [
-                "-y",
-                "-i", videoURL.path,
-                "-vf", "ass=\(escapedSubtitleFilterPath(subtitlesURL.path))",
+            try await runWithAudioFallback(codecArguments: [
                 "-c:v", "mpeg4",
-                "-q:v", "\(settings.quality.mpeg4QualityScale)",
-                "-c:a", "copy",
-                outputURL.path
-            ], progressHandler: progressHandler)
+                "-q:v", "\(settings.quality.mpeg4QualityScale)"
+            ])
         }
 
         return outputURL
@@ -159,13 +182,6 @@ final class FFmpegKitFFmpegService: FFmpegService {
                 )
             }
         }.value
-    }
-
-    private func escapedSubtitleFilterPath(_ path: String) -> String {
-        path
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
-            .replacingOccurrences(of: ":", with: "\\:")
     }
 
     private func shouldRetryWithNativeMPEG4(_ output: String) -> Bool {

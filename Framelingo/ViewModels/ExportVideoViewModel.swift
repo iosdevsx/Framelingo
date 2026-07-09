@@ -163,6 +163,7 @@ enum ExportVideoError: LocalizedError, Equatable {
     case outputURLMissing
     case mediaFileMissing
     case assGenerationFailed
+    case editTimelineEmpty
     case ffmpegFailed(String)
     case exportCancelled
 
@@ -176,6 +177,8 @@ enum ExportVideoError: LocalizedError, Equatable {
             return "The original video file is missing."
         case .assGenerationFailed:
             return "Could not generate the subtitle file for export."
+        case .editTimelineEmpty:
+            return "The edit timeline has no clips to export. Review your cuts in Edit mode."
         case .ffmpegFailed:
             return "Video export failed."
         case .exportCancelled:

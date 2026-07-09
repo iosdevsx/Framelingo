@@ -78,6 +78,7 @@ private final class CountingFFmpegService: FFmpegService {
         subtitlesURL: URL,
         outputURL: URL,
         settings: VideoExportSettings,
+        clips: [ExportClipRange]?,
         progressHandler: FFmpegProgressHandler?
     ) async throws -> URL {
         outputURL

@@ -79,6 +79,7 @@ private struct FailingFFmpegService: FFmpegService {
         subtitlesURL: URL,
         outputURL: URL,
         settings: VideoExportSettings,
+        clips: [ExportClipRange]?,
         progressHandler: FFmpegProgressHandler?
     ) async throws -> URL {
         XCTFail("Unexpected burnSubtitles call.")

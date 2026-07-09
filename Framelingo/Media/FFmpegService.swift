@@ -15,6 +15,7 @@ protocol FFmpegService {
         subtitlesURL: URL,
         outputURL: URL,
         settings: VideoExportSettings,
+        clips: [ExportClipRange]?,
         progressHandler: FFmpegProgressHandler?
     ) async throws -> URL
 }
@@ -31,7 +32,25 @@ extension FFmpegService {
             subtitlesURL: subtitlesURL,
             outputURL: outputURL,
             settings: settings,
+            clips: nil,
             progressHandler: nil
+        )
+    }
+
+    func burnSubtitles(
+        videoURL: URL,
+        subtitlesURL: URL,
+        outputURL: URL,
+        settings: VideoExportSettings,
+        progressHandler: FFmpegProgressHandler?
+    ) async throws -> URL {
+        try await burnSubtitles(
+            videoURL: videoURL,
+            subtitlesURL: subtitlesURL,
+            outputURL: outputURL,
+            settings: settings,
+            clips: nil,
+            progressHandler: progressHandler
         )
     }
 }
@@ -96,6 +115,7 @@ final class ProcessFFmpegService: FFmpegService {
         subtitlesURL: URL,
         outputURL: URL,
         settings: VideoExportSettings,
+        clips: [ExportClipRange]?,
         progressHandler: FFmpegProgressHandler?
     ) async throws -> URL {
         let executableURL = try resolveExecutableURL()
@@ -119,22 +139,46 @@ final class ProcessFFmpegService: FFmpegService {
             withIntermediateDirectories: true
         )
 
-        _ = try await runFFmpeg(
-            executableURL: executableURL,
-            arguments: [
+        func arguments(includeAudio: Bool) -> [String] {
+            var arguments = [
                 "-y",
                 "-nostats",
                 "-progress", "pipe:1",
-                "-i", videoURL.path,
-                "-vf", "ass=\(escapedSubtitleFilterPath(subtitlesURL.path))",
+                "-i", videoURL.path
+            ]
+            arguments += FFmpegExportArgumentsBuilder.filterArguments(
+                clips: clips,
+                subtitlesPath: subtitlesURL.path,
+                includeAudio: includeAudio
+            )
+            arguments += [
                 "-c:v", "libx264",
                 "-crf", "\(settings.quality.crf)",
-                "-preset", settings.preset.rawValue,
-                "-c:a", "copy",
-                outputURL.path
-            ],
-            progressHandler: progressHandler
-        )
+                "-preset", settings.preset.rawValue
+            ]
+            arguments += FFmpegExportArgumentsBuilder.audioCodecArguments(
+                clips: clips,
+                includeAudio: includeAudio
+            )
+            arguments.append(outputURL.path)
+            return arguments
+        }
+
+        do {
+            _ = try await runFFmpeg(
+                executableURL: executableURL,
+                arguments: arguments(includeAudio: true),
+                progressHandler: progressHandler
+            )
+        } catch FFmpegServiceError.processFailed(_, _, let standardError)
+            where clips?.isEmpty == false
+            && FFmpegExportArgumentsBuilder.indicatesMissingAudioStream(standardError) {
+            _ = try await runFFmpeg(
+                executableURL: executableURL,
+                arguments: arguments(includeAudio: false),
+                progressHandler: progressHandler
+            )
+        }
 
         return outputURL
     }
@@ -282,13 +326,6 @@ final class ProcessFFmpegService: FFmpegService {
         path
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-    }
-
-    private func escapedSubtitleFilterPath(_ path: String) -> String {
-        path
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
-            .replacingOccurrences(of: ":", with: "\\:")
     }
 }
 
