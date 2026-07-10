@@ -36,6 +36,9 @@ struct ExportVideoSheet: View {
         }
         .frame(width: 620)
         .frame(minHeight: 560)
+        .task {
+            await viewModel.prepareForPresentation()
+        }
         .onChange(of: viewModel.errorMessage) { _, message in
             isShowingErrorAlert = message != nil
         }
@@ -85,6 +88,18 @@ struct ExportVideoSheet: View {
 
     private var encodingSection: some View {
         Section("Encoding") {
+            Picker("Resolution", selection: $viewModel.settings.resolution) {
+                ForEach(viewModel.availableResolutions) { resolution in
+                    Text(resolution.displayName).tag(resolution)
+                }
+            }
+
+            Picker("Frame Rate", selection: $viewModel.settings.frameRate) {
+                ForEach(viewModel.availableFrameRates) { frameRate in
+                    Text(frameRate.displayName).tag(frameRate)
+                }
+            }
+
             Picker("Codec", selection: $viewModel.settings.codec) {
                 ForEach(VideoExportCodec.allCases) { codec in
                     Text(codec.displayName).tag(codec)
@@ -207,6 +222,7 @@ struct ExportVideoSheet: View {
                 viewModel.outputURL == nil
                     || viewModel.project.subtitles.isEmpty
                     || viewModel.isExporting
+                    || viewModel.isPreparingSourceInfo
             )
         }
         .padding()

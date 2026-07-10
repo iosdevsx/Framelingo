@@ -15,12 +15,32 @@ protocol FFmpegService {
         subtitlesURL: URL,
         outputURL: URL,
         settings: VideoExportSettings,
+        sourceInfo: VideoSourceInfo?,
         clips: [ExportClipRange]?,
         progressHandler: FFmpegProgressHandler?
     ) async throws -> URL
 }
 
 extension FFmpegService {
+    func burnSubtitles(
+        videoURL: URL,
+        subtitlesURL: URL,
+        outputURL: URL,
+        settings: VideoExportSettings,
+        clips: [ExportClipRange]?,
+        progressHandler: FFmpegProgressHandler?
+    ) async throws -> URL {
+        try await burnSubtitles(
+            videoURL: videoURL,
+            subtitlesURL: subtitlesURL,
+            outputURL: outputURL,
+            settings: settings,
+            sourceInfo: nil,
+            clips: clips,
+            progressHandler: progressHandler
+        )
+    }
+
     func burnSubtitles(
         videoURL: URL,
         subtitlesURL: URL,
@@ -51,6 +71,24 @@ extension FFmpegService {
             settings: settings,
             clips: nil,
             progressHandler: progressHandler
+        )
+    }
+
+    func burnSubtitles(
+        videoURL: URL,
+        subtitlesURL: URL,
+        outputURL: URL,
+        settings: VideoExportSettings,
+        sourceInfo: VideoSourceInfo?
+    ) async throws -> URL {
+        try await burnSubtitles(
+            videoURL: videoURL,
+            subtitlesURL: subtitlesURL,
+            outputURL: outputURL,
+            settings: settings,
+            sourceInfo: sourceInfo,
+            clips: nil,
+            progressHandler: nil
         )
     }
 }
@@ -115,6 +153,7 @@ final class ProcessFFmpegService: FFmpegService {
         subtitlesURL: URL,
         outputURL: URL,
         settings: VideoExportSettings,
+        sourceInfo: VideoSourceInfo?,
         clips: [ExportClipRange]?,
         progressHandler: FFmpegProgressHandler?
     ) async throws -> URL {
@@ -138,6 +177,7 @@ final class ProcessFFmpegService: FFmpegService {
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
+        let targets = VideoExportGeometry.targets(settings: settings, sourceInfo: sourceInfo)
 
         func arguments(includeAudio: Bool) -> [String] {
             var arguments = [
@@ -149,7 +189,9 @@ final class ProcessFFmpegService: FFmpegService {
             arguments += FFmpegExportArgumentsBuilder.filterArguments(
                 clips: clips,
                 subtitlesPath: subtitlesURL.path,
-                includeAudio: includeAudio
+                includeAudio: includeAudio,
+                targetSize: targets.size,
+                targetFPS: targets.framesPerSecond
             )
             arguments += [
                 "-c:v", "libx264",

@@ -57,10 +57,18 @@ enum FFmpegExportArgumentsBuilder {
     static func filterArguments(
         clips: [ExportClipRange]?,
         subtitlesPath: String,
-        includeAudio: Bool
+        includeAudio: Bool,
+        targetSize: VideoOutputSize? = nil,
+        targetFPS: Int? = nil
     ) -> [String] {
+        let videoFilters = outputVideoFilters(
+            subtitlesPath: subtitlesPath,
+            targetSize: targetSize,
+            targetFPS: targetFPS
+        )
+
         guard let clips, !clips.isEmpty else {
-            return ["-vf", "ass=\(escapedSubtitleFilterPath(subtitlesPath))"]
+            return ["-vf", videoFilters.joined(separator: ",")]
         }
 
         var chains: [String] = []
@@ -79,7 +87,7 @@ enum FFmpegExportArgumentsBuilder {
 
         let concatOutputs = includeAudio ? "[vcat][acat]" : "[vcat]"
         chains.append("\(concatInputs)concat=n=\(clips.count):v=1:a=\(includeAudio ? 1 : 0)\(concatOutputs)")
-        chains.append("[vcat]ass=\(escapedSubtitleFilterPath(subtitlesPath))[vout]")
+        chains.append("[vcat]\(videoFilters.joined(separator: ","))[vout]")
 
         var arguments = ["-filter_complex", chains.joined(separator: ";"), "-map", "[vout]"]
         if includeAudio {
@@ -87,6 +95,25 @@ enum FFmpegExportArgumentsBuilder {
         }
 
         return arguments
+    }
+
+    private static func outputVideoFilters(
+        subtitlesPath: String,
+        targetSize: VideoOutputSize?,
+        targetFPS: Int?
+    ) -> [String] {
+        var filters: [String] = []
+
+        if let targetFPS, targetFPS > 0 {
+            filters.append("fps=\(targetFPS)")
+        }
+
+        if let targetSize, targetSize.width > 0, targetSize.height > 0 {
+            filters.append("scale=\(targetSize.width):\(targetSize.height)")
+        }
+
+        filters.append("ass=\(escapedSubtitleFilterPath(subtitlesPath))")
+        return filters
     }
 
     /// Audio codec arguments: stream copy is only possible when the source is

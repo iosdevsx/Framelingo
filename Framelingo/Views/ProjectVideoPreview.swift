@@ -8,6 +8,7 @@ struct ProjectVideoPreview: View {
     let isPlaying: Bool
     let currentTimeMs: Int
     let showsControls: Bool
+    let videoSourceInfo: VideoSourceInfo?
     let onTogglePlayback: () -> Void
     let onUpdateSettings: (VideoExportSettings, Bool) -> Void
 
@@ -31,43 +32,59 @@ struct ProjectVideoPreview: View {
                 }
 
                 GeometryReader { geometry in
-                    if let subtitleText = currentSubtitleText {
-                        Text(subtitleText)
-                            .font(.custom(subtitleSettings.fontName, size: subtitlePreviewFontSize(subtitleSettings.fontSize)).weight(.semibold))
-                            .foregroundStyle(subtitleSwiftUIColor(subtitleSettings))
-                            .multilineTextAlignment(.center)
-                            .lineLimit(subtitleSettings.maxLines)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(
-                                subtitleSettings.backgroundEnabled
-                                    ? subtitleBackgroundSwiftUIColor(subtitleSettings).opacity(subtitleSettings.backgroundOpacity)
-                                    : Color.clear,
-                                in: subtitleShape
-                            )
-                            .overlay(
-                                subtitleShape.stroke(
-                                    subtitleBorderSwiftUIColor(subtitleSettings),
-                                    lineWidth: max(0, subtitleSettings.borderWidth)
+                    let videoRect = VideoExportGeometry.aspectFitRect(
+                        videoSize: videoSourceInfo?.displaySize ?? geometry.size,
+                        in: CGRect(origin: .zero, size: geometry.size)
+                    )
+
+                    ZStack {
+                        if let subtitleText = currentSubtitleText {
+                            Text(subtitleText)
+                                .font(.custom(subtitleSettings.fontName, size: subtitlePreviewFontSize(subtitleSettings.fontSize)).weight(.semibold))
+                                .foregroundStyle(subtitleSwiftUIColor(subtitleSettings))
+                                .multilineTextAlignment(.center)
+                                .lineLimit(subtitleSettings.maxLines)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(
+                                    subtitleSettings.backgroundEnabled
+                                        ? subtitleBackgroundSwiftUIColor(subtitleSettings).opacity(subtitleSettings.backgroundOpacity)
+                                        : Color.clear,
+                                    in: subtitleShape
                                 )
-                            )
-                            .frame(maxWidth: geometry.size.width * 0.8)
-                            .position(
-                                x: geometry.size.width * subtitleSettings.subtitlePositionX,
-                                y: geometry.size.height * subtitleSettings.subtitlePositionY
-                            )
-                            .gesture(subtitlePositionDragGesture(settings: subtitleSettings, size: geometry.size))
-                            .onHover { isHovering in
-                                if isHovering {
-                                    NSCursor.openHand.set()
-                                } else {
-                                    NSCursor.arrow.set()
+                                .overlay(
+                                    subtitleShape.stroke(
+                                        subtitleBorderSwiftUIColor(subtitleSettings),
+                                        lineWidth: max(0, subtitleSettings.borderWidth)
+                                    )
+                                )
+                                .frame(maxWidth: videoRect.width * 0.8)
+                                .position(
+                                    x: videoRect.width * subtitleSettings.subtitlePositionX,
+                                    y: videoRect.height * subtitleSettings.subtitlePositionY
+                                )
+                                .gesture(
+                                    subtitlePositionDragGesture(
+                                        settings: subtitleSettings,
+                                        size: videoRect.size
+                                    )
+                                )
+                                .onHover { isHovering in
+                                    if isHovering {
+                                        NSCursor.openHand.set()
+                                    } else {
+                                        NSCursor.arrow.set()
+                                    }
                                 }
-                            }
+                        }
                     }
+                    .frame(width: videoRect.width, height: videoRect.height)
+                    .clipped()
+                    .position(x: videoRect.midX, y: videoRect.midY)
                 }
             }
             .aspectRatio(16 / 9, contentMode: .fit)
+            .compositingGroup()
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
             if showsControls {

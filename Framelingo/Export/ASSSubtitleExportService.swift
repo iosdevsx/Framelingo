@@ -57,14 +57,14 @@ final class ASSSubtitleExportService {
         layout: BurnedSubtitleLayout,
         settings: VideoExportSettings
     ) -> String {
-        let originX = Int(layout.backgroundRect.minX.rounded())
-        let originY = Int(layout.backgroundRect.minY.rounded())
+        let centerX = Int(layout.backgroundRect.midX.rounded())
+        let centerY = Int(layout.backgroundRect.midY.rounded())
         let drawing = backgroundDrawing(
             size: layout.backgroundRect.size,
             cornerRadius: settings.backgroundCornerRadius
         )
 
-        return "Dialogue: 0,\(assTimestamp(segment.startMs)),\(assTimestamp(segment.endMs)),SubtitleBackground,,0,0,0,,{\\an7\\pos(\(originX),\(originY))\\p1}\(drawing){\\p0}"
+        return "Dialogue: 0,\(assTimestamp(segment.startMs)),\(assTimestamp(segment.endMs)),SubtitleBackground,,0,0,0,,{\\an5\\pos(\(centerX),\(centerY))\\p1}\(drawing){\\p0}"
     }
 
     private func textEvent(

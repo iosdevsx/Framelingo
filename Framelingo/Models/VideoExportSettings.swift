@@ -24,6 +24,8 @@ struct VideoExportSettings: Codable, Equatable {
     var maxLines: Int = 2
     var subtitlePositionX: Double = 0.5
     var subtitlePositionY: Double = 0.86
+    var resolution: VideoExportResolution = .original
+    var frameRate: VideoExportFrameRate = .original
     var codec: VideoExportCodec = .h264
     var quality: VideoExportQuality = .normal
     var preset: VideoExportPreset = .medium
@@ -52,6 +54,8 @@ struct VideoExportSettings: Codable, Equatable {
         maxLines: Int = 2,
         subtitlePositionX: Double = 0.5,
         subtitlePositionY: Double = 0.86,
+        resolution: VideoExportResolution = .original,
+        frameRate: VideoExportFrameRate = .original,
         codec: VideoExportCodec = .h264,
         quality: VideoExportQuality = .normal,
         preset: VideoExportPreset = .medium
@@ -79,6 +83,8 @@ struct VideoExportSettings: Codable, Equatable {
         self.maxLines = maxLines
         self.subtitlePositionX = subtitlePositionX
         self.subtitlePositionY = subtitlePositionY
+        self.resolution = resolution
+        self.frameRate = frameRate
         self.codec = codec
         self.quality = quality
         self.preset = preset
@@ -108,6 +114,8 @@ struct VideoExportSettings: Codable, Equatable {
         case maxLines
         case subtitlePositionX
         case subtitlePositionY
+        case resolution
+        case frameRate
         case codec
         case quality
         case preset
@@ -139,9 +147,87 @@ struct VideoExportSettings: Codable, Equatable {
         maxLines = try container.decodeIfPresent(Int.self, forKey: .maxLines) ?? defaults.maxLines
         subtitlePositionX = try container.decodeIfPresent(Double.self, forKey: .subtitlePositionX) ?? defaults.subtitlePositionX
         subtitlePositionY = try container.decodeIfPresent(Double.self, forKey: .subtitlePositionY) ?? defaults.subtitlePositionY
+        resolution = try container.decodeIfPresent(VideoExportResolution.self, forKey: .resolution) ?? defaults.resolution
+        frameRate = try container.decodeIfPresent(VideoExportFrameRate.self, forKey: .frameRate) ?? defaults.frameRate
         codec = try container.decodeIfPresent(VideoExportCodec.self, forKey: .codec) ?? defaults.codec
         quality = try container.decodeIfPresent(VideoExportQuality.self, forKey: .quality) ?? defaults.quality
         preset = try container.decodeIfPresent(VideoExportPreset.self, forKey: .preset) ?? defaults.preset
+    }
+}
+
+enum VideoExportResolution: String, Codable, CaseIterable, Identifiable {
+    case original
+    case p2160
+    case p1440
+    case p1080
+    case p720
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .original:
+            return "Original"
+        case .p2160:
+            return "2160p"
+        case .p1440:
+            return "1440p"
+        case .p1080:
+            return "1080p"
+        case .p720:
+            return "720p"
+        }
+    }
+
+    var shortSideTarget: Int? {
+        switch self {
+        case .original:
+            return nil
+        case .p2160:
+            return 2_160
+        case .p1440:
+            return 1_440
+        case .p1080:
+            return 1_080
+        case .p720:
+            return 720
+        }
+    }
+}
+
+enum VideoExportFrameRate: String, Codable, CaseIterable, Identifiable {
+    case original
+    case fps24
+    case fps25
+    case fps30
+    case fps50
+    case fps60
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        guard let framesPerSecond else {
+            return "Original"
+        }
+
+        return "\(framesPerSecond) fps"
+    }
+
+    var framesPerSecond: Int? {
+        switch self {
+        case .original:
+            return nil
+        case .fps24:
+            return 24
+        case .fps25:
+            return 25
+        case .fps30:
+            return 30
+        case .fps50:
+            return 50
+        case .fps60:
+            return 60
+        }
     }
 }
 

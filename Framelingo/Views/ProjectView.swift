@@ -51,6 +51,9 @@ struct ProjectView: View {
             viewModel.prepareProjectForEditing()
             configurePlayerIfNeeded()
         }
+        .task(id: viewModel.project?.id) {
+            await viewModel.loadVideoSourceInfo()
+        }
         .onChange(of: projectMode) { _, mode in
             if mode == .edit {
                 viewModel.ensureEditTimeline()
@@ -92,9 +95,14 @@ struct ProjectView: View {
                     return
                 }
 
+                viewModel.updateVideoExportSettings(
+                    exportViewModel.settings,
+                    registerUndo: false
+                )
                 appState.enqueueVideoExport(
                     project: exportViewModel.project,
                     settings: exportViewModel.settings,
+                    sourceInfo: exportViewModel.sourceInfo,
                     outputURL: outputURL
                 )
             }
@@ -415,6 +423,7 @@ struct ProjectView: View {
             isPlaying: isPlaying,
             currentTimeMs: viewModel.currentTimeMs,
             showsControls: showsControls,
+            videoSourceInfo: viewModel.videoSourceInfo,
             onTogglePlayback: {
                 togglePlayback()
             },
