@@ -130,10 +130,27 @@ final class FFmpegExportArgumentsBuilderTests: XCTestCase {
         let arguments = FFmpegExportArgumentsBuilder.filterArguments(
             clips: nil,
             subtitlesPath: "/tmp/subs dir/subtitles.ass",
-            includeAudio: true
+            includeAudio: true,
+            targetSize: nil,
+            targetFPS: nil
         )
 
         XCTAssertEqual(arguments, ["-vf", "ass=/tmp/subs dir/subtitles.ass"])
+    }
+
+    func testFilterArgumentsWithoutClipsOrdersFPSScaleBeforeASS() {
+        let arguments = FFmpegExportArgumentsBuilder.filterArguments(
+            clips: nil,
+            subtitlesPath: "/tmp/subtitles.ass",
+            includeAudio: true,
+            targetSize: VideoOutputSize(width: 1_280, height: 720),
+            targetFPS: 30
+        )
+
+        XCTAssertEqual(
+            arguments,
+            ["-vf", "fps=30,scale=1280:720,ass=/tmp/subtitles.ass"]
+        )
     }
 
     func testSubtitlePathPreservesSpacesAndNonLatinCharacters() {
@@ -214,6 +231,23 @@ final class FFmpegExportArgumentsBuilderTests: XCTestCase {
                 + "[vcat]ass=/tmp/subtitles.ass[vout]",
             "-map", "[vout]"
         ])
+    }
+
+    func testFilterArgumentsWithClipsApplyFPSAndScaleAfterConcat() {
+        let arguments = FFmpegExportArgumentsBuilder.filterArguments(
+            clips: [ExportClipRange(sourceStartMs: 0, sourceEndMs: 1_000)],
+            subtitlesPath: "/tmp/subtitles.ass",
+            includeAudio: true,
+            targetSize: VideoOutputSize(width: 1_280, height: 720),
+            targetFPS: 30
+        )
+
+        XCTAssertTrue(
+            arguments[1].hasSuffix(
+                "[vcat]fps=30,scale=1280:720,ass=/tmp/subtitles.ass[vout]"
+            )
+        )
+        XCTAssertTrue(arguments[1].contains("[0:a]atrim="))
     }
 
     func testAudioCodecArgumentsWithClips() {

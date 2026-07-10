@@ -140,6 +140,26 @@ struct ASSSubtitleExportServiceTests {
     }
 
     @Test
+    func testEveryDialogueUsesTheSameCenterAnchorPosition() throws {
+        var settings = VideoExportSettings()
+        settings.subtitlePositionX = 0.27
+        settings.subtitlePositionY = 0.34
+
+        let output = try ASSSubtitleExportService().generateASS(
+            segments: [segment],
+            settings: settings
+        )
+        let backgroundEvent = try #require(dialogueLine(layer: 0, in: output))
+        let textEvent = try #require(dialogueLine(layer: 1, in: output))
+        let backgroundPosition = try #require(positionOverride(in: backgroundEvent))
+        let textPosition = try #require(positionOverride(in: textEvent))
+
+        #expect(backgroundEvent.contains("{\\an5\\pos("))
+        #expect(textEvent.contains("{\\an5\\pos("))
+        #expect(backgroundPosition == textPosition)
+    }
+
+    @Test
     func testDisabledBackgroundEmitsOnlyTextDialogue() throws {
         var settings = VideoExportSettings()
         settings.backgroundEnabled = false
@@ -237,5 +257,14 @@ struct ASSSubtitleExportServiceTests {
         output.components(separatedBy: "\n")
             .first { $0.hasPrefix("Style: \(name),") }?
             .split(separator: ",", omittingEmptySubsequences: false)
+    }
+
+    private func positionOverride(in event: String) -> Substring? {
+        guard let start = event.range(of: "\\pos(")?.upperBound,
+              let end = event[start...].firstIndex(of: ")") else {
+            return nil
+        }
+
+        return event[start..<end]
     }
 }

@@ -112,7 +112,12 @@ final class AppState: ObservableObject {
         videoExportTask?.cancel()
     }
 
-    func enqueueVideoExport(project: Project, settings: VideoExportSettings, outputURL: URL) {
+    func enqueueVideoExport(
+        project: Project,
+        settings: VideoExportSettings,
+        sourceInfo: VideoSourceInfo?,
+        outputURL: URL
+    ) {
         let job = VideoExportJob(
             id: UUID(),
             projectName: project.displayName,
@@ -127,7 +132,8 @@ final class AppState: ObservableObject {
         videoExportJobs.insert(job, at: 0)
         videoExportPayloads[job.id] = VideoExportJobPayload(
             project: project,
-            settings: settings
+            settings: settings,
+            sourceInfo: sourceInfo
         )
         startNextVideoExportIfNeeded()
     }
@@ -239,6 +245,7 @@ final class AppState: ObservableObject {
 
         let projectSnapshot = payload.project
         let exportSettings = payload.settings
+        let exportSourceInfo = payload.sourceInfo
         let durationMs = Self.exportDurationMs(for: projectSnapshot)
 
         let appState = self
@@ -250,6 +257,7 @@ final class AppState: ObservableObject {
                 try await VideoExportWorker.run(
                     project: projectSnapshot,
                     settings: exportSettings,
+                    sourceInfo: exportSourceInfo,
                     outputURL: outputURL,
                     ffmpegService: ffmpegService,
                     assSubtitleExportService: assSubtitleExportService,
@@ -362,6 +370,7 @@ private enum AppSettingsPersistence {
 private struct VideoExportJobPayload {
     var project: Project
     var settings: VideoExportSettings
+    var sourceInfo: VideoSourceInfo?
 }
 
 private struct VideoExportFailure: Error, Equatable {
@@ -373,6 +382,7 @@ private enum VideoExportWorker {
     static func run(
         project: Project,
         settings: VideoExportSettings,
+        sourceInfo: VideoSourceInfo?,
         outputURL: URL,
         ffmpegService: FFmpegService,
         assSubtitleExportService: ASSSubtitleExportService,
@@ -418,6 +428,7 @@ private enum VideoExportWorker {
             subtitlesURL: subtitlesURL,
             outputURL: outputURL,
             settings: settings,
+            sourceInfo: sourceInfo,
             clips: clips,
             progressHandler: progressHandler
         )

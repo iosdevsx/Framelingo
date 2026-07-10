@@ -51,6 +51,7 @@ final class FFmpegKitFFmpegService: FFmpegService {
         subtitlesURL: URL,
         outputURL: URL,
         settings: VideoExportSettings,
+        sourceInfo: VideoSourceInfo?,
         clips: [ExportClipRange]?,
         progressHandler: FFmpegProgressHandler?
     ) async throws -> URL {
@@ -73,13 +74,16 @@ final class FFmpegKitFFmpegService: FFmpegService {
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
+        let targets = VideoExportGeometry.targets(settings: settings, sourceInfo: sourceInfo)
 
         func arguments(codecArguments: [String], includeAudio: Bool) -> [String] {
             var arguments = ["-y", "-i", videoURL.path]
             arguments += FFmpegExportArgumentsBuilder.filterArguments(
                 clips: clips,
                 subtitlesPath: subtitlesURL.path,
-                includeAudio: includeAudio
+                includeAudio: includeAudio,
+                targetSize: targets.size,
+                targetFPS: targets.framesPerSecond
             )
             arguments += codecArguments
             arguments += FFmpegExportArgumentsBuilder.audioCodecArguments(

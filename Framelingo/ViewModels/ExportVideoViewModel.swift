@@ -15,28 +15,72 @@ final class ExportVideoViewModel: ObservableObject, Identifiable {
     @Published var errorMessage: String?
     @Published var debugOutput: String?
     @Published var successOutputURL: URL?
+    @Published private(set) var sourceInfo: VideoSourceInfo?
+    @Published private(set) var availableResolutions: [VideoExportResolution] = [.original]
+    @Published private(set) var availableFrameRates: [VideoExportFrameRate] = [.original]
+    @Published private(set) var isPreparingSourceInfo = true
 
     private let ffmpegService: FFmpegService
     private let assSubtitleExportService: ASSSubtitleExportService
+    private let mediaMetadataService: MediaMetadataService
     private let fileManager: FileManager
+    private var hasPreparedSourceInfo = false
 
     init(
         project: Project,
         settings: VideoExportSettings = VideoExportSettings(),
         ffmpegService: FFmpegService,
         assSubtitleExportService: ASSSubtitleExportService = ASSSubtitleExportService(),
+        mediaMetadataService: MediaMetadataService = MediaMetadataService(),
         fileManager: FileManager = .default
     ) {
         self.project = project
         self.settings = settings
         self.ffmpegService = ffmpegService
         self.assSubtitleExportService = assSubtitleExportService
+        self.mediaMetadataService = mediaMetadataService
         self.fileManager = fileManager
     }
 
     var translatedModeHasNoText: Bool {
         settings.subtitleTextMode == .translated
             && project.subtitles.allSatisfy { $0.translatedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    func prepareForPresentation() async {
+        guard !hasPreparedSourceInfo else {
+            return
+        }
+
+        hasPreparedSourceInfo = true
+        isPreparingSourceInfo = true
+
+        do {
+            let info = try await mediaMetadataService.videoSourceInfo(
+                for: project.mediaFile.originalURL
+            )
+            sourceInfo = info
+            availableResolutions = VideoExportGeometry.availableResolutions(
+                sourceWidth: info.width,
+                sourceHeight: info.height
+            )
+            availableFrameRates = VideoExportGeometry.availableFrameRates(
+                nominalFrameRate: info.nominalFrameRate
+            )
+        } catch {
+            sourceInfo = nil
+            availableResolutions = [.original]
+            availableFrameRates = [.original]
+        }
+
+        if !availableResolutions.contains(settings.resolution) {
+            settings.resolution = .original
+        }
+        if !availableFrameRates.contains(settings.frameRate) {
+            settings.frameRate = .original
+        }
+
+        isPreparingSourceInfo = false
     }
 
     func chooseOutputURL() {
@@ -100,7 +144,8 @@ final class ExportVideoViewModel: ObservableObject, Identifiable {
                 videoURL: project.mediaFile.originalURL,
                 subtitlesURL: subtitlesURL,
                 outputURL: outputURL,
-                settings: settings
+                settings: settings,
+                sourceInfo: sourceInfo
             )
 
             statusText = "Export complete."

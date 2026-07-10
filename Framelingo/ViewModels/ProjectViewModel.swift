@@ -26,6 +26,7 @@ final class ProjectViewModel: ObservableObject {
     @Published private(set) var isPreparingProject = false
     @Published private(set) var projectPreparationProgress = 0.0
     @Published private(set) var projectPreparationStatus = "Preparing project..."
+    @Published private(set) var videoSourceInfo: VideoSourceInfo?
     @Published private(set) var canUndo = false
     @Published private(set) var canRedo = false
 
@@ -42,6 +43,7 @@ final class ProjectViewModel: ObservableObject {
     private var autosaveTask: Task<Void, Never>?
     private var waveformTask: Task<Void, Never>?
     private var preparedWaveformProjectID: UUID?
+    private var videoSourceInfoProjectID: UUID?
     private var undoStack: [ProjectUndoSnapshot] = []
     private var redoStack: [ProjectUndoSnapshot] = []
     private var activeTextEditSegmentID: UUID?
@@ -60,7 +62,42 @@ final class ProjectViewModel: ObservableObject {
     }
 
     func loadSelectedProject() {
+        if project?.id != appState.selectedProject?.id {
+            videoSourceInfo = nil
+            videoSourceInfoProjectID = nil
+        }
         project = appState.selectedProject
+    }
+
+    func loadVideoSourceInfo() async {
+        guard let project else {
+            videoSourceInfo = nil
+            videoSourceInfoProjectID = nil
+            return
+        }
+
+        guard videoSourceInfoProjectID != project.id else {
+            return
+        }
+
+        let projectID = project.id
+        videoSourceInfoProjectID = projectID
+        videoSourceInfo = nil
+
+        do {
+            let info = try await mediaMetadataService.videoSourceInfo(
+                for: project.mediaFile.originalURL
+            )
+            guard self.project?.id == projectID else {
+                return
+            }
+            videoSourceInfo = info
+        } catch {
+            guard self.project?.id == projectID else {
+                return
+            }
+            videoSourceInfo = nil
+        }
     }
 
     func prepareProjectForEditing() {
@@ -894,11 +931,21 @@ final class ProjectViewModel: ObservableObject {
             let subtitlesURL = temporaryTranslatedASSURL(for: currentProject)
             try writeASS(for: currentProject, settings: settings, to: subtitlesURL)
 
+            let sourceInfo: VideoSourceInfo?
+            do {
+                sourceInfo = try await mediaMetadataService.videoSourceInfo(
+                    for: currentProject.mediaFile.originalURL
+                )
+            } catch {
+                sourceInfo = nil
+            }
+
             let outputURL = try await ffmpegService.burnSubtitles(
                 videoURL: currentProject.mediaFile.originalURL,
                 subtitlesURL: subtitlesURL,
                 outputURL: destinationURL,
-                settings: settings
+                settings: settings,
+                sourceInfo: sourceInfo
             )
 
             currentProject.status = .ready
