@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 final class ASSSubtitleExportService {
@@ -8,16 +9,27 @@ final class ASSSubtitleExportService {
         settings: VideoExportSettings
     ) throws -> String {
         let events = segments
-            .sorted { $0.startMs < $1.startMs }
-            .compactMap { segment -> String? in
-                let text = selectedText(for: segment, mode: settings.subtitleTextMode)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !text.isEmpty else {
-                    return nil
+            .sorted { first, second in
+                first.startMs == second.startMs
+                    ? first.index < second.index
+                    : first.startMs < second.startMs
+            }
+            .flatMap { segment -> [String] in
+                guard let layout = BurnedSubtitleLayoutHelper.makeLayout(
+                    for: segment,
+                    settings: settings
+                ) else {
+                    return []
                 }
 
-                let wrappedText = wrapText(text, maxLines: settings.maxLines)
-                return "Dialogue: 0,\(assTimestamp(segment.startMs)),\(assTimestamp(segment.endMs)),Default,,0,0,0,,\(positionOverride(settings))\(escapeText(wrappedText))"
+                var cueEvents: [String] = []
+                if settings.backgroundEnabled {
+                    cueEvents.append(
+                        backgroundEvent(for: segment, layout: layout, settings: settings)
+                    )
+                }
+                cueEvents.append(textEvent(for: segment, layout: layout))
+                return cueEvents
             }
 
         return """
@@ -31,7 +43,8 @@ final class ASSSubtitleExportService {
 
         [V4+ Styles]
         Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-        Style: Default,\(sanitizeFontName(settings.fontName)),\(Int(settings.fontSize)),\(primaryColor(settings)),&H000000FF,\(outlineColor(settings)),\(backgroundColor(settings)),0,0,0,0,100,100,0,0,\(borderStyle(settings)),\(outlineWidth(settings)),\(shadowWidth(settings)),\(alignment(settings.subtitlePosition)),40,40,36,1
+        Style: SubtitleText,\(sanitizeFontName(settings.fontName)),\(max(1, Int(settings.fontSize.rounded()))),\(primaryColor(settings)),&H000000FF,&HFF000000,&HFF000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
+        Style: SubtitleBackground,Arial,1,\(backgroundColor(settings)),&H000000FF,\(borderColor(settings)),\(backgroundColor(settings)),0,0,0,0,100,100,0,0,1,\(backgroundOutlineWidth(settings)),0,7,0,0,0,1
 
         [Events]
         Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -39,16 +52,60 @@ final class ASSSubtitleExportService {
         """
     }
 
-    private func selectedText(for segment: SubtitleSegment, mode: SubtitleTextMode) -> String {
-        switch mode {
-        case .original:
-            return segment.originalText
-        case .translated:
-            return segment.translatedText
-        case .translatedFallbackToOriginal:
-            let translated = segment.translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
-            return translated.isEmpty ? segment.originalText : segment.translatedText
+    private func backgroundEvent(
+        for segment: SubtitleSegment,
+        layout: BurnedSubtitleLayout,
+        settings: VideoExportSettings
+    ) -> String {
+        let originX = Int(layout.backgroundRect.minX.rounded())
+        let originY = Int(layout.backgroundRect.minY.rounded())
+        let drawing = backgroundDrawing(
+            size: layout.backgroundRect.size,
+            cornerRadius: settings.backgroundCornerRadius
+        )
+
+        return "Dialogue: 0,\(assTimestamp(segment.startMs)),\(assTimestamp(segment.endMs)),SubtitleBackground,,0,0,0,,{\\an7\\pos(\(originX),\(originY))\\p1}\(drawing){\\p0}"
+    }
+
+    private func textEvent(
+        for segment: SubtitleSegment,
+        layout: BurnedSubtitleLayout
+    ) -> String {
+        let x = Int(layout.textPosition.x.rounded())
+        let y = Int(layout.textPosition.y.rounded())
+        return "Dialogue: 1,\(assTimestamp(segment.startMs)),\(assTimestamp(segment.endMs)),SubtitleText,,0,0,0,,{\\an5\\pos(\(x),\(y))}\(escapeText(layout.wrappedText))"
+    }
+
+    private func backgroundDrawing(size: CGSize, cornerRadius: Double) -> String {
+        let width = max(1, Int(size.width.rounded()))
+        let height = max(1, Int(size.height.rounded()))
+        guard cornerRadius > 0 else {
+            return "m 0 0 l \(width) 0 l \(width) \(height) l 0 \(height) l 0 0"
         }
+
+        let radius = max(
+            1,
+            min(
+                Int(cornerRadius.rounded()),
+                min(width, height) / 2
+            )
+        )
+        let controlOffset = max(1, Int((Double(radius) * 0.552_284_75).rounded()))
+        let right = width
+        let bottom = height
+
+        return [
+            "m \(radius) 0",
+            "l \(right - radius) 0",
+            "b \(right - radius + controlOffset) 0 \(right) \(radius - controlOffset) \(right) \(radius)",
+            "l \(right) \(bottom - radius)",
+            "b \(right) \(bottom - radius + controlOffset) \(right - radius + controlOffset) \(bottom) \(right - radius) \(bottom)",
+            "l \(radius) \(bottom)",
+            "b \(radius - controlOffset) \(bottom) 0 \(bottom - radius + controlOffset) 0 \(bottom - radius)",
+            "l 0 \(radius)",
+            "b 0 \(radius - controlOffset) \(radius - controlOffset) 0 \(radius) 0"
+        ]
+        .joined(separator: " ")
     }
 
     private func assTimestamp(_ milliseconds: Int) -> String {
@@ -60,72 +117,46 @@ final class ASSSubtitleExportService {
         return String(format: "%d:%02d:%02d.%02d", hours, minutes, seconds, remainder)
     }
 
-    private func alignment(_ position: SubtitlePosition) -> Int {
-        switch position {
-        case .bottom:
-            return 2
-        case .center:
-            return 5
-        case .top:
-            return 8
-        }
-    }
-
     private func primaryColor(_ settings: VideoExportSettings) -> String {
-        assColor(red: settings.textColorRed, green: settings.textColorGreen, blue: settings.textColorBlue, alpha: 0)
-    }
-
-    private func outlineColor(_ settings: VideoExportSettings) -> String {
-        settings.backgroundEnabled ? "&H00000000" : "&H80000000"
-    }
-
-    private func backgroundColor(_ settings: VideoExportSettings) -> String {
-        let alpha = Int((1 - min(max(settings.backgroundOpacity, 0), 1)) * 255)
-        return assColor(
-            red: settings.backgroundColorRed,
-            green: settings.backgroundColorGreen,
-            blue: settings.backgroundColorBlue,
-            alpha: alpha
+        assColor(
+            red: settings.textColorRed,
+            green: settings.textColorGreen,
+            blue: settings.textColorBlue,
+            alpha: 0
         )
     }
 
-    private func borderStyle(_ settings: VideoExportSettings) -> Int {
-        settings.backgroundEnabled ? 3 : 1
+    private func backgroundColor(_ settings: VideoExportSettings) -> String {
+        assColor(
+            red: settings.backgroundColorRed,
+            green: settings.backgroundColorGreen,
+            blue: settings.backgroundColorBlue,
+            alpha: alpha(forOpacity: settings.backgroundOpacity)
+        )
     }
 
-    private func outlineWidth(_ settings: VideoExportSettings) -> Int {
-        settings.backgroundEnabled ? 8 : 2
+    private func borderColor(_ settings: VideoExportSettings) -> String {
+        assColor(
+            red: settings.borderColorRed,
+            green: settings.borderColorGreen,
+            blue: settings.borderColorBlue,
+            alpha: alpha(forOpacity: settings.borderOpacity)
+        )
     }
 
-    private func shadowWidth(_ settings: VideoExportSettings) -> Int {
-        settings.backgroundEnabled ? 0 : 1
-    }
-
-    private func positionOverride(_ settings: VideoExportSettings) -> String {
-        let x = Int((min(max(settings.subtitlePositionX, 0), 1) * 1280).rounded())
-        let y = Int((min(max(settings.subtitlePositionY, 0), 1) * 720).rounded())
-        return "{\\pos(\(x),\(y))}"
-    }
-
-    private func wrapText(_ text: String, maxLines: Int) -> String {
-        let normalized = text
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
-
-        guard maxLines > 1, !normalized.contains("\n") else {
-            return normalized
+    private func backgroundOutlineWidth(_ settings: VideoExportSettings) -> String {
+        guard settings.borderEnabled else {
+            return "0"
         }
 
-        let words = normalized.split(separator: " ").map(String.init)
-        guard words.count > 2 else {
-            return normalized
-        }
+        let width = min(max(settings.borderWidth, 0), 100)
+        let formatted = String(format: "%.2f", width)
+        return formatted
+            .replacingOccurrences(of: #"\.?0+$"#, with: "", options: .regularExpression)
+    }
 
-        let targetLineCount = min(maxLines, words.count)
-        let wordsPerLine = Int(ceil(Double(words.count) / Double(targetLineCount)))
-        return stride(from: 0, to: words.count, by: wordsPerLine)
-            .map { words[$0..<min($0 + wordsPerLine, words.count)].joined(separator: " ") }
-            .joined(separator: "\n")
+    private func alpha(forOpacity opacity: Double) -> Int {
+        Int((1 - min(max(opacity, 0), 1)) * 255)
     }
 
     private func escapeText(_ text: String) -> String {

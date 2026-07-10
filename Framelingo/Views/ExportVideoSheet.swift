@@ -106,7 +106,11 @@ struct ExportVideoSheet: View {
     }
 
     private var previewSection: some View {
-        Section("Preview") {
+        let subtitleShape = RoundedRectangle(
+            cornerRadius: max(0, viewModel.settings.backgroundCornerRadius)
+        )
+
+        return Section("Preview") {
             ZStack(alignment: previewAlignment) {
                 LinearGradient(
                     colors: [Color.black.opacity(0.85), Color.gray.opacity(0.5)],
@@ -121,7 +125,18 @@ struct ExportVideoSheet: View {
                     .lineLimit(viewModel.settings.maxLines)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
-                    .background(previewBackground)
+                    .background(
+                        viewModel.settings.backgroundEnabled
+                            ? subtitleBackgroundColor.opacity(viewModel.settings.backgroundOpacity)
+                            : Color.clear,
+                        in: subtitleShape
+                    )
+                    .overlay(
+                        subtitleShape.stroke(
+                            subtitleBorderColor,
+                            lineWidth: max(0, viewModel.settings.borderWidth)
+                        )
+                    )
                     .padding(18)
             }
             .frame(height: 150)
@@ -208,14 +223,6 @@ struct ExportVideoSheet: View {
         }
     }
 
-    @ViewBuilder
-    private var previewBackground: some View {
-        if viewModel.settings.backgroundEnabled {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(subtitleBackgroundColor.opacity(viewModel.settings.backgroundOpacity))
-        }
-    }
-
     private var subtitleTextColor: Color {
         Color(
             red: min(max(viewModel.settings.textColorRed, 0), 1),
@@ -230,6 +237,19 @@ struct ExportVideoSheet: View {
             green: min(max(viewModel.settings.backgroundColorGreen, 0), 1),
             blue: min(max(viewModel.settings.backgroundColorBlue, 0), 1)
         )
+    }
+
+    private var subtitleBorderColor: Color {
+        guard viewModel.settings.backgroundEnabled, viewModel.settings.borderEnabled else {
+            return .clear
+        }
+
+        return Color(
+            red: min(max(viewModel.settings.borderColorRed, 0), 1),
+            green: min(max(viewModel.settings.borderColorGreen, 0), 1),
+            blue: min(max(viewModel.settings.borderColorBlue, 0), 1)
+        )
+        .opacity(min(max(viewModel.settings.borderOpacity, 0), 1))
     }
 
     private var errorAlertText: String {

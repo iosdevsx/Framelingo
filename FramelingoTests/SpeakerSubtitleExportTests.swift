@@ -67,6 +67,37 @@ struct SpeakerSubtitleExportTests {
         #expect(!output.contains("[Narrator]"))
     }
 
+    @Test
+    func testVideoAppearanceDoesNotChangeTextSubtitleExports() async throws {
+        let service = FileSubtitleExportService()
+        let formats: [(SubtitleExportKind, String)] = [
+            (.translatedSRT, "srt"),
+            (.translatedVTT, "vtt"),
+            (.txt, "txt")
+        ]
+        var styledProject = project
+        styledProject.videoExportSettings.backgroundCornerRadius = 24
+        styledProject.videoExportSettings.borderEnabled = false
+        styledProject.videoExportSettings.borderOpacity = 0.15
+        styledProject.videoExportSettings.borderWidth = 6
+
+        for (kind, pathExtension) in formats {
+            let baselineURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("baseline-\(UUID().uuidString).\(pathExtension)")
+            let styledURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("styled-\(UUID().uuidString).\(pathExtension)")
+            defer {
+                try? FileManager.default.removeItem(at: baselineURL)
+                try? FileManager.default.removeItem(at: styledURL)
+            }
+
+            try await service.export(project: project, kind: kind, destinationURL: baselineURL)
+            try await service.export(project: styledProject, kind: kind, destinationURL: styledURL)
+
+            #expect(try Data(contentsOf: baselineURL) == Data(contentsOf: styledURL))
+        }
+    }
+
     private var project: Project {
         Project(
             id: UUID(),
