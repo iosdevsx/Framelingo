@@ -136,6 +136,18 @@ final class FFmpegExportArgumentsBuilderTests: XCTestCase {
         XCTAssertEqual(arguments, ["-vf", "ass=/tmp/subs dir/subtitles.ass"])
     }
 
+    func testSubtitlePathPreservesSpacesAndNonLatinCharacters() {
+        let subtitlesPath = "/tmp/Проект с пробелами/日本語 字幕.ass"
+
+        let arguments = FFmpegExportArgumentsBuilder.filterArguments(
+            clips: nil,
+            subtitlesPath: subtitlesPath,
+            includeAudio: true
+        )
+
+        XCTAssertEqual(arguments, ["-vf", "ass=\(subtitlesPath)"])
+    }
+
     func testAudioCodecArgumentsWithoutClipsIsStreamCopy() {
         let arguments = FFmpegExportArgumentsBuilder.audioCodecArguments(clips: nil, includeAudio: true)
 

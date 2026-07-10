@@ -14,6 +14,13 @@ struct VideoExportSettings: Codable, Equatable {
     var backgroundColorGreen: Double = 0
     var backgroundColorBlue: Double = 0
     var backgroundOpacity: Double = 0.55
+    var borderEnabled: Bool = true
+    var borderColorRed: Double = 1
+    var borderColorGreen: Double = 1
+    var borderColorBlue: Double = 1
+    var borderOpacity: Double = 0.35
+    var borderWidth: Double = 1
+    var backgroundCornerRadius: Double = 8
     var maxLines: Int = 2
     var subtitlePositionX: Double = 0.5
     var subtitlePositionY: Double = 0.86
@@ -35,6 +42,13 @@ struct VideoExportSettings: Codable, Equatable {
         backgroundColorGreen: Double = 0,
         backgroundColorBlue: Double = 0,
         backgroundOpacity: Double = 0.55,
+        borderEnabled: Bool = true,
+        borderColorRed: Double = 1,
+        borderColorGreen: Double = 1,
+        borderColorBlue: Double = 1,
+        borderOpacity: Double = 0.35,
+        borderWidth: Double = 1,
+        backgroundCornerRadius: Double = 8,
         maxLines: Int = 2,
         subtitlePositionX: Double = 0.5,
         subtitlePositionY: Double = 0.86,
@@ -55,6 +69,13 @@ struct VideoExportSettings: Codable, Equatable {
         self.backgroundColorGreen = backgroundColorGreen
         self.backgroundColorBlue = backgroundColorBlue
         self.backgroundOpacity = backgroundOpacity
+        self.borderEnabled = borderEnabled
+        self.borderColorRed = borderColorRed
+        self.borderColorGreen = borderColorGreen
+        self.borderColorBlue = borderColorBlue
+        self.borderOpacity = borderOpacity
+        self.borderWidth = borderWidth
+        self.backgroundCornerRadius = backgroundCornerRadius
         self.maxLines = maxLines
         self.subtitlePositionX = subtitlePositionX
         self.subtitlePositionY = subtitlePositionY
@@ -77,6 +98,13 @@ struct VideoExportSettings: Codable, Equatable {
         case backgroundColorGreen
         case backgroundColorBlue
         case backgroundOpacity
+        case borderEnabled
+        case borderColorRed
+        case borderColorGreen
+        case borderColorBlue
+        case borderOpacity
+        case borderWidth
+        case backgroundCornerRadius
         case maxLines
         case subtitlePositionX
         case subtitlePositionY
@@ -101,6 +129,13 @@ struct VideoExportSettings: Codable, Equatable {
         backgroundColorGreen = try container.decodeIfPresent(Double.self, forKey: .backgroundColorGreen) ?? defaults.backgroundColorGreen
         backgroundColorBlue = try container.decodeIfPresent(Double.self, forKey: .backgroundColorBlue) ?? defaults.backgroundColorBlue
         backgroundOpacity = try container.decodeIfPresent(Double.self, forKey: .backgroundOpacity) ?? defaults.backgroundOpacity
+        borderEnabled = try container.decodeIfPresent(Bool.self, forKey: .borderEnabled) ?? defaults.borderEnabled
+        borderColorRed = try container.decodeIfPresent(Double.self, forKey: .borderColorRed) ?? defaults.borderColorRed
+        borderColorGreen = try container.decodeIfPresent(Double.self, forKey: .borderColorGreen) ?? defaults.borderColorGreen
+        borderColorBlue = try container.decodeIfPresent(Double.self, forKey: .borderColorBlue) ?? defaults.borderColorBlue
+        borderOpacity = try container.decodeIfPresent(Double.self, forKey: .borderOpacity) ?? defaults.borderOpacity
+        borderWidth = try container.decodeIfPresent(Double.self, forKey: .borderWidth) ?? defaults.borderWidth
+        backgroundCornerRadius = try container.decodeIfPresent(Double.self, forKey: .backgroundCornerRadius) ?? defaults.backgroundCornerRadius
         maxLines = try container.decodeIfPresent(Int.self, forKey: .maxLines) ?? defaults.maxLines
         subtitlePositionX = try container.decodeIfPresent(Double.self, forKey: .subtitlePositionX) ?? defaults.subtitlePositionX
         subtitlePositionY = try container.decodeIfPresent(Double.self, forKey: .subtitlePositionY) ?? defaults.subtitlePositionY

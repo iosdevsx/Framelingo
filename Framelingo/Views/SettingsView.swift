@@ -392,6 +392,32 @@ struct SettingsView: View {
                         Slider(value: videoExportSettingsBinding(\.backgroundOpacity), in: 0...1, step: 0.05)
                             .frame(width: 200)
                     }
+
+                    cardDivider
+                    settingsRow(label: "Corner Radius · \(Int(viewModel.currentVideoExportSettings.backgroundCornerRadius.rounded()))px") {
+                        Slider(value: videoExportSettingsBinding(\.backgroundCornerRadius), in: 0...32, step: 1)
+                            .frame(width: 200)
+                    }
+
+                    cardDivider
+                    settingsRow(label: "Border") {
+                        Toggle("", isOn: videoExportSettingsBinding(\.borderEnabled))
+                            .labelsHidden()
+                    }
+
+                    if viewModel.currentVideoExportSettings.borderEnabled {
+                        cardDivider
+                        settingsRow(label: "Border Width · \(String(format: "%.1f", viewModel.currentVideoExportSettings.borderWidth))px") {
+                            Slider(value: videoExportSettingsBinding(\.borderWidth), in: 0.5...8, step: 0.5)
+                                .frame(width: 200)
+                        }
+
+                        cardDivider
+                        settingsRow(label: "Border Opacity · \(Int((viewModel.currentVideoExportSettings.borderOpacity * 100).rounded()))%") {
+                            Slider(value: videoExportSettingsBinding(\.borderOpacity), in: 0...1, step: 0.05)
+                                .frame(width: 200)
+                        }
+                    }
                 }
 
                 cardDivider
@@ -562,6 +588,9 @@ struct SettingsView: View {
 
     private var subtitleStylePreview: some View {
         let settings = viewModel.currentVideoExportSettings
+        let subtitleShape = RoundedRectangle(
+            cornerRadius: max(0, settings.backgroundCornerRadius)
+        )
 
         return ZStack {
             LinearGradient(
@@ -584,11 +613,13 @@ struct SettingsView: View {
                     settings.backgroundEnabled
                         ? subtitleBackgroundColor(settings).opacity(settings.backgroundOpacity)
                         : Color.clear,
-                    in: RoundedRectangle(cornerRadius: 8)
+                    in: subtitleShape
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.white.opacity(0.28), lineWidth: 1)
+                    subtitleShape.stroke(
+                        subtitleBorderColor(settings),
+                        lineWidth: max(0, settings.borderWidth)
+                    )
                 )
                 .padding()
         }
@@ -724,6 +755,19 @@ struct SettingsView: View {
             green: min(max(settings.backgroundColorGreen, 0), 1),
             blue: min(max(settings.backgroundColorBlue, 0), 1)
         )
+    }
+
+    private func subtitleBorderColor(_ settings: VideoExportSettings) -> Color {
+        guard settings.backgroundEnabled, settings.borderEnabled else {
+            return .clear
+        }
+
+        return Color(
+            red: min(max(settings.borderColorRed, 0), 1),
+            green: min(max(settings.borderColorGreen, 0), 1),
+            blue: min(max(settings.borderColorBlue, 0), 1)
+        )
+        .opacity(min(max(settings.borderOpacity, 0), 1))
     }
 
     private func colorComponents(_ color: Color) -> (red: Double, green: Double, blue: Double) {

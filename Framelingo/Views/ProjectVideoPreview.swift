@@ -15,6 +15,9 @@ struct ProjectVideoPreview: View {
 
     var body: some View {
         let subtitleSettings = project.videoExportSettings
+        let subtitleShape = RoundedRectangle(
+            cornerRadius: max(0, subtitleSettings.backgroundCornerRadius)
+        )
 
         return VStack(alignment: .leading, spacing: 8) {
             ZStack {
@@ -40,11 +43,13 @@ struct ProjectVideoPreview: View {
                                 subtitleSettings.backgroundEnabled
                                     ? subtitleBackgroundSwiftUIColor(subtitleSettings).opacity(subtitleSettings.backgroundOpacity)
                                     : Color.clear,
-                                in: RoundedRectangle(cornerRadius: 8)
+                                in: subtitleShape
                             )
                             .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                                subtitleShape.stroke(
+                                    subtitleBorderSwiftUIColor(subtitleSettings),
+                                    lineWidth: max(0, subtitleSettings.borderWidth)
+                                )
                             )
                             .frame(maxWidth: geometry.size.width * 0.8)
                             .position(
@@ -163,6 +168,19 @@ struct ProjectVideoPreview: View {
             green: clampDouble(settings.backgroundColorGreen, 0...1),
             blue: clampDouble(settings.backgroundColorBlue, 0...1)
         )
+    }
+
+    private func subtitleBorderSwiftUIColor(_ settings: VideoExportSettings) -> Color {
+        guard settings.backgroundEnabled, settings.borderEnabled else {
+            return .clear
+        }
+
+        return Color(
+            red: clampDouble(settings.borderColorRed, 0...1),
+            green: clampDouble(settings.borderColorGreen, 0...1),
+            blue: clampDouble(settings.borderColorBlue, 0...1)
+        )
+        .opacity(clampDouble(settings.borderOpacity, 0...1))
     }
 
     private func clampDouble(_ value: Double, _ range: ClosedRange<Double>) -> Double {
