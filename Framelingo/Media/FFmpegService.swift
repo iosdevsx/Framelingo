@@ -17,11 +17,32 @@ protocol FFmpegService {
         settings: VideoExportSettings,
         sourceInfo: VideoSourceInfo?,
         clips: [ExportClipRange]?,
+        verticalReframe: VerticalReframePlan?,
         progressHandler: FFmpegProgressHandler?
     ) async throws -> URL
 }
 
 extension FFmpegService {
+    func burnSubtitles(
+        videoURL: URL,
+        subtitlesURL: URL,
+        outputURL: URL,
+        settings: VideoExportSettings,
+        sourceInfo: VideoSourceInfo?,
+        clips: [ExportClipRange]?,
+        progressHandler: FFmpegProgressHandler?
+    ) async throws -> URL {
+        try await burnSubtitles(
+            videoURL: videoURL,
+            subtitlesURL: subtitlesURL,
+            outputURL: outputURL,
+            settings: settings,
+            sourceInfo: sourceInfo,
+            clips: clips,
+            verticalReframe: nil,
+            progressHandler: progressHandler
+        )
+    }
     func burnSubtitles(
         videoURL: URL,
         subtitlesURL: URL,
@@ -155,6 +176,7 @@ final class ProcessFFmpegService: FFmpegService {
         settings: VideoExportSettings,
         sourceInfo: VideoSourceInfo?,
         clips: [ExportClipRange]?,
+        verticalReframe: VerticalReframePlan?,
         progressHandler: FFmpegProgressHandler?
     ) async throws -> URL {
         let executableURL = try resolveExecutableURL()
@@ -191,7 +213,8 @@ final class ProcessFFmpegService: FFmpegService {
                 subtitlesPath: subtitlesURL.path,
                 includeAudio: includeAudio,
                 targetSize: targets.size,
-                targetFPS: targets.framesPerSecond
+                targetFPS: targets.framesPerSecond,
+                verticalReframe: verticalReframe
             )
             arguments += [
                 "-c:v", "libx264",

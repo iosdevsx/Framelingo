@@ -17,6 +17,8 @@ struct Project: Identifiable, Codable, Equatable {
     var videoExportSettings: VideoExportSettings
     var speakerExportOptions: SubtitleExportOptions
     var editTimeline: EditTimeline?
+    var shorts: [ShortDefinition]
+    var shortsExportSettings: ShortsExportSettings
 
     var displayName: String {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -73,6 +75,8 @@ struct Project: Identifiable, Codable, Equatable {
         case videoExportSettings
         case speakerExportOptions
         case editTimeline
+        case shorts
+        case shortsExportSettings
     }
 
     init(
@@ -91,7 +95,9 @@ struct Project: Identifiable, Codable, Equatable {
         status: ProcessingStatus,
         videoExportSettings: VideoExportSettings = VideoExportSettings(),
         speakerExportOptions: SubtitleExportOptions = SubtitleExportOptions(),
-        editTimeline: EditTimeline? = nil
+        editTimeline: EditTimeline? = nil,
+        shorts: [ShortDefinition] = [],
+        shortsExportSettings: ShortsExportSettings = ShortsExportSettings()
     ) {
         self.id = id
         self.name = name
@@ -109,6 +115,8 @@ struct Project: Identifiable, Codable, Equatable {
         self.videoExportSettings = videoExportSettings
         self.speakerExportOptions = speakerExportOptions
         self.editTimeline = editTimeline
+        self.shorts = shorts
+        self.shortsExportSettings = shortsExportSettings
     }
 
     init(from decoder: Decoder) throws {
@@ -129,5 +137,7 @@ struct Project: Identifiable, Codable, Equatable {
         videoExportSettings = try container.decodeIfPresent(VideoExportSettings.self, forKey: .videoExportSettings) ?? VideoExportSettings()
         speakerExportOptions = try container.decodeIfPresent(SubtitleExportOptions.self, forKey: .speakerExportOptions) ?? SubtitleExportOptions()
         editTimeline = try container.decodeIfPresent(EditTimeline.self, forKey: .editTimeline)
+        shorts = try container.decodeIfPresent([ShortDefinition].self, forKey: .shorts) ?? []
+        shortsExportSettings = try container.decodeIfPresent(ShortsExportSettings.self, forKey: .shortsExportSettings) ?? ShortsExportSettings()
     }
 }

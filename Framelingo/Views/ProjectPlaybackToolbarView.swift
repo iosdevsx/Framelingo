@@ -42,6 +42,8 @@ struct ProjectPlaybackToolbarView: View {
 
             if mode == .edit {
                 editClipControls
+            } else if mode == .shorts {
+                shortsRangeControls
             } else {
                 Button("Scroll to Playhead", action: onScrollToPlayhead)
             }
@@ -98,6 +100,34 @@ struct ProjectPlaybackToolbarView: View {
         }
 
         return abs(end - start)
+    }
+
+    @ViewBuilder
+    private var shortsRangeControls: some View {
+        Button("Set Start") {
+            viewModel.setShortStartFromPlayhead()
+        }
+        .help("Edit the selected short when the playhead is inside it; otherwise begin a new short")
+
+        Button("Set End") {
+            viewModel.setShortEndFromPlayhead()
+        }
+        .disabled(viewModel.pendingShortStartMs == nil && viewModel.selectedShort == nil)
+        .help("Finish the new short or set the selected short end")
+
+        if let pendingStartMs = viewModel.pendingShortStartMs {
+            Text("New start \(SubtitleTimeFormatter.format(milliseconds: pendingStartMs))")
+                .foregroundStyle(.orange)
+                .monospacedDigit()
+
+            Button("Clear") {
+                viewModel.clearPendingShortRange()
+            }
+        } else if let short = viewModel.selectedShort {
+            Text("Duration \(SubtitleTimeFormatter.format(milliseconds: short.durationMs))")
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
     }
 
     private func durationText(_ durationMs: Int?) -> String {

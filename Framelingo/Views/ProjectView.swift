@@ -62,6 +62,9 @@ struct ProjectView: View {
                 player?.pause()
             }
         }
+        .onChange(of: viewModel.shortsFocusRequest) { _, _ in
+            projectMode = .shorts
+        }
         .onChange(of: focusedEditorField) { oldValue, newValue in
             if oldValue?.textEditSegmentID != newValue?.textEditSegmentID {
                 viewModel.endSubtitleTextEdit()
@@ -214,6 +217,8 @@ struct ProjectView: View {
                         subtitleWorkspace(project, geometry: geometry, timelineHeight: currentTimelineHeight)
                     case .edit:
                         editWorkspace(project, geometry: geometry, timelineHeight: currentTimelineHeight)
+                    case .shorts:
+                        shortsWorkspace(project, geometry: geometry, timelineHeight: currentTimelineHeight)
                     }
                 }
             }
@@ -252,6 +257,7 @@ struct ProjectView: View {
                 onEndTextEditing: { viewModel.endSubtitleTextEdit() }
             )
             .frame(height: visibleTimelineHeight)
+            .timelineKeyboardCommands(onStep: stepTimeline)
         }
         .clipped()
         .animation(waveformToggleAnimation, value: showsSubtitleWaveform)
@@ -323,6 +329,57 @@ struct ProjectView: View {
         .padding(4)
     }
 
+    private func shortsWorkspace(
+        _ project: Project,
+        geometry: GeometryProxy,
+        timelineHeight: Double
+    ) -> some View {
+        VStack(spacing: 0) {
+            ShortsWorkspaceView(
+                project: project,
+                viewModel: viewModel,
+                player: player,
+                onSeek: { seek(to: $0) }
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(minHeight: 260)
+
+            timelineResizeHandle(totalHeight: geometry.size.height)
+
+            unifiedTimelineToolbar(project)
+
+            SubtitleTimelineView(
+                subtitles: subtitlesBinding(project),
+                selectedSegmentID: selectedSegmentBinding,
+                currentTimeMs: viewModel.currentTimeMs,
+                durationMs: viewModel.timelineDurationMs(for: project),
+                waveformPeaks: viewModel.waveformPeaks,
+                speakers: project.speakers,
+                zoomFactor: $subtitleTimelineZoom,
+                scrollToPlayheadRequest: $subtitleScrollToPlayheadRequest,
+                showsWaveform: $showsSubtitleWaveform,
+                onSeek: { seek(to: $0) },
+                onBeginTextEditing: { viewModel.beginSubtitleTextEdit(id: $0) },
+                onTranslatedTextChange: { viewModel.updateTimelineTranslatedText(segmentID: $0, text: $1) },
+                onEndTextEditing: { viewModel.endSubtitleTextEdit() },
+                shortsOverlay: ShortsTimelineOverlayConfig(
+                    shorts: project.shorts,
+                    selectedShortID: viewModel.shortsSelectedShortID,
+                    snapToCues: project.shortsExportSettings.snapToCues,
+                    onSelect: { viewModel.shortsSelectedShortID = $0 },
+                    onCommitRange: { viewModel.updateShortRange(id: $0, startMs: $1, endMs: $2) },
+                    onCreate: { _ = viewModel.addShort(startMs: $0, endMs: $1) }
+                )
+            )
+            .frame(height: timelineHeight)
+            .timelineKeyboardCommands(
+                onStep: stepTimeline,
+                onDelete: viewModel.deleteSelectedShort
+            )
+        }
+        .clipped()
+    }
+
     private func editWorkspace(
         _ project: Project,
         geometry: GeometryProxy,
@@ -353,6 +410,7 @@ struct ProjectView: View {
                     zoomFactor: $editTimelineZoom
                 )
                 .frame(height: timelineHeight)
+                .timelineKeyboardCommands(onStep: stepTimeline)
             } else {
                 ContentUnavailableView(
                     "Video duration is unknown.",
@@ -434,7 +492,10 @@ struct ProjectView: View {
     }
 
     private func clampedTimelineHeight(for totalHeight: Double) -> Double {
-        let maxHeight = max(150, totalHeight - 280)
+        // Reserve the top workspace plus the resize handle and playback
+        // toolbar so an expanded timeline cannot push its lower tracks out of
+        // the visible project area.
+        let maxHeight = max(150, totalHeight - 310)
         return min(max(timelineHeight, 150), min(420, maxHeight))
     }
 
@@ -485,7 +546,7 @@ struct ProjectView: View {
                     if isPlaying {
                         handleEditPlaybackTick(sourceTimeMs: sourceMilliseconds)
                     }
-                } else if projectMode == .subtitles {
+                } else if projectMode == .subtitles || projectMode == .shorts {
                     viewModel.seekTo(ms: sourceMilliseconds)
                 }
             }
@@ -553,6 +614,29 @@ struct ProjectView: View {
         let time = CMTime(seconds: Double(sourceTimeMs) / 1_000, preferredTimescale: 600)
         player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
         editPlaybackClipID = viewModel.editClip(atTimelineTime: timelineMs)?.id
+    }
+
+    private func stepTimeline(by direction: Int) {
+        guard let project = viewModel.project else {
+            return
+        }
+
+        player?.pause()
+        isPlaying = false
+        viewModel.pauseTimeline()
+
+        let targetTimeMs = TimelineFrameStepper.steppedTime(
+            from: viewModel.currentTimeMs,
+            direction: direction,
+            frameRate: viewModel.videoSourceInfo?.nominalFrameRate ?? 30,
+            durationMs: viewModel.timelineDurationMs(for: project)
+        )
+
+        if usesCutAwarePlayback {
+            seekEdit(to: targetTimeMs)
+        } else {
+            seek(to: targetTimeMs)
+        }
     }
 
     private func toggleEditPlayback() {

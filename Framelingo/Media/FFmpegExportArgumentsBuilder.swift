@@ -49,18 +49,58 @@ enum ExportClipPlanResolver {
     }
 }
 
+/// Vertical (9:16) reframing parameters for shorts export. When source
+/// dimensions are known and already match the output aspect, the graph
+/// degenerates to a plain scale (no padding, no cropping).
+struct VerticalReframePlan: Equatable, Sendable {
+    var mode: ShortsReframing
+    /// Horizontal position of the crop window, 0…1 (0.5 = centered). Ignored
+    /// for blur-pad.
+    var cropOffsetX: Double
+    /// Discrete crop changes in short-local time. The last point at or before
+    /// the current frame wins, producing hard cuts rather than animation.
+    var cropKeyframes: [ShortCropKeyframe] = []
+    var outputWidth: Int = ShortsExportSettings.verticalCanvasWidth
+    var outputHeight: Int = ShortsExportSettings.verticalCanvasHeight
+    var sourceWidth: Int?
+    var sourceHeight: Int?
+
+    var sourceMatchesOutputAspect: Bool {
+        guard let sourceWidth, let sourceHeight, sourceWidth > 0, sourceHeight > 0 else {
+            return false
+        }
+
+        let sourceAspect = Double(sourceWidth) / Double(sourceHeight)
+        let outputAspect = Double(outputWidth) / Double(outputHeight)
+        return abs(sourceAspect - outputAspect) < 0.01
+    }
+}
+
 enum FFmpegExportArgumentsBuilder {
     /// Filter arguments for subtitle burn-in. Without clips this is the plain
     /// `-vf ass=…` pass; with clips it becomes a `-filter_complex` graph that
     /// trims each kept range, concatenates them, and burns subtitles on the
     /// concatenated video (which matches the timeline-time subtitle timings).
+    /// A vertical reframe plan always uses `-filter_complex`, composing the
+    /// reframing stages after concat (when cutting) and before the `ass` burn.
     static func filterArguments(
         clips: [ExportClipRange]?,
         subtitlesPath: String,
         includeAudio: Bool,
         targetSize: VideoOutputSize? = nil,
-        targetFPS: Int? = nil
+        targetFPS: Int? = nil,
+        verticalReframe: VerticalReframePlan? = nil
     ) -> [String] {
+        if let verticalReframe {
+            return verticalFilterArguments(
+                clips: clips,
+                subtitlesPath: subtitlesPath,
+                includeAudio: includeAudio,
+                targetFPS: targetFPS,
+                reframe: verticalReframe
+            )
+        }
+
         let videoFilters = outputVideoFilters(
             subtitlesPath: subtitlesPath,
             targetSize: targetSize,
@@ -71,6 +111,96 @@ enum FFmpegExportArgumentsBuilder {
             return ["-vf", videoFilters.joined(separator: ",")]
         }
 
+        var chains = clipChains(clips: clips, includeAudio: includeAudio)
+        chains.append("[vcat]\(videoFilters.joined(separator: ","))[vout]")
+
+        var arguments = ["-filter_complex", chains.joined(separator: ";"), "-map", "[vout]"]
+        if includeAudio {
+            arguments += ["-map", "[acat]"]
+        }
+
+        return arguments
+    }
+
+    private static func verticalFilterArguments(
+        clips: [ExportClipRange]?,
+        subtitlesPath: String,
+        includeAudio: Bool,
+        targetFPS: Int?,
+        reframe: VerticalReframePlan
+    ) -> [String] {
+        let hasClips = clips?.isEmpty == false
+        var chains: [String] = []
+        var videoLabel = "[0:v]"
+        if let clips, hasClips {
+            chains = clipChains(clips: clips, includeAudio: includeAudio)
+            videoLabel = "[vcat]"
+        }
+
+        var stages: [String] = []
+        if let targetFPS, targetFPS > 0 {
+            stages.append("fps=\(targetFPS)")
+        }
+
+        let width = reframe.outputWidth
+        let height = reframe.outputHeight
+        let assFilter = "ass=\(escapedSubtitleFilterPath(subtitlesPath))"
+
+        if reframe.sourceMatchesOutputAspect {
+            stages += ["scale=\(width):\(height)", assFilter]
+            chains.append("\(videoLabel)\(stages.joined(separator: ","))[vout]")
+        } else {
+            switch reframe.mode {
+            case .blurPad:
+                let prefix = stages.isEmpty ? "" : stages.joined(separator: ",") + ","
+                chains.append("\(videoLabel)\(prefix)split[shortmain][shortbgsrc]")
+                chains.append("[shortbgsrc]scale=\(width):\(height):force_original_aspect_ratio=increase,crop=\(width):\(height),boxblur=luma_radius=32:luma_power=2[shortbg]")
+                chains.append("[shortmain]scale=\(width):\(height):force_original_aspect_ratio=decrease:force_divisible_by=2[shortfg]")
+                chains.append("[shortbg][shortfg]overlay=(W-w)/2:(H-h)/2,\(assFilter)[vout]")
+            case .crop:
+                let cropX: String
+                if reframe.cropKeyframes.isEmpty {
+                    cropX = "(iw-out_w)*\(clampedCropOffset(reframe.cropOffsetX))"
+                } else {
+                    cropX = "(iw-out_w)*(\(cropOffsetExpression(for: reframe)))"
+                }
+                stages.append("crop=w='min(iw,ih*\(width)/\(height))':h='min(ih,iw*\(height)/\(width))':x='\(cropX)':y='(ih-out_h)/2'")
+                stages += ["scale=\(width):\(height)", assFilter]
+                chains.append("\(videoLabel)\(stages.joined(separator: ","))[vout]")
+            }
+        }
+
+        var arguments = ["-filter_complex", chains.joined(separator: ";"), "-map", "[vout]"]
+        if hasClips {
+            if includeAudio {
+                arguments += ["-map", "[acat]"]
+            }
+        } else if includeAudio {
+            // Optional mapping: sources without an audio stream export
+            // video-only instead of failing the graph.
+            arguments += ["-map", "0:a?"]
+        }
+
+        return arguments
+    }
+
+    private static func cropOffsetExpression(for reframe: VerticalReframePlan) -> String {
+        var expression = clampedCropOffset(reframe.cropOffsetX)
+
+        for keyframe in reframe.cropKeyframes.sorted(by: { $0.timeMs < $1.timeMs }) {
+            let time = seconds(fromMs: keyframe.timeMs)
+            let offset = String(format: "%.4f", min(max(keyframe.offsetX, 0), 1))
+            expression = "if(gte(t,\(time)),\(offset),\(expression))"
+        }
+
+        return expression
+    }
+
+    private static func clampedCropOffset(_ value: Double) -> String {
+        String(format: "%.4f", min(max(value, 0), 1))
+    }
+
+    private static func clipChains(clips: [ExportClipRange], includeAudio: Bool) -> [String] {
         var chains: [String] = []
         var concatInputs = ""
 
@@ -87,14 +217,7 @@ enum FFmpegExportArgumentsBuilder {
 
         let concatOutputs = includeAudio ? "[vcat][acat]" : "[vcat]"
         chains.append("\(concatInputs)concat=n=\(clips.count):v=1:a=\(includeAudio ? 1 : 0)\(concatOutputs)")
-        chains.append("[vcat]\(videoFilters.joined(separator: ","))[vout]")
-
-        var arguments = ["-filter_complex", chains.joined(separator: ";"), "-map", "[vout]"]
-        if includeAudio {
-            arguments += ["-map", "[acat]"]
-        }
-
-        return arguments
+        return chains
     }
 
     private static func outputVideoFilters(

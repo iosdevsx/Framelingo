@@ -138,6 +138,94 @@ final class AppState: ObservableObject {
         startNextVideoExportIfNeeded()
     }
 
+    /// Enqueues one export job per short into the shared queue. Shorts whose
+    /// range resolves to no content become immediately failed jobs; the rest
+    /// export sequentially and independently.
+    func enqueueShortsExport(
+        project: Project,
+        shorts: [ShortDefinition],
+        sourceInfo: VideoSourceInfo?,
+        destinationDirectory: URL
+    ) {
+        let orderedShorts = shorts.sorted { $0.startMs < $1.startMs }
+        guard !orderedShorts.isEmpty else {
+            return
+        }
+
+        let shortsSettings = project.shortsExportSettings
+        // Encoding comes from the project's export settings; resolution and
+        // frame rate are owned by the vertical reframe target instead.
+        var encodingSettings = project.videoExportSettings
+        encodingSettings.resolution = .original
+        encodingSettings.frameRate = .original
+
+        var reservedPaths: Set<String> = []
+
+        for (position, short) in orderedShorts.enumerated() {
+            let baseName = ShortsFilenameTemplate.baseName(
+                template: shortsSettings.filenameTemplate,
+                projectName: project.displayName,
+                index: position + 1,
+                totalCount: orderedShorts.count,
+                shortTitle: short.title
+            )
+            let outputURL = ShortsFilenameTemplate.availableURL(
+                in: destinationDirectory,
+                baseName: baseName,
+                fileExtension: "mp4",
+                reservedPaths: reservedPaths
+            )
+            reservedPaths.insert(outputURL.path)
+
+            var job = VideoExportJob(
+                id: UUID(),
+                projectName: "\(project.displayName) — \(short.title)",
+                outputURL: outputURL,
+                status: .queued,
+                statusText: "Queued",
+                progress: nil,
+                errorMessage: nil,
+                debugOutput: nil
+            )
+
+            do {
+                let clips = try ShortsClipPlanner.clips(for: short, editTimeline: project.editTimeline)
+                let plan = ShortExportPlan(
+                    clips: clips,
+                    subtitles: ShortsClipPlanner.localizedSubtitles(project.subtitles, for: short),
+                    subtitleStyle: shortsSettings.subtitleStyle,
+                    platform: short.effectivePlatform(default: shortsSettings.platform),
+                    reframe: VerticalReframePlan(
+                        mode: short.effectiveReframing(default: shortsSettings.reframing),
+                        cropOffsetX: short.cropOffsetX,
+                        cropKeyframes: short.cropKeyframes,
+                        sourceWidth: sourceInfo?.width,
+                        sourceHeight: sourceInfo?.height
+                    ),
+                    hookText: short.trimmedHookText,
+                    hookFontSize: shortsSettings.hookFontSize,
+                    durationMs: short.durationMs,
+                    burnSubtitlesIntoVideo: shortsSettings.burnSubtitlesIntoVideo,
+                    writeSRTSidecar: shortsSettings.exportSRTSidecar
+                )
+                videoExportJobs.insert(job, at: 0)
+                videoExportPayloads[job.id] = VideoExportJobPayload(
+                    project: project,
+                    settings: encodingSettings,
+                    sourceInfo: sourceInfo,
+                    shortPlan: plan
+                )
+            } catch {
+                job.status = .failed
+                job.statusText = "Export failed"
+                job.errorMessage = ExportVideoError.editTimelineEmpty.errorDescription
+                videoExportJobs.insert(job, at: 0)
+            }
+        }
+
+        startNextVideoExportIfNeeded()
+    }
+
     func revealVideoExportInFinder(_ job: VideoExportJob) {
         NSWorkspace.shared.activateFileViewerSelecting([job.outputURL])
     }
@@ -246,7 +334,8 @@ final class AppState: ObservableObject {
         let projectSnapshot = payload.project
         let exportSettings = payload.settings
         let exportSourceInfo = payload.sourceInfo
-        let durationMs = Self.exportDurationMs(for: projectSnapshot)
+        let shortPlan = payload.shortPlan
+        let durationMs = shortPlan?.durationMs ?? Self.exportDurationMs(for: projectSnapshot)
 
         let appState = self
         // Detached: long-running FFmpeg export/IO must outlive and ignore the
@@ -258,6 +347,7 @@ final class AppState: ObservableObject {
                     project: projectSnapshot,
                     settings: exportSettings,
                     sourceInfo: exportSourceInfo,
+                    shortPlan: shortPlan,
                     outputURL: outputURL,
                     ffmpegService: ffmpegService,
                     assSubtitleExportService: assSubtitleExportService,
@@ -371,6 +461,23 @@ private struct VideoExportJobPayload {
     var project: Project
     var settings: VideoExportSettings
     var sourceInfo: VideoSourceInfo?
+    var shortPlan: ShortExportPlan?
+}
+
+/// Everything the export worker needs to render one vertical short: the
+/// resolved source clip plan, cues re-timed to the short's local timeline,
+/// vertical styling, reframing, and the optional hook.
+struct ShortExportPlan: Sendable {
+    var clips: [ExportClipRange]
+    var subtitles: [SubtitleSegment]
+    var subtitleStyle: VideoExportSettings
+    var platform: ShortsPlatform
+    var reframe: VerticalReframePlan
+    var hookText: String
+    var hookFontSize: Double
+    var durationMs: Int
+    var burnSubtitlesIntoVideo: Bool
+    var writeSRTSidecar: Bool
 }
 
 private struct VideoExportFailure: Error, Equatable {
@@ -383,6 +490,7 @@ private enum VideoExportWorker {
         project: Project,
         settings: VideoExportSettings,
         sourceInfo: VideoSourceInfo?,
+        shortPlan: ShortExportPlan?,
         outputURL: URL,
         ffmpegService: FFmpegService,
         assSubtitleExportService: ASSSubtitleExportService,
@@ -390,7 +498,9 @@ private enum VideoExportWorker {
         statusHandler: @escaping @Sendable (String) async -> Void,
         progressHandler: @escaping FFmpegProgressHandler
     ) async throws {
-        guard !project.subtitles.isEmpty else {
+        // A short without cues is still a valid export (video + hook only);
+        // full-project export keeps requiring subtitles.
+        guard shortPlan != nil || !project.subtitles.isEmpty else {
             throw ExportVideoError.noSubtitles
         }
 
@@ -399,10 +509,14 @@ private enum VideoExportWorker {
         }
 
         let clips: [ExportClipRange]?
-        do {
-            clips = try ExportClipPlanResolver.clips(for: project)
-        } catch {
-            throw ExportVideoError.editTimelineEmpty
+        if let shortPlan {
+            clips = shortPlan.clips
+        } else {
+            do {
+                clips = try ExportClipPlanResolver.clips(for: project)
+            } catch {
+                throw ExportVideoError.editTimelineEmpty
+            }
         }
 
         await statusHandler("Generating subtitles...")
@@ -413,10 +527,22 @@ private enum VideoExportWorker {
         let subtitlesURL = workingDirectoryURL.appendingPathComponent("subtitles.ass")
 
         do {
-            let ass = try assSubtitleExportService.generateASS(
-                segments: project.subtitles,
-                settings: settings
-            )
+            let ass: String
+            if let shortPlan {
+                ass = assSubtitleExportService.generateVerticalShortsASS(
+                    segments: shortPlan.burnSubtitlesIntoVideo ? shortPlan.subtitles : [],
+                    style: shortPlan.subtitleStyle,
+                    platform: shortPlan.platform,
+                    hookText: shortPlan.hookText,
+                    hookFontSize: shortPlan.hookFontSize,
+                    shortDurationMs: shortPlan.durationMs
+                )
+            } else {
+                ass = try assSubtitleExportService.generateASS(
+                    segments: project.subtitles,
+                    settings: settings
+                )
+            }
             try Data(ass.utf8).write(to: subtitlesURL, options: .atomic)
         } catch {
             throw ExportVideoError.assGenerationFailed
@@ -430,8 +556,21 @@ private enum VideoExportWorker {
             settings: settings,
             sourceInfo: sourceInfo,
             clips: clips,
+            verticalReframe: shortPlan?.reframe,
             progressHandler: progressHandler
         )
+
+        if let shortPlan, shortPlan.writeSRTSidecar, !shortPlan.subtitles.isEmpty {
+            await statusHandler("Writing subtitles file...")
+            var sidecarProject = project
+            sidecarProject.subtitles = shortPlan.subtitles
+            let sidecarURL = outputURL.deletingPathExtension().appendingPathExtension("srt")
+            try await FileSubtitleExportService(fileManager: fileManager).exportSRT(
+                project: sidecarProject,
+                textMode: shortPlan.subtitleStyle.subtitleTextMode,
+                destinationURL: sidecarURL
+            )
+        }
     }
 
     static func failureDetails(for error: Error) -> VideoExportFailure {

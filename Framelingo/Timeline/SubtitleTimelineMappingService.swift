@@ -53,4 +53,69 @@ struct SubtitleTimelineMappingService {
                 .sorted { $0.startMs < $1.startMs }
         )
     }
+
+    /// Re-times shorts ranges with the same interval arithmetic as subtitles
+    /// when a timeline range is ripple-deleted. Shorts fully inside the
+    /// removed range (or left empty) are dropped.
+    func rippleDeleteShorts(
+        shorts: [ShortDefinition],
+        range: VideoCutRange
+    ) -> [ShortDefinition] {
+        let normalizedRange = range.normalized
+        let cutStart = normalizedRange.startMs
+        let cutEnd = normalizedRange.endMs
+        let cutDuration = normalizedRange.durationMs
+
+        guard cutDuration > 0 else {
+            return shorts
+        }
+
+        return shorts.compactMap { short -> ShortDefinition? in
+            var updated = short
+
+            if updated.endMs <= cutStart {
+                // Range is unchanged.
+            } else if updated.startMs >= cutEnd {
+                updated.startMs -= cutDuration
+                updated.endMs -= cutDuration
+            } else if updated.startMs < cutStart && updated.endMs > cutEnd {
+                updated.endMs -= cutDuration
+            } else if updated.startMs < cutStart {
+                updated.endMs = cutStart
+            } else if updated.endMs > cutEnd {
+                updated.startMs = cutStart
+                updated.endMs -= cutDuration
+            } else {
+                return nil
+            }
+
+            guard updated.durationMs > 0 else {
+                return nil
+            }
+
+            updated.cropKeyframes = short.cropKeyframes.compactMap { keyframe in
+                let absoluteTimeMs = short.startMs + keyframe.timeMs
+                let mappedAbsoluteTimeMs: Int
+                if absoluteTimeMs < cutStart {
+                    mappedAbsoluteTimeMs = absoluteTimeMs
+                } else if absoluteTimeMs >= cutEnd {
+                    mappedAbsoluteTimeMs = absoluteTimeMs - cutDuration
+                } else {
+                    return nil
+                }
+
+                let localTimeMs = mappedAbsoluteTimeMs - updated.startMs
+                guard localTimeMs >= 0, localTimeMs <= updated.durationMs else {
+                    return nil
+                }
+
+                var mapped = keyframe
+                mapped.timeMs = localTimeMs
+                return mapped
+            }
+            .sorted { $0.timeMs < $1.timeMs }
+
+            return updated
+        }
+    }
 }

@@ -52,6 +52,85 @@ final class ASSSubtitleExportService {
         """
     }
 
+    /// ASS for vertical shorts export: 1080×1920 PlayRes, subtitle blocks
+    /// clamped into the platform's safe area, and an optional hook title
+    /// rendered on a higher layer just below the top platform UI zone for the
+    /// short's full duration. Segment times must already be in short-local
+    /// time.
+    func generateVerticalShortsASS(
+        segments: [SubtitleSegment],
+        style: VideoExportSettings,
+        platform: ShortsPlatform,
+        hookText: String,
+        hookFontSize: Double,
+        shortDurationMs: Int
+    ) -> String {
+        let events = segments
+            .sorted { first, second in
+                first.startMs == second.startMs
+                    ? first.index < second.index
+                    : first.startMs < second.startMs
+            }
+            .flatMap { segment -> [String] in
+                guard let layout = BurnedSubtitleLayoutHelper.makeVerticalCaptionLayout(
+                    for: segment,
+                    settings: style,
+                    platform: platform
+                ) else {
+                    return []
+                }
+
+                var cueEvents: [String] = []
+                if style.backgroundEnabled {
+                    cueEvents.append(
+                        backgroundEvent(for: segment, layout: layout, settings: style)
+                    )
+                }
+                cueEvents.append(textEvent(for: segment, layout: layout))
+                return cueEvents
+            }
+
+        let hookLayout = BurnedSubtitleLayoutHelper.makeVerticalHookLayout(
+            text: hookText,
+            style: style,
+            hookFontSize: hookFontSize,
+            platform: platform
+        )
+        let hookEvents = hookLayout.map {
+            [hookEvent(layout: $0, durationMs: shortDurationMs)]
+        } ?? []
+
+        return """
+        [Script Info]
+        ScriptType: v4.00+
+        Collisions: Normal
+        PlayResX: \(ShortsExportSettings.verticalCanvasWidth)
+        PlayResY: \(ShortsExportSettings.verticalCanvasHeight)
+        WrapStyle: 2
+        ScaledBorderAndShadow: yes
+
+        [V4+ Styles]
+        Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+        Style: SubtitleText,\(sanitizeFontName(style.fontName)),\(max(1, Int(style.fontSize.rounded()))),\(primaryColor(style)),&H000000FF,&HFF000000,&HFF000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
+        Style: SubtitleBackground,Arial,1,\(backgroundColor(style)),&H000000FF,\(borderColor(style)),\(backgroundColor(style)),0,0,0,0,100,100,0,0,1,\(backgroundOutlineWidth(style)),0,7,0,0,0,1
+        Style: HookText,\(sanitizeFontName(style.fontName)),\(max(1, Int(hookFontSize.rounded()))),&H00FFFFFF,&H000000FF,&H00000000,&HFF000000,-1,0,0,0,100,100,0,0,1,3,0,5,0,0,0,1
+
+        [Events]
+        Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+        \((events + hookEvents).joined(separator: "\n"))
+        """
+    }
+
+    private func hookEvent(
+        layout: BurnedSubtitleLayout,
+        durationMs: Int
+    ) -> String {
+        let centerX = Int(layout.textPosition.x.rounded())
+        let centerY = Int(layout.textPosition.y.rounded())
+
+        return "Dialogue: 2,\(assTimestamp(0)),\(assTimestamp(max(0, durationMs))),HookText,,0,0,0,,{\\an5\\pos(\(centerX),\(centerY))}\(escapeText(layout.wrappedText))"
+    }
+
     private func backgroundEvent(
         for segment: SubtitleSegment,
         layout: BurnedSubtitleLayout,
