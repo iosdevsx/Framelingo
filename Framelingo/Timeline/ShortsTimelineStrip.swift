@@ -73,7 +73,6 @@ struct ShortsTimelineStrip: View {
     let cues: [SubtitleSegment]
     let pxPerMs: CGFloat
     let durationMs: Int
-    let stripTopY: CGFloat
 
     static let stripHeight: CGFloat = 22
 
@@ -119,7 +118,6 @@ struct ShortsTimelineStrip: View {
     private var createArea: some View {
         Color.black.opacity(0.001)
             .frame(width: CGFloat(durationMs) * pxPerMs, height: Self.stripHeight)
-            .offset(y: stripTopY)
             .gesture(
                 DragGesture(minimumDistance: 4)
                     .onChanged { value in
@@ -181,7 +179,7 @@ struct ShortsTimelineStrip: View {
                 alignment: .leading
             )
             .frame(width: width, height: Self.stripHeight - 4)
-            .offset(x: CGFloat(startMs) * pxPerMs, y: stripTopY + 2)
+            .offset(x: CGFloat(startMs) * pxPerMs, y: 2)
     }
 
     private func dragGesture(for short: ShortDefinition, chipWidth: CGFloat) -> some Gesture {

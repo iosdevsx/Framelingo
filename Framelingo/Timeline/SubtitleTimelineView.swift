@@ -237,15 +237,11 @@ struct SubtitleTimelineView: View {
                         targetBucketCount: max(1, Int((viewportWidth * 1.5).rounded()))
                     )
                     .frame(width: width, height: visibleWaveformHeight)
-                    .offset(y: waveformTopY)
-                    .opacity(showsWaveform ? 1 : 0)
                     .clipped()
-                    .overlay(alignment: .leading) {
-                        Rectangle()
-                            .fill(accentBlue.opacity(0.10))
-                            .frame(width: playheadX(pxPerMs: pxPerMs, durationMs: durationMs), height: visibleWaveformHeight)
-                            .allowsHitTesting(false)
-                    }
+                    // Use layout spacing after clipping. Clipping an offset view
+                    // truncates the track by `waveformTopY` (46 pt in Shorts).
+                    .padding(.top, waveformTopY)
+                    .opacity(showsWaveform ? 1 : 0)
 
                     ForEach(visibleSubtitles) { segment in
                         let blockWidth = max(CGFloat(segment.endMs - segment.startMs) * pxPerMs, 12)
@@ -344,10 +340,14 @@ struct SubtitleTimelineView: View {
                             config: shortsOverlay,
                             cues: displaySubtitles,
                             pxPerMs: pxPerMs,
-                            durationMs: durationMs,
-                            stripTopY: shortsTopY
+                            durationMs: durationMs
                         )
-                        .frame(width: width, height: contentHeight, alignment: .topLeading)
+                        .frame(
+                            width: width,
+                            height: ShortsTimelineStrip.stripHeight,
+                            alignment: .topLeading
+                        )
+                        .offset(y: shortsTopY)
                     }
                 }
                 .frame(width: width, height: contentHeight, alignment: .topLeading)
