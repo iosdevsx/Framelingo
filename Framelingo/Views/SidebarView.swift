@@ -57,6 +57,12 @@ struct SidebarView: View {
                     action: { workspaceMode = .videoEditor }
                 )
                 CollapsedSidebarItem(
+                    icon: "rectangle.portrait.badge.plus",
+                    isSelected: workspaceMode == .shorts,
+                    help: "Shorts",
+                    action: { workspaceMode = .shorts }
+                )
+                CollapsedSidebarItem(
                     icon: "gearshape",
                     isSelected: workspaceMode == .settings,
                     help: "Settings",
@@ -150,6 +156,12 @@ struct SidebarView: View {
                 label: "Video editor",
                 isSelected: workspaceMode == .videoEditor,
                 action: { workspaceMode = .videoEditor }
+            )
+            SidebarItem(
+                icon: Image(systemName: "rectangle.portrait.badge.plus"),
+                label: "Shorts",
+                isSelected: workspaceMode == .shorts,
+                action: { workspaceMode = .shorts }
             )
             SidebarItem(
                 icon: Image(systemName: "gearshape"),
@@ -413,5 +425,6 @@ private struct CollapsedSidebarItem: View {
 enum AppWorkspaceMode: Equatable {
     case subtitles
     case videoEditor
+    case shorts
     case settings
 }

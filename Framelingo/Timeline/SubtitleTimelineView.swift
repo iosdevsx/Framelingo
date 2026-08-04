@@ -2,6 +2,37 @@ import AppKit
 import QuartzCore
 import SwiftUI
 
+struct SubtitleTimelineTrackLayout: Equatable {
+    var rulerHeight: CGFloat
+    var shortsHeight: CGFloat
+    var waveformHeight: CGFloat
+    var cueHeight: CGFloat
+
+    var shortsTopY: CGFloat { rulerHeight }
+    var waveformTopY: CGFloat { shortsTopY + shortsHeight }
+    var cueTopY: CGFloat { waveformTopY + waveformHeight + 4 }
+    var minimumContentHeight: CGFloat { cueTopY + cueHeight + 10 }
+
+    static func resolvedWaveformHeight(
+        isVisible: Bool,
+        preferredHeight: CGFloat,
+        availableHeight: CGFloat,
+        rulerHeight: CGFloat,
+        shortsHeight: CGFloat,
+        cueHeight: CGFloat
+    ) -> CGFloat {
+        guard isVisible else {
+            return 0
+        }
+
+        let availableForWaveform = max(
+            0,
+            availableHeight - rulerHeight - shortsHeight - cueHeight - 14
+        )
+        return min(preferredHeight, availableForWaveform)
+    }
+}
+
 struct SubtitleTimelineView: View {
     @Binding var subtitles: [SubtitleSegment]
     @Binding var selectedSegmentID: UUID?
@@ -16,6 +47,7 @@ struct SubtitleTimelineView: View {
     let onBeginTextEditing: (UUID) -> Void
     let onTranslatedTextChange: (UUID, String) -> Void
     let onEndTextEditing: () -> Void
+    var shortsOverlay: ShortsTimelineOverlayConfig?
 
     @State private var dragBaseSubtitles: [SubtitleSegment]?
     @State private var draftSubtitles: [SubtitleSegment]?
@@ -65,9 +97,22 @@ struct SubtitleTimelineView: View {
                         in: allSubtitles,
                         range: visibleRange
                     ))
-                    let visibleWaveformHeight = showsWaveform ? waveformHeight : 0
-                    let contentHeight = max(geometry.size.height, rulerHeight + visibleWaveformHeight + cueTrackHeight + 14)
-                    let blockTopY = rulerHeight + visibleWaveformHeight + 4
+                    let shortsTrackHeight = shortsOverlay == nil ? 0 : ShortsTimelineStrip.stripHeight
+                    let visibleWaveformHeight = SubtitleTimelineTrackLayout.resolvedWaveformHeight(
+                        isVisible: showsWaveform,
+                        preferredHeight: waveformHeight,
+                        availableHeight: geometry.size.height,
+                        rulerHeight: rulerHeight,
+                        shortsHeight: shortsTrackHeight,
+                        cueHeight: cueTrackHeight
+                    )
+                    let trackLayout = SubtitleTimelineTrackLayout(
+                        rulerHeight: rulerHeight,
+                        shortsHeight: shortsTrackHeight,
+                        waveformHeight: visibleWaveformHeight,
+                        cueHeight: cueTrackHeight
+                    )
+                    let contentHeight = max(geometry.size.height, trackLayout.minimumContentHeight)
 
                     timelineScroller(
                         width: timelineWidth,
@@ -79,7 +124,9 @@ struct SubtitleTimelineView: View {
                         contentHeight: contentHeight,
                         visibleWaveformHeight: visibleWaveformHeight,
                         blockHeight: cueTrackHeight,
-                        blockTopY: blockTopY
+                        blockTopY: trackLayout.cueTopY,
+                        waveformTopY: trackLayout.waveformTopY,
+                        shortsTopY: trackLayout.shortsTopY
                     )
                 }
             }
@@ -173,7 +220,9 @@ struct SubtitleTimelineView: View {
         contentHeight: CGFloat,
         visibleWaveformHeight: CGFloat,
         blockHeight: CGFloat,
-        blockTopY: CGFloat
+        blockTopY: CGFloat,
+        waveformTopY: CGFloat,
+        shortsTopY: CGFloat
     ) -> some View {
         ScrollView(.horizontal) {
             ZStack(alignment: .topLeading) {
@@ -188,15 +237,11 @@ struct SubtitleTimelineView: View {
                         targetBucketCount: max(1, Int((viewportWidth * 1.5).rounded()))
                     )
                     .frame(width: width, height: visibleWaveformHeight)
-                    .offset(y: rulerHeight)
-                    .opacity(showsWaveform ? 1 : 0)
                     .clipped()
-                    .overlay(alignment: .leading) {
-                        Rectangle()
-                            .fill(accentBlue.opacity(0.10))
-                            .frame(width: playheadX(pxPerMs: pxPerMs, durationMs: durationMs), height: visibleWaveformHeight)
-                            .allowsHitTesting(false)
-                    }
+                    // Use layout spacing after clipping. Clipping an offset view
+                    // truncates the track by `waveformTopY` (46 pt in Shorts).
+                    .padding(.top, waveformTopY)
+                    .opacity(showsWaveform ? 1 : 0)
 
                     ForEach(visibleSubtitles) { segment in
                         let blockWidth = max(CGFloat(segment.endMs - segment.startMs) * pxPerMs, 12)
@@ -289,6 +334,21 @@ struct SubtitleTimelineView: View {
                     )
                     .frame(width: width, height: contentHeight)
                     .allowsHitTesting(false)
+
+                    if let shortsOverlay {
+                        ShortsTimelineStrip(
+                            config: shortsOverlay,
+                            cues: displaySubtitles,
+                            pxPerMs: pxPerMs,
+                            durationMs: durationMs
+                        )
+                        .frame(
+                            width: width,
+                            height: ShortsTimelineStrip.stripHeight,
+                            alignment: .topLeading
+                        )
+                        .offset(y: shortsTopY)
+                    }
                 }
                 .frame(width: width, height: contentHeight, alignment: .topLeading)
                 .padding(.horizontal, 10)

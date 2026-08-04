@@ -18,6 +18,28 @@ final class FileSubtitleExportService: SubtitleExportService {
             speakerLabels: project.speakerLabels,
             exportOptions: project.speakerExportOptions
         )
+        try write(content, to: destinationURL)
+    }
+
+    func exportSRT(
+        project: Project,
+        textMode: SubtitleTextMode,
+        destinationURL: URL
+    ) async throws {
+        guard !project.subtitles.isEmpty else {
+            throw SubtitleExportError.emptySubtitles
+        }
+
+        let content = subtitlesToSRT(
+            project.subtitles,
+            mode: textMode,
+            speakerLabels: project.speakerLabels,
+            exportOptions: project.speakerExportOptions
+        )
+        try write(content, to: destinationURL)
+    }
+
+    private func write(_ content: String, to destinationURL: URL) throws {
         let data = Data(content.utf8)
         if fileManager.fileExists(atPath: destinationURL.path) {
             try fileManager.removeItem(at: destinationURL)

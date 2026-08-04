@@ -15,6 +15,153 @@ struct BurnedSubtitleLayout: Equatable {
 
 enum BurnedSubtitleLayoutHelper {
     static let defaultScriptSize = CGSize(width: 1_280, height: 720)
+    static let verticalSafeAreaMargin: CGFloat = 24
+
+    static var verticalCanvasSize: CGSize {
+        CGSize(
+            width: CGFloat(ShortsExportSettings.verticalCanvasWidth),
+            height: CGFloat(ShortsExportSettings.verticalCanvasHeight)
+        )
+    }
+
+    /// Resolves wrapping, horizontal canvas bounds, and platform-safe vertical
+    /// placement once for both the Shorts preview and vertical ASS export.
+    static func makeVerticalCaptionLayout(
+        for segment: SubtitleSegment,
+        settings: VideoExportSettings,
+        platform: ShortsPlatform
+    ) -> BurnedSubtitleLayout? {
+        guard let layout = makeLayout(
+            for: segment,
+            settings: settings,
+            scriptSize: verticalCanvasSize
+        ) else {
+            return nil
+        }
+
+        let minY = CGFloat(platform.topSafeAreaFraction) * verticalCanvasSize.height
+            + verticalSafeAreaMargin
+        let maxY = (1 - CGFloat(platform.bottomSafeAreaFraction)) * verticalCanvasSize.height
+            - verticalSafeAreaMargin
+        return clampedVertically(layout, minY: minY, maxY: maxY)
+    }
+
+    /// Preview-only safety net: an unfinished translation must not make the
+    /// draggable caption disappear. Export keeps honoring the selected text
+    /// mode exactly; the editor falls back to shared original cue text.
+    static func makeVerticalPreviewCaptionLayout(
+        for segment: SubtitleSegment,
+        settings: VideoExportSettings,
+        platform: ShortsPlatform
+    ) -> BurnedSubtitleLayout? {
+        if let layout = makeVerticalCaptionLayout(
+            for: segment,
+            settings: settings,
+            platform: platform
+        ) {
+            return layout
+        }
+
+        guard settings.subtitleTextMode == .translated else {
+            return nil
+        }
+
+        var fallbackSettings = settings
+        fallbackSettings.subtitleTextMode = .original
+        return makeVerticalCaptionLayout(
+            for: segment,
+            settings: fallbackSettings,
+            platform: platform
+        )
+    }
+
+    static func normalizedPosition(
+        for layout: BurnedSubtitleLayout,
+        canvasSize: CGSize = verticalCanvasSize
+    ) -> CGPoint {
+        CGPoint(
+            x: layout.textPosition.x / max(1, canvasSize.width),
+            y: layout.textPosition.y / max(1, canvasSize.height)
+        )
+    }
+
+    /// Shifts a layout vertically so its background block stays inside
+    /// [minY, maxY] — shared by vertical export ASS generation and the shorts
+    /// preview so both clamp identically.
+    static func clampedVertically(
+        _ layout: BurnedSubtitleLayout,
+        minY: CGFloat,
+        maxY: CGFloat
+    ) -> BurnedSubtitleLayout {
+        let rect = layout.backgroundRect
+        let upperOrigin = max(minY, maxY - rect.height)
+        let clampedOriginY = clamped(
+            rect.minY,
+            lowerBound: minY,
+            upperBound: upperOrigin
+        )
+        let offsetY = clampedOriginY - rect.minY
+
+        guard offsetY != 0 else {
+            return layout
+        }
+
+        var clamped = layout
+        clamped.backgroundRect = rect.offsetBy(dx: 0, dy: offsetY)
+        clamped.textPosition = CGPoint(
+            x: layout.textPosition.x,
+            y: layout.textPosition.y + offsetY
+        )
+        return clamped
+    }
+
+    /// Shared hook wrapping and placement for the vertical preview and ASS
+    /// export. The block begins immediately below the platform's top safe
+    /// area, using the same 1080×1920 coordinate space in both paths.
+    static func makeVerticalHookLayout(
+        text: String,
+        style: VideoExportSettings,
+        hookFontSize: Double,
+        platform: ShortsPlatform
+    ) -> BurnedSubtitleLayout? {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else {
+            return nil
+        }
+
+        let canvas = verticalCanvasSize
+        var hookStyle = style
+        hookStyle.fontSize = hookFontSize
+        hookStyle.maxLines = 2
+        hookStyle.subtitleTextMode = .original
+        let hookSegment = SubtitleSegment(
+            id: UUID(),
+            index: 0,
+            startMs: 0,
+            endMs: 1,
+            originalText: trimmedText,
+            translatedText: ""
+        )
+        guard var layout = makeLayout(
+            for: hookSegment,
+            settings: hookStyle,
+            scriptSize: canvas
+        ) else {
+            return nil
+        }
+
+        let topLimit = CGFloat(platform.topSafeAreaFraction) * canvas.height
+            + verticalSafeAreaMargin
+        let desiredCenter = CGPoint(
+            x: canvas.width / 2,
+            y: topLimit + layout.backgroundRect.height / 2
+        )
+        let offsetX = desiredCenter.x - layout.textPosition.x
+        let offsetY = desiredCenter.y - layout.textPosition.y
+        layout.backgroundRect = layout.backgroundRect.offsetBy(dx: offsetX, dy: offsetY)
+        layout.textPosition = desiredCenter
+        return layout
+    }
 
     private static let horizontalPadding: CGFloat = 14
     private static let verticalPadding: CGFloat = 8

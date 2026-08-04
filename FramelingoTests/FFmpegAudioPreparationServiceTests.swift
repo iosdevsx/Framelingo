@@ -80,6 +80,7 @@ private final class CountingFFmpegService: FFmpegService {
         settings: VideoExportSettings,
         sourceInfo: VideoSourceInfo?,
         clips: [ExportClipRange]?,
+        verticalReframe: VerticalReframePlan?,
         progressHandler: FFmpegProgressHandler?
     ) async throws -> URL {
         outputURL

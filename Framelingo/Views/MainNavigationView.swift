@@ -39,7 +39,18 @@ struct MainNavigationView: View {
             switch mode {
             case .videoEditor: projectMode = .edit
             case .subtitles:   projectMode = .subtitles
+            case .shorts:      projectMode = .shorts
             case .settings:    break
+            }
+        }
+        .onChange(of: projectMode) { _, mode in
+            // Keep the sidebar highlight in sync when a workspace switches the
+            // project mode programmatically (e.g. "Create short from cue").
+            switch mode {
+            case .subtitles where workspaceMode != .subtitles: workspaceMode = .subtitles
+            case .edit where workspaceMode != .videoEditor:    workspaceMode = .videoEditor
+            case .shorts where workspaceMode != .shorts:       workspaceMode = .shorts
+            default: break
             }
         }
         .onChange(of: appState.selectedProject?.id) { _, _ in

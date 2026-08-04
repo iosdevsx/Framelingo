@@ -88,6 +88,121 @@ struct BurnedSubtitleLayoutTests {
         #expect(layout.textPosition.y >= 0 && layout.textPosition.y <= scriptSize.height)
     }
 
+    @Test
+    func testVerticalDefaultWrapsWithinEightyPercentAndThreeLines() throws {
+        let layout = try #require(
+            BurnedSubtitleLayoutHelper.makeVerticalCaptionLayout(
+                for: makeSegment(
+                    original: "A readable vertical subtitle wraps automatically across the short without using the regular export style",
+                    translated: ""
+                ),
+                settings: ShortsExportSettings.defaultSubtitleStyle,
+                platform: .youtubeShorts
+            )
+        )
+
+        #expect(layout.wrappedLines.count <= 3)
+        #expect(layout.backgroundRect.width <= 1_080 * 0.8)
+        #expect(layout.backgroundRect.minX >= 0)
+        #expect(layout.backgroundRect.maxX <= 1_080)
+    }
+
+    @Test
+    func testVerticalMultilineTextKeepsConfiguredLineLimit() throws {
+        let layout = try #require(
+            BurnedSubtitleLayoutHelper.makeVerticalCaptionLayout(
+                for: makeSegment(
+                    original: "First paragraph\nSecond paragraph with more words\nThird paragraph",
+                    translated: ""
+                ),
+                settings: ShortsExportSettings.defaultSubtitleStyle,
+                platform: .youtubeShorts
+            )
+        )
+
+        #expect(layout.wrappedLines.count == 3)
+        #expect(layout.wrappedText.contains("\n"))
+    }
+
+    @Test
+    func testVerticalLayoutClampsToEveryPlatformSafeArea() throws {
+        for platform in ShortsPlatform.allCases {
+            var topStyle = ShortsExportSettings.defaultSubtitleStyle
+            topStyle.subtitlePositionY = 0
+            let topLayout = try #require(
+                BurnedSubtitleLayoutHelper.makeVerticalCaptionLayout(
+                    for: makeSegment(original: "Top edge", translated: ""),
+                    settings: topStyle,
+                    platform: platform
+                )
+            )
+            let minimumY = CGFloat(platform.topSafeAreaFraction) * 1_920
+                + BurnedSubtitleLayoutHelper.verticalSafeAreaMargin
+            #expect(topLayout.backgroundRect.minY >= minimumY)
+
+            var bottomStyle = ShortsExportSettings.defaultSubtitleStyle
+            bottomStyle.subtitlePositionY = 1
+            let bottomLayout = try #require(
+                BurnedSubtitleLayoutHelper.makeVerticalCaptionLayout(
+                    for: makeSegment(original: "Bottom edge", translated: ""),
+                    settings: bottomStyle,
+                    platform: platform
+                )
+            )
+            let maximumY = (1 - CGFloat(platform.bottomSafeAreaFraction)) * 1_920
+                - BurnedSubtitleLayoutHelper.verticalSafeAreaMargin
+            #expect(bottomLayout.backgroundRect.maxY <= maximumY)
+        }
+    }
+
+    @Test
+    func testVerticalLayoutClampsHorizontallyAndReportsNormalizedCenter() throws {
+        for requestedX in [-1.0, 2.0] {
+            var style = ShortsExportSettings.defaultSubtitleStyle
+            style.subtitlePositionX = requestedX
+            let layout = try #require(
+                BurnedSubtitleLayoutHelper.makeVerticalCaptionLayout(
+                    for: makeSegment(original: "Horizontal edge subtitle", translated: ""),
+                    settings: style,
+                    platform: .instagramReels
+                )
+            )
+            let normalized = BurnedSubtitleLayoutHelper.normalizedPosition(for: layout)
+
+            #expect(layout.backgroundRect.minX >= 0)
+            #expect(layout.backgroundRect.maxX <= 1_080)
+            #expect(normalized.x == layout.textPosition.x / 1_080)
+            #expect(normalized.y == layout.textPosition.y / 1_920)
+            #expect((0...1).contains(normalized.x))
+            #expect((0...1).contains(normalized.y))
+        }
+    }
+
+    @Test
+    func testVerticalPreviewFallsBackToOriginalWhenTranslationIsEmpty() throws {
+        var style = ShortsExportSettings.defaultSubtitleStyle
+        style.subtitleTextMode = .translated
+        let segment = makeSegment(
+            original: "Shared original caption",
+            translated: ""
+        )
+
+        #expect(BurnedSubtitleLayoutHelper.makeVerticalCaptionLayout(
+            for: segment,
+            settings: style,
+            platform: .youtubeShorts
+        ) == nil)
+
+        let previewLayout = try #require(
+            BurnedSubtitleLayoutHelper.makeVerticalPreviewCaptionLayout(
+                for: segment,
+                settings: style,
+                platform: .youtubeShorts
+            )
+        )
+        #expect(previewLayout.selectedText == "Shared original caption")
+    }
+
     private func makeSegment(original: String, translated: String) -> SubtitleSegment {
         SubtitleSegment(
             id: UUID(),

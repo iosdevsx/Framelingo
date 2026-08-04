@@ -53,6 +53,7 @@ final class FFmpegKitFFmpegService: FFmpegService {
         settings: VideoExportSettings,
         sourceInfo: VideoSourceInfo?,
         clips: [ExportClipRange]?,
+        verticalReframe: VerticalReframePlan?,
         progressHandler: FFmpegProgressHandler?
     ) async throws -> URL {
         let videoAccess = videoURL.startAccessingSecurityScopedResource()
@@ -83,7 +84,8 @@ final class FFmpegKitFFmpegService: FFmpegService {
                 subtitlesPath: subtitlesURL.path,
                 includeAudio: includeAudio,
                 targetSize: targets.size,
-                targetFPS: targets.framesPerSecond
+                targetFPS: targets.framesPerSecond,
+                verticalReframe: verticalReframe
             )
             arguments += codecArguments
             arguments += FFmpegExportArgumentsBuilder.audioCodecArguments(

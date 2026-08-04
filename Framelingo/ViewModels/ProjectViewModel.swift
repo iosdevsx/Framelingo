@@ -15,13 +15,29 @@ final class ProjectViewModel: ObservableObject {
     @Published var isImportingSubtitles = false
     @Published var subtitleImportPreview: SubtitleImportPreview?
     @Published var subtitleImportErrorMessage: String?
-    @Published var selectedSegmentID: UUID?
+    @Published var selectedSegmentID: UUID? {
+        didSet {
+            let updatedSelection = selectedSegmentID.map { Set([$0]) } ?? []
+            if selectedCueIDs != updatedSelection {
+                selectedCueIDs = updatedSelection
+            }
+            cueSelectionAnchorID = selectedSegmentID
+        }
+    }
+    @Published private(set) var selectedCueIDs: Set<UUID> = []
     @Published var currentTimeMs = 0
     @Published var activeSegmentID: UUID?
     @Published var editModeSelectedClipID: UUID?
     @Published var editRangeStartMs: Int?
     @Published var editRangeEndMs: Int?
     @Published var isEditPlaybackEnabled = false
+    @Published var shortsSelectedShortID: UUID?
+    @Published var pendingShortStartMs: Int?
+    @Published var shortsSuggestions: [ShortSuggestion] = []
+    @Published var shortsSuggestionMessage: String?
+    /// Incremented when another workspace asks the UI to switch to Shorts mode
+    /// (e.g. "Create short from cue" in the subtitle editor).
+    @Published var shortsFocusRequest = 0
     @Published private(set) var waveformPeaks: [Double] = []
     @Published private(set) var isPreparingProject = false
     @Published private(set) var projectPreparationProgress = 0.0
@@ -48,6 +64,9 @@ final class ProjectViewModel: ObservableObject {
     private var redoStack: [ProjectUndoSnapshot] = []
     private var activeTextEditSegmentID: UUID?
     private var activeTextEditSnapshot: ProjectUndoSnapshot?
+    private var interactiveShortEditSnapshot: ProjectUndoSnapshot?
+    private var interactiveShortsSubtitleStyleSnapshot: ProjectUndoSnapshot?
+    private var cueSelectionAnchorID: UUID?
     private let undoLimit = 200
     private static let diarizationWarningMessage = "Transcription complete. Speaker analysis failed; subtitle timings were not refined."
 
@@ -65,6 +84,7 @@ final class ProjectViewModel: ObservableObject {
         if project?.id != appState.selectedProject?.id {
             videoSourceInfo = nil
             videoSourceInfoProjectID = nil
+            pendingShortStartMs = nil
         }
         project = appState.selectedProject
     }
@@ -363,7 +383,49 @@ final class ProjectViewModel: ObservableObject {
         updateProject(currentProject, undoActionName: "Rename Speaker")
     }
 
-    func selectSegment(id: UUID?) {
+    func selectSegment(
+        id: UUID?,
+        extendingSelection: Bool = false,
+        togglingSelection: Bool = false
+    ) {
+        guard let id else {
+            selectedSegmentID = nil
+            return
+        }
+
+        if extendingSelection,
+           let project,
+           let anchorID = cueSelectionAnchorID ?? selectedSegmentID,
+           let anchorIndex = project.subtitles.firstIndex(where: { $0.id == anchorID }),
+           let targetIndex = project.subtitles.firstIndex(where: { $0.id == id }) {
+            let lowerBound = min(anchorIndex, targetIndex)
+            let upperBound = max(anchorIndex, targetIndex)
+            selectedSegmentID = id
+            selectedCueIDs = Set(project.subtitles[lowerBound...upperBound].map(\.id))
+            cueSelectionAnchorID = anchorID
+            return
+        }
+
+        if togglingSelection {
+            var updatedSelection = selectedCueIDs
+            if updatedSelection.contains(id) {
+                updatedSelection.remove(id)
+            } else {
+                updatedSelection.insert(id)
+            }
+
+            let primaryID: UUID?
+            if updatedSelection.contains(id) {
+                primaryID = id
+            } else {
+                primaryID = project?.subtitles.first(where: { updatedSelection.contains($0.id) })?.id
+            }
+            selectedSegmentID = primaryID
+            selectedCueIDs = updatedSelection
+            cueSelectionAnchorID = primaryID
+            return
+        }
+
         selectedSegmentID = id
     }
 
@@ -600,6 +662,10 @@ final class ProjectViewModel: ObservableObject {
                 segments: currentProject.subtitles,
                 range: range
             )
+            currentProject.shorts = subtitleTimelineMappingService.rippleDeleteShorts(
+                shorts: currentProject.shorts,
+                range: range
+            )
             editModeSelectedClipID = nil
             clearEditRange()
             seekTo(ms: min(range.startMs, currentProject.editTimeline?.totalDurationMs ?? 0))
@@ -655,6 +721,10 @@ final class ProjectViewModel: ObservableObject {
             )
             currentProject.subtitles = subtitleTimelineMappingService.rippleDeleteSubtitles(
                 segments: currentProject.subtitles,
+                range: range
+            )
+            currentProject.shorts = subtitleTimelineMappingService.rippleDeleteShorts(
+                shorts: currentProject.shorts,
                 range: range
             )
             editModeSelectedClipID = nil
@@ -1422,6 +1492,375 @@ final class ProjectViewModel: ObservableObject {
         }
 
         return false
+    }
+}
+
+// MARK: - Shorts
+
+extension ProjectViewModel {
+    var selectedShort: ShortDefinition? {
+        guard let shortsSelectedShortID else {
+            return nil
+        }
+
+        return project?.shorts.first { $0.id == shortsSelectedShortID }
+    }
+
+    @discardableResult
+    func addShort(
+        startMs: Int,
+        endMs: Int,
+        title: String? = nil,
+        undoActionName: String = "Add Short"
+    ) -> UUID? {
+        guard var currentProject = project, endMs > startMs else {
+            return nil
+        }
+
+        let short = ShortDefinition(
+            title: title ?? defaultShortTitle(for: currentProject),
+            startMs: max(0, startMs),
+            endMs: endMs
+        )
+        currentProject.shorts.append(short)
+        currentProject.shorts.sort { $0.startMs < $1.startMs }
+        updateProject(currentProject, undoActionName: undoActionName)
+        shortsSelectedShortID = short.id
+        return short.id
+    }
+
+    func addShortAtPlayhead() {
+        guard let project else {
+            return
+        }
+
+        let durationMs = timelineDurationMs(for: project)
+        let defaultLengthMs = 30_000
+        let startMs = min(max(0, currentTimeMs), max(0, durationMs - 1_000))
+        let endMs = min(startMs + defaultLengthMs, max(startMs + 1_000, durationMs))
+        pendingShortStartMs = nil
+        addShort(startMs: startMs, endMs: endMs)
+    }
+
+    /// Creates a short spanning all selected cues and asks the UI to switch to
+    /// Shorts mode. A normal single-row selection remains a one-cue range.
+    func createShortFromSelectedCues() {
+        guard let project else {
+            return
+        }
+
+        let selectedIDs = selectedCueIDs.isEmpty
+            ? selectedSegmentID.map { Set([$0]) } ?? []
+            : selectedCueIDs
+        let selectedCues = project.subtitles.filter { selectedIDs.contains($0.id) }
+        guard let startMs = selectedCues.map(\.startMs).min(),
+              let endMs = selectedCues.map(\.endMs).max() else {
+            exportMessage = "Select one or more subtitle cues first."
+            return
+        }
+
+        addShort(
+            startMs: startMs,
+            endMs: endMs,
+            undoActionName: "Create Short from Selection"
+        )
+        shortsFocusRequest += 1
+    }
+
+    func beginInteractiveShortEdit() {
+        guard interactiveShortEditSnapshot == nil, let project else {
+            return
+        }
+
+        interactiveShortEditSnapshot = ProjectUndoSnapshot(
+            project: project,
+            selectedSegmentID: selectedSegmentID,
+            currentTimeMs: currentTimeMs
+        )
+    }
+
+    func endInteractiveShortEdit(undoActionName: String) {
+        guard let snapshot = interactiveShortEditSnapshot else {
+            return
+        }
+        interactiveShortEditSnapshot = nil
+
+        guard let project, project != snapshot.project else {
+            return
+        }
+
+        pushUndoSnapshot(snapshot, actionName: undoActionName)
+    }
+
+    func updateShort(
+        id: UUID,
+        undoActionName: String? = nil,
+        mutate: (inout ShortDefinition) -> Void
+    ) {
+        guard var currentProject = project,
+              let index = currentProject.shorts.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+
+        var short = currentProject.shorts[index]
+        mutate(&short)
+        guard short != currentProject.shorts[index] else {
+            return
+        }
+
+        currentProject.shorts[index] = short
+        currentProject.shorts.sort { $0.startMs < $1.startMs }
+        updateProject(currentProject, undoActionName: undoActionName)
+    }
+
+    func updateShortRange(id: UUID, startMs: Int, endMs: Int) {
+        let updatedStartMs = max(0, startMs)
+        guard endMs > updatedStartMs else {
+            return
+        }
+
+        updateShort(id: id, undoActionName: "Edit Short Range") { short in
+            let oldStartMs = short.startMs
+            let updatedDurationMs = endMs - updatedStartMs
+            short.cropKeyframes = short.cropKeyframes.compactMap { keyframe in
+                let absoluteTimeMs = oldStartMs + keyframe.timeMs
+                let updatedLocalTimeMs = absoluteTimeMs - updatedStartMs
+                guard updatedLocalTimeMs >= 0,
+                      updatedLocalTimeMs <= updatedDurationMs else {
+                    return nil
+                }
+
+                var updatedKeyframe = keyframe
+                updatedKeyframe.timeMs = updatedLocalTimeMs
+                return updatedKeyframe
+            }
+            short.startMs = updatedStartMs
+            short.endMs = endMs
+        }
+    }
+
+    func setSelectedShortStartToPlayhead() {
+        guard let short = selectedShort else {
+            return
+        }
+        guard currentTimeMs >= 0, currentTimeMs <= short.endMs - 1_000 else {
+            exportMessage = "Move the playhead at least one second before the short end."
+            return
+        }
+
+        updateShortRange(id: short.id, startMs: currentTimeMs, endMs: short.endMs)
+    }
+
+    func setSelectedShortEndToPlayhead() {
+        guard let short = selectedShort else {
+            return
+        }
+        guard currentTimeMs >= short.startMs + 1_000 else {
+            exportMessage = "Move the playhead at least one second after the short start."
+            return
+        }
+
+        updateShortRange(id: short.id, startMs: short.startMs, endMs: currentTimeMs)
+    }
+
+    /// In the selected range this edits its start. Outside the selected range
+    /// (or without a selection) it marks the start of a new short, completed by
+    /// the matching Set End command in the Shorts timeline toolbar.
+    func setShortStartFromPlayhead() {
+        if pendingShortStartMs != nil {
+            pendingShortStartMs = max(0, currentTimeMs)
+            return
+        }
+
+        if let short = selectedShort,
+           currentTimeMs >= short.startMs,
+           currentTimeMs <= short.endMs - 1_000 {
+            updateShortRange(id: short.id, startMs: currentTimeMs, endMs: short.endMs)
+            return
+        }
+
+        pendingShortStartMs = max(0, currentTimeMs)
+    }
+
+    func setShortEndFromPlayhead() {
+        if let pendingShortStartMs {
+            guard currentTimeMs >= pendingShortStartMs + 1_000 else {
+                exportMessage = "Move the playhead at least one second after the new short start."
+                return
+            }
+
+            self.pendingShortStartMs = nil
+            addShort(
+                startMs: pendingShortStartMs,
+                endMs: currentTimeMs,
+                undoActionName: "Create Short from Playhead Range"
+            )
+            return
+        }
+
+        setSelectedShortEndToPlayhead()
+    }
+
+    func clearPendingShortRange() {
+        pendingShortStartMs = nil
+    }
+
+    func deleteSelectedShort() {
+        guard let shortsSelectedShortID else {
+            return
+        }
+        deleteShort(id: shortsSelectedShortID)
+    }
+
+    func addCropPointAtPlayhead(shortID: UUID) {
+        guard let short = project?.shorts.first(where: { $0.id == shortID }),
+              currentTimeMs >= short.startMs,
+              currentTimeMs <= short.endMs else {
+            exportMessage = "Move the playhead inside the selected short first."
+            return
+        }
+
+        let offsetX = short.cropOffset(atTimelineTimeMs: currentTimeMs)
+        updateShort(id: shortID, undoActionName: "Add Crop Point") { short in
+            short.upsertCropKeyframe(
+                localTimeMs: currentTimeMs - short.startMs,
+                offsetX: offsetX
+            )
+        }
+    }
+
+    func updateShortCropOffset(
+        id: UUID,
+        timelineTimeMs: Int,
+        offsetX: Double
+    ) {
+        updateShort(id: id) { short in
+            short.upsertCropKeyframe(
+                localTimeMs: timelineTimeMs - short.startMs,
+                offsetX: offsetX
+            )
+        }
+    }
+
+    func deleteShortCropKeyframe(shortID: UUID, keyframeID: UUID) {
+        updateShort(id: shortID, undoActionName: "Delete Crop Point") { short in
+            short.cropKeyframes.removeAll { $0.id == keyframeID }
+        }
+    }
+
+    func deleteShort(id: UUID) {
+        guard var currentProject = project,
+              currentProject.shorts.contains(where: { $0.id == id }) else {
+            return
+        }
+
+        currentProject.shorts.removeAll { $0.id == id }
+        updateProject(currentProject, undoActionName: "Delete Short")
+        if shortsSelectedShortID == id {
+            shortsSelectedShortID = currentProject.shorts.first?.id
+        }
+    }
+
+    func updateShortsExportSettings(_ settings: ShortsExportSettings) {
+        guard var currentProject = project,
+              currentProject.shortsExportSettings != settings else {
+            return
+        }
+
+        currentProject.shortsExportSettings = settings
+        updateProject(currentProject)
+    }
+
+    func updateShortsSubtitleStyle(
+        _ style: VideoExportSettings,
+        registerUndo: Bool = true
+    ) {
+        guard var currentProject = project,
+              currentProject.shortsExportSettings.subtitleStyle != style else {
+            return
+        }
+
+        currentProject.shortsExportSettings.subtitleStyle = style
+        updateProject(
+            currentProject,
+            undoActionName: registerUndo ? "Edit Shorts Subtitle Style" : nil
+        )
+    }
+
+    func beginInteractiveShortsSubtitleStyleEdit() {
+        guard interactiveShortsSubtitleStyleSnapshot == nil, let project else {
+            return
+        }
+
+        interactiveShortsSubtitleStyleSnapshot = ProjectUndoSnapshot(
+            project: project,
+            selectedSegmentID: selectedSegmentID,
+            currentTimeMs: currentTimeMs
+        )
+    }
+
+    func endInteractiveShortsSubtitleStyleEdit(
+        undoActionName: String = "Edit Shorts Subtitle Style"
+    ) {
+        guard let snapshot = interactiveShortsSubtitleStyleSnapshot else {
+            return
+        }
+        interactiveShortsSubtitleStyleSnapshot = nil
+
+        guard let project, project != snapshot.project else {
+            return
+        }
+
+        pushUndoSnapshot(snapshot, actionName: undoActionName)
+    }
+
+    func generateShortsSuggestions() {
+        guard let project else {
+            return
+        }
+
+        shortsSuggestions = ShortsSuggestionService().suggestions(
+            cues: project.subtitles,
+            platform: project.shortsExportSettings.platform,
+            existingShorts: project.shorts
+        )
+        shortsSuggestionMessage = shortsSuggestions.isEmpty
+            ? "No suggestions are available for the current subtitles."
+            : nil
+    }
+
+    func acceptShortSuggestion(_ suggestion: ShortSuggestion) {
+        addShort(
+            startMs: suggestion.startMs,
+            endMs: suggestion.endMs,
+            undoActionName: "Add Suggested Short"
+        )
+        shortsSuggestions.removeAll { $0.id == suggestion.id }
+        shortsSuggestionMessage = nil
+    }
+
+    func dismissShortSuggestion(_ suggestion: ShortSuggestion) {
+        shortsSuggestions.removeAll { $0.id == suggestion.id }
+        if shortsSuggestions.isEmpty {
+            shortsSuggestionMessage = "No more suggestions."
+        }
+    }
+
+    func exportShorts(_ shorts: [ShortDefinition], to destinationDirectory: URL) {
+        guard let project, !shorts.isEmpty else {
+            return
+        }
+
+        appState.enqueueShortsExport(
+            project: project,
+            shorts: shorts,
+            sourceInfo: videoSourceInfo,
+            destinationDirectory: destinationDirectory
+        )
+    }
+
+    private func defaultShortTitle(for project: Project) -> String {
+        "Short \(project.shorts.count + 1)"
     }
 }
 

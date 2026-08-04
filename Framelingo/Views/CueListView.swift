@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct CueListView: View {
@@ -139,6 +140,14 @@ struct CueListView: View {
             LazyVStack(spacing: 0) {
                 ForEach(filtered) { segment in
                     cueRow(for: segment)
+                        .contextMenu {
+                            Button("Create Short from Selection") {
+                                if !viewModel.selectedCueIDs.contains(segment.id) {
+                                    viewModel.selectSegment(id: segment.id)
+                                }
+                                viewModel.createShortFromSelectedCues()
+                            }
+                        }
                         .id(segment.id)
                         .background(
                             GeometryReader { geometry in
@@ -151,7 +160,7 @@ struct CueListView: View {
                 }
             }
         }
-        .coordinateSpace(name: "CueListScroll")
+        .coordinateSpace(.named("CueListScroll"))
     }
 
     private func scrollCueIfNeeded(id: UUID, proxy: ScrollViewProxy) {
@@ -197,14 +206,20 @@ struct CueListView: View {
             index: idx,
             speaker: project.speaker(for: segment),
             speakerLabels: project.speakerLabels,
-            isSelected: viewModel.selectedSegmentID == segment.id,
+            isPrimarySelected: viewModel.selectedSegmentID == segment.id,
+            isIncludedInSelection: viewModel.selectedCueIDs.contains(segment.id),
             isActive: viewModel.activeSegmentID == segment.id,
             showWarnings: showWarnings,
             density: density,
             accent: accent,
             focusedField: focusedField,
             onSelect: {
-                viewModel.selectSegment(id: segment.id)
+                let modifiers = NSEvent.modifierFlags
+                viewModel.selectSegment(
+                    id: segment.id,
+                    extendingSelection: modifiers.contains(.shift),
+                    togglingSelection: modifiers.contains(.command)
+                )
                 onSeek(segment.startMs)
             },
             onUpdate: { updated in
@@ -237,6 +252,11 @@ struct CueListView: View {
                 viewModel.selectSegment(id: viewModel.mergeWithNextSegment(id: id) ?? id)
             }
             .disabled(!canMerge)
+
+            footerButton(label: "Short", icon: "rectangle.portrait.badge.plus") {
+                viewModel.createShortFromSelectedCues()
+            }
+            .disabled(viewModel.selectedCueIDs.isEmpty)
 
             Spacer()
 
@@ -285,7 +305,8 @@ private struct CueRow: View {
     let index: Int
     let speaker: Speaker?
     let speakerLabels: [SpeakerLabel]
-    let isSelected: Bool
+    let isPrimarySelected: Bool
+    let isIncludedInSelection: Bool
     let isActive: Bool
     let showWarnings: Bool
     let density: EditorDensity
@@ -309,7 +330,7 @@ private struct CueRow: View {
         HStack(spacing: 0) {
             // Selection accent bar
             Rectangle()
-                .fill(isSelected ? accent : Color.clear)
+                .fill(isIncludedInSelection ? accent : Color.clear)
                 .frame(width: 2)
 
             HStack(spacing: 0) {
@@ -318,7 +339,7 @@ private struct CueRow: View {
                     segment: segment,
                     speakerLabels: speakerLabels,
                     isActive: isActive,
-                    isSelected: isSelected,
+                    isSelected: isPrimarySelected,
                     focusedField: focusedField,
                     onSelect: onSelect,
                     onUpdate: onUpdate,
@@ -339,7 +360,9 @@ private struct CueRow: View {
             .padding(.horizontal, 8)
             .frame(minHeight: density == .compact ? 36 : 48)
             .background(
-                isSelected ? accent.opacity(colorScheme == .dark ? 0.13 : 0.08) : Color.clear
+                isIncludedInSelection
+                    ? accent.opacity(colorScheme == .dark ? 0.13 : 0.08)
+                    : Color.clear
             )
             .contentShape(Rectangle())
         }
