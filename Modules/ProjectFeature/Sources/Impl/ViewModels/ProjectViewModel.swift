@@ -1,4 +1,5 @@
 import Combine
+import Application
 import Foundation
 import Project
 import Settings
@@ -8,16 +9,16 @@ import Timeline
 import VideoRendering
 
 @MainActor
-public final class ProjectViewModel: ObservableObject {
-    @Published public var project: Project?
-    @Published public var autosaveErrorMessage: String?
-    @Published public var exportMessage: String?
-    @Published public var isTranscribing = false
-    @Published public var isTranslating = false
-    @Published public var isImportingSubtitles = false
-    @Published public var subtitleImportPreview: SubtitleImportPreview?
-    @Published public var subtitleImportErrorMessage: String?
-    @Published public var selectedSegmentID: UUID? {
+final class ProjectViewModel: ObservableObject {
+    @Published var project: Project?
+    @Published var autosaveErrorMessage: String?
+    @Published var exportMessage: String?
+    @Published var isTranscribing = false
+    @Published var isTranslating = false
+    @Published var isImportingSubtitles = false
+    @Published var subtitleImportPreview: SubtitleImportPreview?
+    @Published var subtitleImportErrorMessage: String?
+    @Published var selectedSegmentID: UUID? {
         didSet {
             let updatedSelection = selectedSegmentID.map { Set([$0]) } ?? []
             if selectedCueIDs != updatedSelection {
@@ -26,30 +27,30 @@ public final class ProjectViewModel: ObservableObject {
             cueSelectionAnchorID = selectedSegmentID
         }
     }
-    @Published public private(set) var selectedCueIDs: Set<UUID> = []
-    @Published public var currentTimeMs = 0
-    @Published public var activeSegmentID: UUID?
-    @Published public var editModeSelectedClipID: UUID?
-    @Published public var editRangeStartMs: Int?
-    @Published public var editRangeEndMs: Int?
-    @Published public var isEditPlaybackEnabled = false
-    @Published public var shortsSelectedShortID: UUID?
-    @Published public var pendingShortStartMs: Int?
-    @Published public var shortsSuggestions: [ShortSuggestion] = []
-    @Published public var shortsSuggestionMessage: String?
+    @Published private(set) var selectedCueIDs: Set<UUID> = []
+    @Published var currentTimeMs = 0
+    @Published var activeSegmentID: UUID?
+    @Published var editModeSelectedClipID: UUID?
+    @Published var editRangeStartMs: Int?
+    @Published var editRangeEndMs: Int?
+    @Published var isEditPlaybackEnabled = false
+    @Published var shortsSelectedShortID: UUID?
+    @Published var pendingShortStartMs: Int?
+    @Published var shortsSuggestions: [ShortSuggestion] = []
+    @Published var shortsSuggestionMessage: String?
     /// Incremented when another workspace asks the UI to switch to Shorts mode
     /// (e.g. "Create short from cue" in the subtitle editor).
-    @Published public var shortsFocusRequest = 0
-    @Published public private(set) var waveformPeaks: [Double] = []
-    @Published public private(set) var isPreparingProject = false
-    @Published public private(set) var projectPreparationProgress = 0.0
-    @Published public private(set) var projectPreparationStatus = "Preparing project..."
-    @Published public private(set) var videoSourceInfo: VideoSourceInfo?
-    @Published public private(set) var canUndo = false
-    @Published public private(set) var canRedo = false
+    @Published var shortsFocusRequest = 0
+    @Published private(set) var waveformPeaks: [Double] = []
+    @Published private(set) var isPreparingProject = false
+    @Published private(set) var projectPreparationProgress = 0.0
+    @Published private(set) var projectPreparationStatus = "Preparing project..."
+    @Published private(set) var videoSourceInfo: VideoSourceInfo?
+    @Published private(set) var canUndo = false
+    @Published private(set) var canRedo = false
 
-    public let availableLanguages = ["English", "Russian", "Spanish", "French", "German", "Italian", "Portuguese", "Chinese", "Japanese", "Korean"]
-    public var settings: AppSettings { appState.settings }
+    let availableLanguages = ["English", "Russian", "Spanish", "French", "German", "Italian", "Portuguese", "Chinese", "Japanese", "Korean"]
+    var settings: AppSettings { appState.settings }
 
     private let appState: AppState
     private let subtitleImportService: any SubtitleImporting
@@ -62,7 +63,7 @@ public final class ProjectViewModel: ObservableObject {
     private let projectPreparationWorkflow: any ProjectPreparationWorkflow
     private let projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow
     private let projectTranslationWorkflow: any ProjectTranslationWorkflow
-    private let pickSubtitleFile: SubtitleFilePicker
+    private let pickSubtitleFile: @MainActor () async -> URL?
     private var autosaveTask: Task<Void, Never>?
     private var waveformTask: Task<Void, Never>?
     private var preparedWaveformProjectID: UUID?
@@ -75,9 +76,9 @@ public final class ProjectViewModel: ObservableObject {
     private var cueSelectionAnchorID: UUID?
     private let undoLimit = 200
 
-    public init(
+    init(
         appState: AppState,
-        dependencies: ProjectViewModelDependencies
+        dependencies: ProjectFeatureDependencies
     ) {
         self.appState = appState
         subtitleImportService = dependencies.subtitleImporter
@@ -95,7 +96,7 @@ public final class ProjectViewModel: ObservableObject {
         waveformTask?.cancel()
     }
 
-    public func loadSelectedProject() {
+    func loadSelectedProject() {
         if project?.id != appState.selectedProject?.id {
             videoSourceInfo = nil
             pendingShortStartMs = nil
@@ -103,7 +104,7 @@ public final class ProjectViewModel: ObservableObject {
         project = appState.selectedProject
     }
 
-    public func prepareProjectForEditing() {
+    func prepareProjectForEditing() {
         guard let project else {
             waveformTask?.cancel()
             preparedWaveformProjectID = nil
@@ -158,7 +159,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func undo() {
+    func undo() {
         guard let snapshot = undoStack.popLast(),
               let currentProject = project else {
             refreshUndoState()
@@ -174,7 +175,7 @@ public final class ProjectViewModel: ObservableObject {
         refreshUndoState()
     }
 
-    public func redo() {
+    func redo() {
         guard let snapshot = redoStack.popLast(),
               let currentProject = project else {
             refreshUndoState()
@@ -190,7 +191,7 @@ public final class ProjectViewModel: ObservableObject {
         refreshUndoState()
     }
 
-    public func beginSubtitleTextEdit(id: UUID) {
+    func beginSubtitleTextEdit(id: UUID) {
         guard activeTextEditSegmentID != id else {
             return
         }
@@ -209,12 +210,12 @@ public final class ProjectViewModel: ObservableObject {
         )
     }
 
-    public func endSubtitleTextEdit() {
+    func endSubtitleTextEdit() {
         activeTextEditSegmentID = nil
         activeTextEditSnapshot = nil
     }
 
-    public func updateSubtitle(_ segment: SubtitleSegment) {
+    func updateSubtitle(_ segment: SubtitleSegment) {
         guard var currentProject = project,
               let index = currentProject.subtitles.firstIndex(where: { $0.id == segment.id }) else {
             return
@@ -278,7 +279,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func updateSegmentTiming(id: UUID, startMs: Int, endMs: Int) {
+    func updateSegmentTiming(id: UUID, startMs: Int, endMs: Int) {
         guard var currentProject = project else {
             return
         }
@@ -294,7 +295,7 @@ public final class ProjectViewModel: ObservableObject {
         updateProject(currentProject, undoActionName: "Edit Timing")
     }
 
-    public func moveSegment(id: UUID, deltaMs: Int) {
+    func moveSegment(id: UUID, deltaMs: Int) {
         guard var currentProject = project else {
             return
         }
@@ -309,7 +310,7 @@ public final class ProjectViewModel: ObservableObject {
         updateProject(currentProject, undoActionName: "Move Subtitle")
     }
 
-    public func updateSubtitlesFromTimeline(_ subtitles: [SubtitleSegment]) {
+    func updateSubtitlesFromTimeline(_ subtitles: [SubtitleSegment]) {
         guard var currentProject = project else {
             return
         }
@@ -319,7 +320,7 @@ public final class ProjectViewModel: ObservableObject {
         updateProject(currentProject, undoActionName: "Edit Timeline")
     }
 
-    public func updateTimelineTranslatedText(segmentID: UUID, text: String) {
+    func updateTimelineTranslatedText(segmentID: UUID, text: String) {
         guard var currentProject = project,
               let index = currentProject.subtitles.firstIndex(where: { $0.id == segmentID }),
               currentProject.subtitles[index].translatedText != text else {
@@ -337,7 +338,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func updateSpeakerLabel(id: Int, displayName: String) {
+    func updateSpeakerLabel(id: Int, displayName: String) {
         guard var currentProject = project,
               let index = currentProject.speakerLabels.firstIndex(where: { $0.id == id }) else {
             return
@@ -347,7 +348,7 @@ public final class ProjectViewModel: ObservableObject {
         updateProject(currentProject, undoActionName: "Rename Speaker")
     }
 
-    public func selectSegment(
+    func selectSegment(
         id: UUID?,
         extendingSelection: Bool = false,
         togglingSelection: Bool = false
@@ -393,7 +394,7 @@ public final class ProjectViewModel: ObservableObject {
         selectedSegmentID = id
     }
 
-    public func seekTo(ms: Int) {
+    func seekTo(ms: Int) {
         let updatedTimeMs = max(0, ms)
         let updatedActiveSegmentID = project.map {
             TimelinePerformance.activeSegmentID(at: updatedTimeMs, in: $0.subtitles)
@@ -412,7 +413,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func splitSegment(id: UUID) -> UUID? {
+    func splitSegment(id: UUID) -> UUID? {
         guard var currentProject = project else {
             return nil
         }
@@ -433,7 +434,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func mergeWithNextSegment(id: UUID) -> UUID? {
+    func mergeWithNextSegment(id: UUID) -> UUID? {
         guard var currentProject = project else {
             return nil
         }
@@ -452,7 +453,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func deleteSegment(id: UUID) -> UUID? {
+    func deleteSegment(id: UUID) -> UUID? {
         guard var currentProject = project else {
             return nil
         }
@@ -473,7 +474,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func addSegmentAfter(id: UUID) -> UUID? {
+    func addSegmentAfter(id: UUID) -> UUID? {
         guard var currentProject = project else {
             return nil
         }
@@ -494,7 +495,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func updateSourceLanguage(_ language: String) {
+    func updateSourceLanguage(_ language: String) {
         guard var currentProject = project else {
             return
         }
@@ -503,7 +504,7 @@ public final class ProjectViewModel: ObservableObject {
         updateProject(currentProject, undoActionName: "Change Source Language")
     }
 
-    public func updateTargetLanguage(_ language: String) {
+    func updateTargetLanguage(_ language: String) {
         guard var currentProject = project else {
             return
         }
@@ -512,7 +513,7 @@ public final class ProjectViewModel: ObservableObject {
         updateProject(currentProject, undoActionName: "Change Target Language")
     }
 
-    public func updateVideoExportSettings(_ settings: VideoExportSettings, registerUndo: Bool = true) {
+    func updateVideoExportSettings(_ settings: VideoExportSettings, registerUndo: Bool = true) {
         guard var currentProject = project, currentProject.videoExportSettings != settings else {
             return
         }
@@ -521,7 +522,7 @@ public final class ProjectViewModel: ObservableObject {
         updateProject(currentProject, undoActionName: registerUndo ? "Edit Subtitle Style" : nil)
     }
 
-    public func updateSpeakerExportOptions(_ options: SubtitleExportOptions) {
+    func updateSpeakerExportOptions(_ options: SubtitleExportOptions) {
         guard var currentProject = project, currentProject.speakerExportOptions != options else {
             return
         }
@@ -530,7 +531,7 @@ public final class ProjectViewModel: ObservableObject {
         updateProject(currentProject, undoActionName: "Edit Export Options")
     }
 
-    public func ensureEditTimeline() {
+    func ensureEditTimeline() {
         guard var currentProject = project else {
             return
         }
@@ -548,7 +549,7 @@ public final class ProjectViewModel: ObservableObject {
         updateProject(currentProject)
     }
 
-    public func resolvedEditTimeline(for project: Project) -> EditTimeline? {
+    func resolvedEditTimeline(for project: Project) -> EditTimeline? {
         if let timeline = project.editTimeline, !timeline.isEmpty {
             return timeline
         }
@@ -560,20 +561,20 @@ public final class ProjectViewModel: ObservableObject {
         return editTimelineService.makeInitialTimeline(durationMs: durationMs)
     }
 
-    public func setEditRangeStartFromCurrentTime() {
+    func setEditRangeStartFromCurrentTime() {
         editRangeStartMs = currentTimeMs
     }
 
-    public func setEditRangeEndFromCurrentTime() {
+    func setEditRangeEndFromCurrentTime() {
         editRangeEndMs = currentTimeMs
     }
 
-    public func clearEditRange() {
+    func clearEditRange() {
         editRangeStartMs = nil
         editRangeEndMs = nil
     }
 
-    public func rippleDeleteSelectedRange() {
+    func rippleDeleteSelectedRange() {
         guard var currentProject = project else {
             return
         }
@@ -614,7 +615,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func splitAtCurrentTime() {
+    func splitAtCurrentTime() {
         guard var currentProject = project,
               let timeline = resolvedEditTimeline(for: currentProject) else {
             exportMessage = EditTimelineError.invalidDuration.errorDescription
@@ -637,7 +638,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func deleteSelectedClip() {
+    func deleteSelectedClip() {
         guard var currentProject = project,
               let selectedClipID = editModeSelectedClipID,
               let timeline = resolvedEditTimeline(for: currentProject),
@@ -675,7 +676,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func timelineTimeToSourceTime(_ timelineMs: Int) -> Int? {
+    func timelineTimeToSourceTime(_ timelineMs: Int) -> Int? {
         guard let project,
               let timeline = resolvedEditTimeline(for: project) else {
             return nil
@@ -684,7 +685,7 @@ public final class ProjectViewModel: ObservableObject {
         return editTimelineService.sourceTime(forTimelineTime: timelineMs, in: timeline)
     }
 
-    public func editClip(atTimelineTime timelineMs: Int) -> TimelineClip? {
+    func editClip(atTimelineTime timelineMs: Int) -> TimelineClip? {
         guard let project,
               let timeline = resolvedEditTimeline(for: project) else {
             return nil
@@ -693,7 +694,7 @@ public final class ProjectViewModel: ObservableObject {
         return editTimelineService.clip(atTimelineTime: timelineMs, in: timeline)
     }
 
-    public func editPlaybackAdvance(sourceTimeMs: Int, currentClipID: UUID?) -> EditTimelinePlaybackAdvance? {
+    func editPlaybackAdvance(sourceTimeMs: Int, currentClipID: UUID?) -> EditTimelinePlaybackAdvance? {
         guard let project, let timeline = resolvedEditTimeline(for: project) else {
             return nil
         }
@@ -706,20 +707,20 @@ public final class ProjectViewModel: ObservableObject {
         )
     }
 
-    public func seekTimeline(to ms: Int) {
+    func seekTimeline(to ms: Int) {
         let durationMs = project.map(timelineDurationMs(for:)) ?? 0
         seekTo(ms: min(max(ms, 0), max(durationMs, 0)))
     }
 
-    public func playTimeline() {
+    func playTimeline() {
         isEditPlaybackEnabled = true
     }
 
-    public func pauseTimeline() {
+    func pauseTimeline() {
         isEditPlaybackEnabled = false
     }
 
-    public func transcribe() async {
+    func transcribe() async {
         guard let currentProject = project, !isTranscribing else {
             return
         }
@@ -757,7 +758,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func translate() async {
+    func translate() async {
         guard let currentProject = project, !isTranslating else {
             return
         }
@@ -823,7 +824,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func suggestedExportFileName(for kind: SubtitleExportKind) -> String {
+    func suggestedExportFileName(for kind: SubtitleExportKind) -> String {
         let baseName = project?.displayName
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: " ", with: "-")
@@ -833,7 +834,7 @@ public final class ProjectViewModel: ObservableObject {
         return "\(safeBaseName).\(kind.fileExtension)"
     }
 
-    public func exportSubtitles(kind: SubtitleExportKind, to destinationURL: URL) async {
+    func exportSubtitles(kind: SubtitleExportKind, to destinationURL: URL) async {
         guard let project else {
             exportMessage = "No project selected."
             return
@@ -857,14 +858,14 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func importSubtitlesFromFile() {
+    func importSubtitlesFromFile() {
         Task {
             guard let fileURL = await pickSubtitleFile() else { return }
             await previewSubtitleImport(from: fileURL)
         }
     }
 
-    public func previewSubtitleImport(from fileURL: URL) async {
+    func previewSubtitleImport(from fileURL: URL) async {
         guard !isImportingSubtitles else {
             return
         }
@@ -886,7 +887,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func applySubtitleImport(
+    func applySubtitleImport(
         _ preview: SubtitleImportPreview,
         mode: SubtitleImportMode,
         destination: SubtitleImportDestination = .original
@@ -909,7 +910,7 @@ public final class ProjectViewModel: ObservableObject {
         updateProject(currentProject, undoActionName: "Import Subtitles")
     }
 
-    public func saveProject() async {
+    func saveProject() async {
         guard let project else {
             exportMessage = "No project selected."
             return
@@ -927,7 +928,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func exportProjectFile(to fileURL: URL) {
+    func exportProjectFile(to fileURL: URL) {
         guard let project else {
             exportMessage = "No project selected."
             return
@@ -1028,7 +1029,7 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    public func timelineDurationMs(for project: Project) -> Int {
+    func timelineDurationMs(for project: Project) -> Int {
         if let timelineDurationMs = project.editTimeline?.totalDurationMs, timelineDurationMs > 0 {
             return timelineDurationMs
         }
@@ -1061,7 +1062,7 @@ public final class ProjectViewModel: ObservableObject {
 // MARK: - Shorts
 
 extension ProjectViewModel {
-    public var selectedShort: ShortDefinition? {
+    var selectedShort: ShortDefinition? {
         guard let shortsSelectedShortID else {
             return nil
         }
@@ -1070,7 +1071,7 @@ extension ProjectViewModel {
     }
 
     @discardableResult
-    public func addShort(
+    func addShort(
         startMs: Int,
         endMs: Int,
         title: String? = nil,
@@ -1099,7 +1100,7 @@ extension ProjectViewModel {
         }
     }
 
-    public func addShortAtPlayhead() {
+    func addShortAtPlayhead() {
         guard let project else {
             return
         }
@@ -1114,7 +1115,7 @@ extension ProjectViewModel {
 
     /// Creates a short spanning all selected cues and asks the UI to switch to
     /// Shorts mode. A normal single-row selection remains a one-cue range.
-    public func createShortFromSelectedCues() {
+    func createShortFromSelectedCues() {
         guard let project else {
             return
         }
@@ -1137,7 +1138,7 @@ extension ProjectViewModel {
         shortsFocusRequest += 1
     }
 
-    public func beginInteractiveShortEdit() {
+    func beginInteractiveShortEdit() {
         guard interactiveShortEditSnapshot == nil, let project else {
             return
         }
@@ -1149,7 +1150,7 @@ extension ProjectViewModel {
         )
     }
 
-    public func endInteractiveShortEdit(undoActionName: String) {
+    func endInteractiveShortEdit(undoActionName: String) {
         guard let snapshot = interactiveShortEditSnapshot else {
             return
         }
@@ -1162,7 +1163,7 @@ extension ProjectViewModel {
         pushUndoSnapshot(snapshot, actionName: undoActionName)
     }
 
-    public func updateShort(
+    func updateShort(
         id: UUID,
         undoActionName: String? = nil,
         mutate: (inout ShortDefinition) -> Void
@@ -1189,7 +1190,7 @@ extension ProjectViewModel {
         }
     }
 
-    public func updateShortRange(id: UUID, startMs: Int, endMs: Int) {
+    func updateShortRange(id: UUID, startMs: Int, endMs: Int) {
         guard var currentProject = project else {
             return
         }
@@ -1215,7 +1216,7 @@ extension ProjectViewModel {
         }
     }
 
-    public func setSelectedShortStartToPlayhead() {
+    func setSelectedShortStartToPlayhead() {
         guard let short = selectedShort else {
             return
         }
@@ -1227,7 +1228,7 @@ extension ProjectViewModel {
         updateShortRange(id: short.id, startMs: currentTimeMs, endMs: short.endMs)
     }
 
-    public func setSelectedShortEndToPlayhead() {
+    func setSelectedShortEndToPlayhead() {
         guard let short = selectedShort else {
             return
         }
@@ -1242,7 +1243,7 @@ extension ProjectViewModel {
     /// In the selected range this edits its start. Outside the selected range
     /// (or without a selection) it marks the start of a new short, completed by
     /// the matching Set End command in the Shorts timeline toolbar.
-    public func setShortStartFromPlayhead() {
+    func setShortStartFromPlayhead() {
         if pendingShortStartMs != nil {
             pendingShortStartMs = max(0, currentTimeMs)
             return
@@ -1258,7 +1259,7 @@ extension ProjectViewModel {
         pendingShortStartMs = max(0, currentTimeMs)
     }
 
-    public func setShortEndFromPlayhead() {
+    func setShortEndFromPlayhead() {
         if let pendingShortStartMs {
             guard currentTimeMs >= pendingShortStartMs + 1_000 else {
                 exportMessage = "Move the playhead at least one second after the new short start."
@@ -1277,18 +1278,18 @@ extension ProjectViewModel {
         setSelectedShortEndToPlayhead()
     }
 
-    public func clearPendingShortRange() {
+    func clearPendingShortRange() {
         pendingShortStartMs = nil
     }
 
-    public func deleteSelectedShort() {
+    func deleteSelectedShort() {
         guard let shortsSelectedShortID else {
             return
         }
         deleteShort(id: shortsSelectedShortID)
     }
 
-    public func addCropPointAtPlayhead(shortID: UUID) {
+    func addCropPointAtPlayhead(shortID: UUID) {
         guard let short = project?.shorts.first(where: { $0.id == shortID }),
               currentTimeMs >= short.startMs,
               currentTimeMs <= short.endMs else {
@@ -1317,7 +1318,7 @@ extension ProjectViewModel {
         }
     }
 
-    public func updateShortCropOffset(
+    func updateShortCropOffset(
         id: UUID,
         timelineTimeMs: Int,
         offsetX: Double
@@ -1342,7 +1343,7 @@ extension ProjectViewModel {
         }
     }
 
-    public func deleteShortCropKeyframe(shortID: UUID, keyframeID: UUID) {
+    func deleteShortCropKeyframe(shortID: UUID, keyframeID: UUID) {
         guard var currentProject = project else {
             return
         }
@@ -1362,7 +1363,7 @@ extension ProjectViewModel {
         }
     }
 
-    public func deleteShort(id: UUID) {
+    func deleteShort(id: UUID) {
         guard var currentProject = project else {
             return
         }
@@ -1381,7 +1382,7 @@ extension ProjectViewModel {
         }
     }
 
-    public func updateShortsExportSettings(_ settings: ShortsExportSettings) {
+    func updateShortsExportSettings(_ settings: ShortsExportSettings) {
         guard var currentProject = project,
               currentProject.shortsExportSettings != settings else {
             return
@@ -1391,7 +1392,7 @@ extension ProjectViewModel {
         updateProject(currentProject)
     }
 
-    public func updateShortsSubtitleStyle(
+    func updateShortsSubtitleStyle(
         _ style: VideoExportSettings,
         registerUndo: Bool = true
     ) {
@@ -1407,7 +1408,7 @@ extension ProjectViewModel {
         )
     }
 
-    public func beginInteractiveShortsSubtitleStyleEdit() {
+    func beginInteractiveShortsSubtitleStyleEdit() {
         guard interactiveShortsSubtitleStyleSnapshot == nil, let project else {
             return
         }
@@ -1419,7 +1420,7 @@ extension ProjectViewModel {
         )
     }
 
-    public func endInteractiveShortsSubtitleStyleEdit(
+    func endInteractiveShortsSubtitleStyleEdit(
         undoActionName: String = "Edit Shorts Subtitle Style"
     ) {
         guard let snapshot = interactiveShortsSubtitleStyleSnapshot else {
@@ -1434,7 +1435,7 @@ extension ProjectViewModel {
         pushUndoSnapshot(snapshot, actionName: undoActionName)
     }
 
-    public func generateShortsSuggestions() {
+    func generateShortsSuggestions() {
         guard let project else {
             return
         }
@@ -1449,7 +1450,7 @@ extension ProjectViewModel {
             : nil
     }
 
-    public func acceptShortSuggestion(_ suggestion: ShortSuggestion) {
+    func acceptShortSuggestion(_ suggestion: ShortSuggestion) {
         addShort(
             startMs: suggestion.startMs,
             endMs: suggestion.endMs,
@@ -1459,14 +1460,14 @@ extension ProjectViewModel {
         shortsSuggestionMessage = nil
     }
 
-    public func dismissShortSuggestion(_ suggestion: ShortSuggestion) {
+    func dismissShortSuggestion(_ suggestion: ShortSuggestion) {
         shortsSuggestions.removeAll { $0.id == suggestion.id }
         if shortsSuggestions.isEmpty {
             shortsSuggestionMessage = "No more suggestions."
         }
     }
 
-    public func exportShorts(_ shorts: [ShortDefinition], to destinationDirectory: URL) {
+    func exportShorts(_ shorts: [ShortDefinition], to destinationDirectory: URL) {
         guard let project, !shorts.isEmpty else {
             return
         }

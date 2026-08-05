@@ -4,11 +4,17 @@ import Media
 import Project
 import SpeechToText
 import Subtitles
+import Timeline
 import VideoRendering
 
 public struct MacFeatureDependencies {
     public var appState: AppState
-    public var projectViewModelDependencies: ProjectViewModelDependencies
+    public var subtitleImporter: any SubtitleImporting
+    public var editTimelineService: any EditTimelineEditing
+    public var projectPreparationWorkflow: any ProjectPreparationWorkflow
+    public var projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow
+    public var projectTranslationWorkflow: any ProjectTranslationWorkflow
+    public var pickSubtitleFile: @MainActor () async -> URL?
     public var mediaMetadataProvider: any MediaMetadataProviding
     public var subtitleScriptGenerator: any SubtitleScriptGenerating
     public var makeFFmpegService: FFmpegServiceBuilder
@@ -22,7 +28,12 @@ public struct MacFeatureDependencies {
 
     public init(
         appState: AppState,
-        projectViewModelDependencies: ProjectViewModelDependencies,
+        subtitleImporter: any SubtitleImporting,
+        editTimelineService: any EditTimelineEditing,
+        projectPreparationWorkflow: any ProjectPreparationWorkflow,
+        projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow,
+        projectTranslationWorkflow: any ProjectTranslationWorkflow,
+        pickSubtitleFile: @escaping @MainActor () async -> URL?,
         mediaMetadataProvider: any MediaMetadataProviding,
         subtitleScriptGenerator: any SubtitleScriptGenerating,
         makeFFmpegService: @escaping FFmpegServiceBuilder,
@@ -35,7 +46,12 @@ public struct MacFeatureDependencies {
         mockSubtitles: [SubtitleSegment]
     ) {
         self.appState = appState
-        self.projectViewModelDependencies = projectViewModelDependencies
+        self.subtitleImporter = subtitleImporter
+        self.editTimelineService = editTimelineService
+        self.projectPreparationWorkflow = projectPreparationWorkflow
+        self.projectTranscriptionWorkflow = projectTranscriptionWorkflow
+        self.projectTranslationWorkflow = projectTranslationWorkflow
+        self.pickSubtitleFile = pickSubtitleFile
         self.mediaMetadataProvider = mediaMetadataProvider
         self.subtitleScriptGenerator = subtitleScriptGenerator
         self.makeFFmpegService = makeFFmpegService

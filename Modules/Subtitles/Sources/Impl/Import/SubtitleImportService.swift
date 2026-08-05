@@ -4,7 +4,7 @@ import Subtitles
 
 struct SubtitleImportService: SubtitleImporting {
     func importSubtitles(from fileURL: URL) async throws -> SubtitleImportPreview {
-        // Detached: the only caller (ProjectViewModel, @MainActor) awaits this
+        // Detached: the project workspace caller awaits this
         // synchronously-implemented parse; a plain `Task {}` would inherit that
         // isolation and run the file read + regex-based parsing on the main
         // thread, blocking the UI. Detaching moves the CPU/IO work off MainActor.

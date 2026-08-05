@@ -1,4 +1,5 @@
 import Application
+import ApplicationImpl
 import Foundation
 import Media
 import Project
@@ -9,6 +10,8 @@ import Subtitles
 import Timeline
 import VideoRendering
 import XCTest
+
+@testable import ProjectFeatureImpl
 
 @MainActor
 final class ProjectViewModelTests: XCTestCase {
@@ -328,6 +331,47 @@ final class ProjectViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.exportMessage, message)
         XCTAssertNil(ffmpegService.outputURL)
     }
+
+    func testPreparationResultDoesNotOverwriteNewlySelectedProject() async throws {
+        let original = TestDoubles.project()
+        var replacement = TestDoubles.project()
+        replacement.name = "Replacement"
+        let appState = TestDoubles.appState(project: original)
+        let viewModel = TestDoubles.projectViewModel(
+            appState: appState,
+            projectPreparationWorkflow: DelayedPreparationWorkflow()
+        )
+
+        viewModel.prepareProjectForEditing()
+        appState.selectedProject = replacement
+        appState.recentProjects.append(replacement)
+        viewModel.loadSelectedProject()
+        try await Task.sleep(for: .milliseconds(80))
+
+        XCTAssertEqual(viewModel.project?.id, replacement.id)
+        XCTAssertEqual(viewModel.project?.name, "Replacement")
+    }
+
+    func testTranslationResultDoesNotOverwriteNewlySelectedProject() async throws {
+        let original = TestDoubles.project()
+        var replacement = TestDoubles.project()
+        replacement.name = "Replacement"
+        let appState = TestDoubles.appState(project: original)
+        let viewModel = TestDoubles.projectViewModel(
+            appState: appState,
+            projectTranslationWorkflow: DelayedTranslationWorkflow()
+        )
+
+        let translationTask = Task { await viewModel.translate() }
+        await Task.yield()
+        appState.selectedProject = replacement
+        appState.recentProjects.append(replacement)
+        viewModel.loadSelectedProject()
+        await translationTask.value
+
+        XCTAssertEqual(viewModel.project?.id, replacement.id)
+        XCTAssertEqual(viewModel.project?.name, "Replacement")
+    }
 }
 
 private final class RecordingSubtitleExporter: SubtitleExportService {
@@ -470,4 +514,31 @@ private final class RecordingAudioPreparationService: AudioPreparationService {
     }
 
     func removePreparedAudio(for sourceVideoURL: URL) throws {}
+}
+
+private struct DelayedPreparationWorkflow: ProjectPreparationWorkflow {
+    func prepare(
+        _ request: ProjectPreparationRequest,
+        events: @escaping ProjectProcessingEventHandler
+    ) async throws -> ProjectPreparationOutput {
+        try await Task.sleep(for: .milliseconds(40))
+        await events(.projectChanged(request.project))
+        return ProjectPreparationOutput(
+            project: request.project,
+            waveformPeaks: [1],
+            videoSourceInfo: nil,
+            status: "Project ready"
+        )
+    }
+}
+
+private struct DelayedTranslationWorkflow: ProjectTranslationWorkflow {
+    func translate(
+        _ request: ProjectTranslationRequest,
+        events: @escaping ProjectProcessingEventHandler
+    ) async throws -> ProjectTranslationOutput {
+        try await Task.sleep(for: .milliseconds(40))
+        await events(.projectChanged(request.project))
+        return ProjectTranslationOutput(project: request.project)
+    }
 }

@@ -1,10 +1,13 @@
 import Application
+import ApplicationImpl
 import Foundation
 import Project
 import Shorts
 import Subtitles
 import Timeline
 import XCTest
+
+@testable import ProjectFeatureImpl
 
 @MainActor
 final class ProjectEditingCharacterizationTests: XCTestCase {

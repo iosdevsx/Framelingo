@@ -11,7 +11,7 @@ public enum ProjectFeatureAssembly {
     @MainActor
     public static func makeView(
         appState: AppState,
-        dependencies: ProjectViewModelDependencies,
+        dependencies: ProjectFeatureDependencies,
         projectMode: Binding<ProjectWorkspaceMode>,
         makeExportVideoViewModel: @escaping (Project) -> ExportVideoViewModel
     ) -> some View {
@@ -37,7 +37,7 @@ private struct ProjectFeatureRootView: View {
 
     init(
         appState: AppState,
-        dependencies: ProjectViewModelDependencies,
+        dependencies: ProjectFeatureDependencies,
         projectMode: Binding<ProjectWorkspaceMode>,
         makeExportVideoViewModel: @escaping (Project) -> ExportVideoViewModel
     ) {

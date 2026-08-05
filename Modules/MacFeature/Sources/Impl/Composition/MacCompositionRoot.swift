@@ -72,34 +72,33 @@ enum MacCompositionRoot {
             )
         )
 
-        let projectViewModelDependencies = ProjectViewModelDependencies(
-            subtitleImporter: SubtitlesAssembly.makeImporter(),
-            projectFileService: projectFileService,
-            editTimelineService: TimelineAssembly.makeEditService(),
-            projectPreparationWorkflow: ApplicationWorkflowAssembly.makeProjectPreparationWorkflow(
+        let projectPreparationWorkflow = ApplicationWorkflowAssembly.makeProjectPreparationWorkflow(
                 mediaMetadataProvider: mediaMetadataProvider,
                 waveformLoader: waveformLoader,
                 makeFFmpegService: makeFFmpegService,
                 fileManager: fileManager
-            ),
-            projectTranscriptionWorkflow: ApplicationWorkflowAssembly.makeProjectTranscriptionWorkflow(
+            )
+        let projectTranscriptionWorkflow = ApplicationWorkflowAssembly.makeProjectTranscriptionWorkflow(
                 projectRepository: projectRepository,
                 speechToTextProviderResolver: speechToTextProviderResolver,
                 speakerDiarizationEngine: speakerDiarizationEngine,
                 subtitleAlignmentEngine: subtitleAlignmentEngine,
                 makeFFmpegService: makeFFmpegService,
                 fileManager: fileManager
-            ),
-            projectTranslationWorkflow: ApplicationWorkflowAssembly.makeProjectTranslationWorkflow(
+            )
+        let projectTranslationWorkflow = ApplicationWorkflowAssembly.makeProjectTranslationWorkflow(
                 projectRepository: projectRepository,
                 translationService: translationService
-            ),
-            pickSubtitleFile: pickSubtitleFile
-        )
+            )
 
         return MacFeatureDependencies(
             appState: appState,
-            projectViewModelDependencies: projectViewModelDependencies,
+            subtitleImporter: SubtitlesAssembly.makeImporter(),
+            editTimelineService: TimelineAssembly.makeEditService(),
+            projectPreparationWorkflow: projectPreparationWorkflow,
+            projectTranscriptionWorkflow: projectTranscriptionWorkflow,
+            projectTranslationWorkflow: projectTranslationWorkflow,
+            pickSubtitleFile: pickSubtitleFile,
             mediaMetadataProvider: mediaMetadataProvider,
             subtitleScriptGenerator: subtitleScriptGenerator,
             makeFFmpegService: makeFFmpegService,

@@ -13,7 +13,7 @@ struct LocalWhisperSpeechToTextProvider: SpeechToTextProvider {
     var segmentationService = SubtitleSegmentationService()
     var subtitleParser: any SubtitleParsing
 
-    /// Maps the app's language display names (`ProjectViewModel.availableLanguages`)
+    /// Maps the project workspace's language display names
     /// to whisper.cpp language codes. Unmapped names fall back to auto-detection.
     static let languageCodes: [String: String] = [
         "english": "en",

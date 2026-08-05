@@ -3,15 +3,11 @@ import Media
 import Project
 import Settings
 import SpeakerAnalysis
-import SpeechToText
 import Subtitles
-import Timeline
 import Translation
 import VideoRendering
 
 public typealias FFmpegServiceBuilder = (AppSettings) -> any FFmpegService
-public typealias SubtitleFilePicker = @MainActor () async -> URL?
-
 public struct AppStateDependencies {
     public var projectRepository: any ProjectRepository
     public var subtitleExportService: any SubtitleExportService
@@ -52,33 +48,5 @@ public struct AppStateDependencies {
         self.saveSettings = saveSettings
         self.revealVideoExport = revealVideoExport
         self.copyText = copyText
-    }
-}
-
-public struct ProjectViewModelDependencies {
-    public var subtitleImporter: any SubtitleImporting
-    public var projectFileService: any ProjectFileServicing
-    public var editTimelineService: any EditTimelineEditing
-    public var projectPreparationWorkflow: any ProjectPreparationWorkflow
-    public var projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow
-    public var projectTranslationWorkflow: any ProjectTranslationWorkflow
-    public var pickSubtitleFile: SubtitleFilePicker
-
-    public init(
-        subtitleImporter: any SubtitleImporting,
-        projectFileService: any ProjectFileServicing,
-        editTimelineService: any EditTimelineEditing,
-        projectPreparationWorkflow: any ProjectPreparationWorkflow,
-        projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow,
-        projectTranslationWorkflow: any ProjectTranslationWorkflow,
-        pickSubtitleFile: @escaping SubtitleFilePicker
-    ) {
-        self.subtitleImporter = subtitleImporter
-        self.projectFileService = projectFileService
-        self.editTimelineService = editTimelineService
-        self.projectPreparationWorkflow = projectPreparationWorkflow
-        self.projectTranscriptionWorkflow = projectTranscriptionWorkflow
-        self.projectTranslationWorkflow = projectTranslationWorkflow
-        self.pickSubtitleFile = pickSubtitleFile
     }
 }

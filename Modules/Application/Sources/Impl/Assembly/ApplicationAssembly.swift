@@ -28,11 +28,4 @@ public enum ApplicationAssembly {
             copyText: dependencies.copyText
         )
     }
-
-    public static func makeProjectViewModel(
-        appState: AppState,
-        dependencies: ProjectViewModelDependencies
-    ) -> ProjectViewModel {
-        ProjectViewModel(appState: appState, dependencies: dependencies)
-    }
 }
