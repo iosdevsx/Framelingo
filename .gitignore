@@ -2,6 +2,7 @@
 /whisper.cpp/
 /.omp/
 /build/
+.build/
 /.sparkle-tools/
 xcuserdata/
 *.xcuserstate

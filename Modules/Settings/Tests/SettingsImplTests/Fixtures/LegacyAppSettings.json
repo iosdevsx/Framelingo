@@ -1,0 +1,14 @@
+{
+  "speechToTextProviderName": "Local Whisper",
+  "translationProviderName": "Mock Translation",
+  "ffmpegPath": "/opt/homebrew/bin/ffmpeg",
+  "whisperExecutablePath": "/Applications/Framelingo.app/Contents/Resources/Whisper/whisper-cli",
+  "whisperModelName": "small",
+  "whisperModelPath": "/Users/example/Models/ggml-small.bin",
+  "whisperVADModelPath": "/Users/example/Models/ggml-silero-v5.1.2.bin",
+  "whisperVADEnabled": true,
+  "defaultExportFormat": "srt",
+  "subtitleFontSize": 18,
+  "subtitleBackgroundOpacity": 0.7,
+  "subtitleMaxLines": 3
+}

@@ -1,0 +1,226 @@
+import Subtitles
+import Foundation
+import SpeakerAnalysis
+import Testing
+import SpeechToText
+@testable import SpeechToTextImpl
+
+struct ParakeetSpeechToTextProviderTests {
+    @Test
+    func testUnsupportedLanguageDelegatesToFallback() async throws {
+        let expectedResult = TranscriptionResult(
+            segments: [
+                SubtitleSegment(
+                    id: UUID(),
+                    index: 1,
+                    startMs: 0,
+                    endMs: 1_000,
+                    originalText: "こんにちは",
+                    translatedText: ""
+                )
+            ],
+            words: [],
+            detectedLanguage: "Japanese",
+            durationMs: 1_000
+        )
+        let recorder = ProgressRecorder()
+        let provider = ParakeetSpeechToTextProvider(
+            fallback: StubSpeechToTextProvider(result: expectedResult)
+        )
+
+        let result = try await provider.transcribe(input(
+            audioURL: URL(fileURLWithPath: "/tmp/audio.wav"),
+            sourceLanguage: "Japanese",
+            progressHandler: { _, status in
+                await recorder.record(status)
+            }
+        ))
+
+        #expect(result == expectedResult)
+        let statuses = await recorder.statuses
+        #expect(statuses.contains { $0.contains("using Whisper") })
+    }
+
+    @Test
+    func testUnsupportedLanguageWithoutFallbackThrows() async throws {
+        let provider = ParakeetSpeechToTextProvider(fallback: nil)
+
+        do {
+            _ = try await provider.transcribe(input(
+                audioURL: URL(fileURLWithPath: "/tmp/audio.wav"),
+                sourceLanguage: "ja"
+            ))
+            Issue.record("Expected unsupported language error.")
+        } catch let error as ParakeetTranscriptionError {
+            #expect(error == .unsupportedLanguage("ja"))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test
+    func testNilAudioURLThrowsAudioMissing() async throws {
+        let provider = ParakeetSpeechToTextProvider()
+
+        do {
+            _ = try await provider.transcribe(input(audioURL: nil, sourceLanguage: "ja"))
+            Issue.record("Expected missing audio error.")
+        } catch let error as ParakeetTranscriptionError {
+            #expect(error == .audioMissing)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test
+    func testAudioWindowPlanKeepsShortAudioInSingleWindow() {
+        let windows = ParakeetAudioWindow.plan(
+            duration: 60,
+            windowDuration: 90,
+            overlap: 10
+        )
+
+        #expect(windows == [
+            ParakeetAudioWindow(start: 0, end: 60, commitStart: 0, commitEnd: 60)
+        ])
+    }
+
+    @Test
+    func testAudioWindowPlanSplitsLongAudioWithMidpointCommits() {
+        let windows = ParakeetAudioWindow.plan(
+            duration: 200,
+            windowDuration: 80,
+            overlap: 50
+        )
+
+        #expect(windows == [
+            ParakeetAudioWindow(start: 0, end: 80, commitStart: 0, commitEnd: 55),
+            ParakeetAudioWindow(start: 30, end: 110, commitStart: 55, commitEnd: 85),
+            ParakeetAudioWindow(start: 60, end: 140, commitStart: 85, commitEnd: 115),
+            ParakeetAudioWindow(start: 90, end: 170, commitStart: 115, commitEnd: 145),
+            ParakeetAudioWindow(start: 120, end: 200, commitStart: 145, commitEnd: 175),
+            ParakeetAudioWindow(start: 150, end: 200, commitStart: 175, commitEnd: 190),
+            ParakeetAudioWindow(start: 180, end: 200, commitStart: 190, commitEnd: 200)
+        ])
+    }
+
+    @Test
+    func testAudioWindowCommitRegionUsesWordMidpoint() {
+        let window = ParakeetAudioWindow(start: 30, end: 110, commitStart: 55, commitEnd: 85)
+
+        #expect(window.containsCommitted(WordTiming(text: "inside", start: 54.8, end: 55.4)))
+        #expect(!window.containsCommitted(WordTiming(text: "before", start: 54.0, end: 54.8)))
+        #expect(!window.containsCommitted(WordTiming(text: "after", start: 84.8, end: 85.2)))
+    }
+
+    @Test
+    func testFillLargeGapsUsesBestSingleWindowCandidate() {
+        let primaryWords = [
+            WordTiming(text: "zones", start: 430.24, end: 430.48),
+            WordTiming(text: "Well", start: 442.40, end: 442.64)
+        ]
+        let weakCandidate = [
+            WordTiming(text: "so", start: 430.64, end: 430.80)
+        ]
+        let strongCandidate = [
+            WordTiming(text: "so", start: 430.64, end: 430.80),
+            WordTiming(text: "you", start: 430.80, end: 430.88),
+            WordTiming(text: "can", start: 430.88, end: 431.04),
+            WordTiming(text: "charge", start: 431.04, end: 431.28),
+            WordTiming(text: "battery", start: 431.36, end: 431.76),
+            WordTiming(text: "tough", start: 441.28, end: 441.60),
+            WordTiming(text: "one.", start: 441.60, end: 442.24)
+        ]
+
+        let words = ParakeetSpeechToTextProvider.fillLargeGaps(
+            in: primaryWords,
+            using: [weakCandidate, strongCandidate]
+        )
+
+        #expect(words.map(\.text) == [
+            "zones",
+            "so",
+            "you",
+            "can",
+            "charge",
+            "battery",
+            "tough",
+            "one.",
+            "Well"
+        ])
+    }
+
+    @Test
+    func testFillLargeGapsPreservesPrimaryRepeatedWords() {
+        let primaryWords = [
+            WordTiming(text: "I", start: 457.28, end: 457.44),
+            WordTiming(text: "I", start: 457.44, end: 457.60),
+            WordTiming(text: "started", start: 457.60, end: 458.08),
+            WordTiming(text: "strong", start: 458.32, end: 458.72)
+        ]
+
+        let words = ParakeetSpeechToTextProvider.fillLargeGaps(
+            in: primaryWords,
+            using: []
+        )
+
+        #expect(words.map(\.text) == ["I", "I", "started", "strong"])
+    }
+
+    @Test
+    func testFactorySelectsKnownProvidersAndFallsBackForUnknownName() throws {
+        let fileManager = FileManager.default
+        let directory = fileManager.temporaryDirectory
+            .appendingPathComponent("ParakeetProviderFactoryTests-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let executableURL = directory.appendingPathComponent("whisper-cli")
+        let modelURL = directory.appendingPathComponent("ggml-small.bin")
+        try Data("#!/bin/sh\n".utf8).write(to: executableURL)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executableURL.path)
+        try Data([0x01]).write(to: modelURL)
+
+        let subtitleParser = StubSubtitleParser()
+        var configuration = SpeechToTextProviderConfiguration(
+            providerName: SpeechToTextProviderName.mock
+        )
+        #expect(try SpeechToTextAssembly.makeProvider(
+            configuration: configuration,
+            subtitleParser: subtitleParser
+        ) is MockSpeechToTextProvider)
+
+        configuration.providerName = "Unknown Provider"
+        #expect(try SpeechToTextAssembly.makeProvider(
+            configuration: configuration,
+            subtitleParser: subtitleParser
+        ) is MockSpeechToTextProvider)
+
+        configuration.providerName = SpeechToTextProviderName.localParakeet
+        #expect(try SpeechToTextAssembly.makeProvider(
+            configuration: configuration,
+            subtitleParser: subtitleParser
+        ) is ParakeetSpeechToTextProvider)
+
+        configuration.providerName = SpeechToTextProviderName.localWhisper
+        configuration.whisperExecutableURL = executableURL
+        configuration.whisperModelURL = modelURL
+        configuration.whisperModelName = WhisperModel.small.rawValue
+        #expect(try SpeechToTextAssembly.makeProvider(
+            configuration: configuration,
+            subtitleParser: subtitleParser
+        ) is LocalWhisperSpeechToTextProvider)
+        try fileManager.removeItem(at: directory)
+    }
+
+    private func input(
+        audioURL: URL?,
+        sourceLanguage: String?,
+        progressHandler: TranscriptionProgressHandler? = nil
+    ) -> TranscriptionInput {
+        TranscriptionInput(
+            audioURL: audioURL,
+            videoURL: URL(fileURLWithPath: "/tmp/video.mov"),
+            sourceLanguage: sourceLanguage,
+            progressHandler: progressHandler
+        )
+    }
+}

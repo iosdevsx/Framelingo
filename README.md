@@ -104,34 +104,78 @@ Framelingo поддерживает два движка распознавани
 - **SwiftUI + AppKit + AVFoundation** — интерфейс и воспроизведение видео
 - **whisper.cpp** — локальное мультиязычное распознавание речи
 - **FluidAudio / Parakeet** — ASR и диаризация спикеров
-- **FFmpegKit** — подготовка аудио и рендеринг итогового видео
+- **FFmpegKit** — локальный SPM-пакет `Modules/FFmpeg`; подготовка аудио и рендеринг скрыты за API `VideoRendering`
 - **Sparkle** — безопасные автоматические обновления
 - **XCTest** — модульные тесты таймлайна, импорта, распознавания и экспорта
 
-## Структура проекта
+## Архитектура и структура проекта
+
+Код разделён на независимые локальные Swift Package Manager-пакеты. Каждый
+логический модуль экспортирует API-продукт `<Module>` и реализацию
+`<Module>Impl` из `Sources/Api` и `Sources/Impl`. Доменные и сервисные пакеты
+связываются через API-контракты; concrete implementations выбираются в одном
+macOS composition root.
 
 ```text
-Framelingo/
-├── App/                  # состояние приложения
-├── Models/               # проекты, субтитры, спикеры и настройки
-├── Views/                # SwiftUI-интерфейс
-├── ViewModels/           # логика экранов
-├── SpeechToText/         # Whisper и Parakeet
-├── SpeakerDiarization/   # определение и выравнивание спикеров
-├── Timeline/             # таймлайны субтитров и монтажа
-├── Import/               # импорт файлов субтитров
-├── Export/               # экспорт SRT, VTT, TXT и ASS для рендеринга
-└── Media/                # FFmpeg, метаданные и волновая форма
+Modules/
+├── Subtitles, Timeline, Shorts, SpeakerAnalysis  # domain
+├── Media, Translation, SpeechToText              # processing
+├── VideoRendering, Project, Settings, Application
+├── DesignSystem                                  # tokens + shared components
+├── HomeFeature, ProjectFeature, SettingsFeature, ExportFeature
+├── SubtitleEditorFeature, TimelineFeature, PlayerFeature, ShortsFeature
+├── MacFeature                                    # macOS composition
+└── FFmpeg                                        # vendor binary integration
 
-FramelingoTests/          # модульные тесты
-BundledTools/Whisper/     # встроенный whisper-cli и библиотеки
-External/FFmpegKit/       # встроенные FFmpeg-фреймворки
-Scripts/                  # сборка инструментов и публикация релиза
+AppTarget/               # тонкий @main target
+Framelingo/              # неизменённый behavioral baseline миграции
+BundledTools/Whisper/    # ресурс macOS-приложения
 ```
+
+`DesignSystem` содержит отдельные `Tokens` (цвета, типографика, отступы,
+радиусы), `Components` и environment values. Feature-specific state и логика
+таймлайна туда не входят.
+
+Архитектура приложения остаётся MVVM. `AppState` владеет состоянием приложения
+и очередью экспорта, `ProjectViewModel` — рабочим состоянием редактора, а
+`ProjectViewModel.project.subtitles` является единственным изменяемым источником
+текста и таймингов субтитров. Дополнительных Store/session/proxy-слоёв нет.
+
+`MacCompositionRoot` собирает репозитории, провайдеры и сервисы через узкие
+API-протоколы и передаёт их в ViewModel/feature assemblies. Это позволяет
+подменять эффекты в тестах без service locator и не заставляет протоколизировать
+чистые детерминированные вычисления.
+
+`Timeline` и `TimelineFeature` намеренно разделены: первый пакет содержит
+platform-neutral модели и алгоритмы монтажа/маппинга/валидации, второй — одну
+интерактивную SwiftUI-реализацию, используемую в субтитрах, редакторе и Shorts.
+
+Полный граф владения и разрешённых зависимостей описан в
+[`module-graph.md`](openspec/changes/modularize-codebase-with-spm/module-graph.md),
+а правила миграции — в OpenSpec change `modularize-codebase-with-spm`.
+
+Tuist и iOS/iPadOS UI намеренно отложены. Сейчас checked-in Xcode-проект
+собирает macOS shell из `MacFeatureImpl`. Доменные границы уже не завязаны на
+AppKit, но адаптация существующих SwiftUI/AppKit interaction seams под iOS
+будет отдельной задачей, а не скрытой частью модуляризации.
 
 ## Тесты
 
+Проверить отдельный пакет независимо:
+
 ```bash
+swift build --package-path Modules/TimelineFeature
+swift test --package-path Modules/TimelineFeature
+```
+
+Проверить macOS application target:
+
+```bash
+xcodebuild build \
+  -project Framelingo.xcodeproj \
+  -scheme Framelingo \
+  -destination 'platform=macOS,arch=arm64'
+
 xcodebuild test \
   -project Framelingo.xcodeproj \
   -scheme Framelingo \
