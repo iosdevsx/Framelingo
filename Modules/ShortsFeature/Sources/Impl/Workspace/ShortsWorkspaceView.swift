@@ -106,6 +106,8 @@ private struct ShortsVerticalPreview: View {
 
             if let player {
                 videoLayers(player: player, reframing: reframing, short: short, size: size)
+                    .frame(width: size.width, height: size.height)
+                    .clipped()
                     .zIndex(0)
             } else {
                 ContentUnavailableView("No video", systemImage: "film")
