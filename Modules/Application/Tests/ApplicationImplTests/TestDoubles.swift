@@ -217,6 +217,7 @@ enum TestDoubles {
     static func appState(
         project: Project,
         repository: Repository = Repository(),
+        subtitleExportService: any SubtitleExportService = SubtitleExporter(),
         speakerDiarizationEngine: any SpeakerDiarizationEngine = DiarizationEngine(),
         audioPreparationService: any AudioPreparationService = AudioPreparation(),
         makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() }
@@ -226,7 +227,7 @@ enum TestDoubles {
             selectedProject: project,
             settings: .default,
             projectRepository: repository,
-            subtitleExportService: SubtitleExporter(),
+            subtitleExportService: subtitleExportService,
             translationService: TranslationService(),
             speakerDiarizationEngine: speakerDiarizationEngine,
             subtitleAlignmentEngine: AlignmentEngine(),

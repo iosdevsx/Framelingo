@@ -1,6 +1,5 @@
-import Application
-import Project
 import Shorts
+import ShortsFeature
 import Subtitles
 import VideoRendering
 import AppKit
@@ -12,23 +11,23 @@ import SwiftUI
 /// left, shorts list + inspector on the right. The shared bottom timeline is
 /// owned by `ProjectView`, as in the other modes.
 struct ShortsWorkspaceView: View {
-    let project: Project
-    @ObservedObject var viewModel: ProjectViewModel
+    let state: ShortsWorkspaceState
+    let actions: ShortsWorkspaceActions
     let player: AVPlayer?
     let onSeek: (Int) -> Void
 
     var body: some View {
         HSplitView {
             ShortsVerticalPreview(
-                project: project,
-                viewModel: viewModel,
+                state: state,
+                actions: actions,
                 player: player
             )
             .frame(minWidth: 280, idealWidth: 420, maxWidth: .infinity, minHeight: 260)
 
             ShortsPanelView(
-                project: project,
-                viewModel: viewModel,
+                state: state,
+                actions: actions,
                 onSeek: onSeek
             )
             .frame(minWidth: 340, idealWidth: 420, minHeight: 260)
@@ -39,8 +38,8 @@ struct ShortsWorkspaceView: View {
 // MARK: - Vertical preview
 
 private struct ShortsVerticalPreview: View {
-    let project: Project
-    @ObservedObject var viewModel: ProjectViewModel
+    let state: ShortsWorkspaceState
+    let actions: ShortsWorkspaceActions
     let player: AVPlayer?
 
     @State private var dragStartOffsetX: Double?
@@ -83,8 +82,8 @@ private struct ShortsVerticalPreview: View {
                 .accessibilityHint("Opens appearance controls for burned Shorts subtitles")
                 .popover(isPresented: $showsSubtitleAppearance) {
                     ShortsSubtitleAppearancePopover(
-                        project: project,
-                        viewModel: viewModel
+                        state: state,
+                        actions: actions
                     )
                 }
                 .padding(16)
@@ -94,9 +93,8 @@ private struct ShortsVerticalPreview: View {
 
     @ViewBuilder
     private func canvas(size: CGSize) -> some View {
-        let currentProject = viewModel.project ?? project
-        let short = viewModel.selectedShort
-        let settings = currentProject.shortsExportSettings
+        let short = state.selectedShort
+        let settings = state.exportSettings
         let subtitleStyle = settings.subtitleStyle
         let reframing = short?.effectiveReframing(default: settings.reframing) ?? settings.reframing
         let platform = short?.effectivePlatform(default: settings.platform) ?? settings.platform
@@ -118,7 +116,7 @@ private struct ShortsVerticalPreview: View {
                 .zIndex(5)
 
             subtitleOverlay(
-                project: currentProject,
+                subtitles: state.subtitles,
                 style: subtitleStyle,
                 platform: platform,
                 size: size
@@ -171,7 +169,7 @@ private struct ShortsVerticalPreview: View {
             let videoWidth = max(size.width, size.height * sourceAspect)
             let travel = max(0, videoWidth - size.width)
             let offsetX = CGFloat(
-                short?.cropOffset(atTimelineTimeMs: viewModel.currentTimeMs) ?? 0.5
+                short?.cropOffset(atTimelineTimeMs: state.currentTimeMs) ?? 0.5
             )
 
             PlayerLayerView(player: player, gravity: .resizeAspectFill)
@@ -201,17 +199,17 @@ private struct ShortsVerticalPreview: View {
                 }
 
                 if dragStartOffsetX == nil {
-                    let editTimeMs = min(max(viewModel.currentTimeMs, short.startMs), short.endMs)
+                    let editTimeMs = min(max(state.currentTimeMs, short.startMs), short.endMs)
                     cropDragTimelineTimeMs = editTimeMs
                     dragStartOffsetX = short.cropOffset(atTimelineTimeMs: editTimeMs)
-                    viewModel.beginInteractiveShortEdit()
+                    actions.beginInteractiveShortEdit()
                 }
 
                 let delta = Double(value.translation.width / travel)
                 let newOffset = min(max((dragStartOffsetX ?? 0.5) - delta, 0), 1)
-                viewModel.updateShortCropOffset(
+                actions.updateShortCropOffset(
                     id: short.id,
-                    timelineTimeMs: cropDragTimelineTimeMs ?? viewModel.currentTimeMs,
+                    timelineTimeMs: cropDragTimelineTimeMs ?? state.currentTimeMs,
                     offsetX: newOffset
                 )
             }
@@ -222,7 +220,7 @@ private struct ShortsVerticalPreview: View {
 
                 dragStartOffsetX = nil
                 cropDragTimelineTimeMs = nil
-                viewModel.endInteractiveShortEdit(undoActionName: "Adjust Crop Framing")
+                actions.endInteractiveShortEdit(undoActionName: "Adjust Crop Framing")
             }
     }
 
@@ -244,26 +242,26 @@ private struct ShortsVerticalPreview: View {
 
     @ViewBuilder
     private func subtitleOverlay(
-        project: Project,
+        subtitles: [SubtitleSegment],
         style: VideoExportSettings,
         platform: ShortsPlatform,
         size: CGSize
     ) -> some View {
-        if let cue = currentCue(in: project) {
+        if let cue = currentCue(in: subtitles) {
             ShortsCaptionOverlay(
                 cue: cue,
                 style: style,
                 platform: platform,
                 previewSize: size,
-                viewModel: viewModel
+                actions: actions
             )
         }
     }
 
     private func hookOverlay(layout: BurnedSubtitleLayout, size: CGSize) -> some View {
         let scale = size.width / canvasSize.width
-        let fontSize = project.shortsExportSettings.hookFontSize
-        let fontName = project.shortsExportSettings.subtitleStyle.fontName
+        let fontSize = state.exportSettings.hookFontSize
+        let fontName = state.exportSettings.subtitleStyle.fontName
 
         return Text(layout.wrappedText)
             .font(.custom(fontName, size: fontSize * scale).bold())
@@ -279,14 +277,14 @@ private struct ShortsVerticalPreview: View {
             .allowsHitTesting(false)
     }
 
-    private func currentCue(in project: Project) -> SubtitleSegment? {
-        project.subtitles.first {
-            viewModel.currentTimeMs >= $0.startMs && viewModel.currentTimeMs <= $0.endMs
+    private func currentCue(in subtitles: [SubtitleSegment]) -> SubtitleSegment? {
+        subtitles.first {
+            state.currentTimeMs >= $0.startMs && state.currentTimeMs <= $0.endMs
         }
     }
 
     private var sourceAspectRatio: CGFloat {
-        guard let info = viewModel.videoSourceInfo, info.width > 0, info.height > 0 else {
+        guard let info = state.videoSourceInfo, info.width > 0, info.height > 0 else {
             return 16.0 / 9.0
         }
 
@@ -299,7 +297,7 @@ private struct ShortsCaptionOverlay: View {
     let style: VideoExportSettings
     let platform: ShortsPlatform
     let previewSize: CGSize
-    @ObservedObject var viewModel: ProjectViewModel
+    let actions: ShortsWorkspaceActions
 
     @State private var dragStartPosition: CGPoint?
 
@@ -368,7 +366,7 @@ private struct ShortsCaptionOverlay: View {
                         x: style.subtitlePositionX,
                         y: style.subtitlePositionY
                     )
-                    viewModel.beginInteractiveShortsSubtitleStyleEdit()
+                    actions.beginInteractiveSubtitleStyleEdit()
                 }
 
                 guard let dragStartPosition,
@@ -397,7 +395,7 @@ private struct ShortsCaptionOverlay: View {
                 updatedStyle.subtitlePositionX = Double(normalized.x)
                 updatedStyle.subtitlePositionY = Double(normalized.y)
                 updatedStyle.subtitlePosition = nearestPosition(for: Double(normalized.y))
-                viewModel.updateShortsSubtitleStyle(updatedStyle, registerUndo: false)
+                actions.updateSubtitleStyle(updatedStyle, registerUndo: false)
             }
             .onEnded { _ in
                 guard dragStartPosition != nil else {
@@ -405,7 +403,7 @@ private struct ShortsCaptionOverlay: View {
                 }
 
                 dragStartPosition = nil
-                viewModel.endInteractiveShortsSubtitleStyleEdit(
+                actions.endInteractiveSubtitleStyleEdit(
                     undoActionName: "Position Shorts Subtitles"
                 )
             }
@@ -512,8 +510,8 @@ private struct ShortsExportRequest: Identifiable {
 }
 
 private struct ShortsPanelView: View {
-    let project: Project
-    @ObservedObject var viewModel: ProjectViewModel
+    let state: ShortsWorkspaceState
+    let actions: ShortsWorkspaceActions
     let onSeek: (Int) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -529,15 +527,15 @@ private struct ShortsPanelView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     shortsListSection
-                    if !viewModel.shortsSuggestions.isEmpty {
+                    if !state.suggestions.isEmpty {
                         suggestionsSection
                     }
-                    if let message = viewModel.shortsSuggestionMessage {
+                    if let message = state.suggestionMessage {
                         Text(message)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    if viewModel.selectedShort != nil {
+                    if state.selectedShort != nil {
                         inspectorSection
                     }
                 }
@@ -547,9 +545,9 @@ private struct ShortsPanelView: View {
         .background(colorScheme == .dark ? Color(white: 0.09) : Color.white)
         .popover(item: $exportRequest) { request in
             ShortsExportOptionsPopover(
-                project: project,
-                shorts: project.shorts.filter { request.shortIDs.contains($0.id) },
-                viewModel: viewModel
+                settings: state.exportSettings,
+                shorts: state.shorts.filter { request.shortIDs.contains($0.id) },
+                actions: actions
             )
         }
     }
@@ -560,7 +558,7 @@ private struct ShortsPanelView: View {
                 .font(.system(size: 12))
             Text("Shorts")
                 .font(.system(size: 12, weight: .semibold))
-            Text("\(project.shorts.count)")
+            Text("\(state.shorts.count)")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
 
@@ -573,29 +571,29 @@ private struct ShortsPanelView: View {
             }
             .help("Shorts defaults")
             .popover(isPresented: $showsSettings) {
-                ShortsSettingsPopover(project: project, viewModel: viewModel)
+                ShortsSettingsPopover(settings: state.exportSettings, actions: actions)
             }
 
             Button {
-                viewModel.generateShortsSuggestions()
+                actions.generateSuggestions()
             } label: {
                 Label("Suggest", systemImage: "sparkles")
             }
             .help("Suggest shorts from pauses and speaker changes")
 
             Button {
-                viewModel.addShortAtPlayhead()
+                actions.addShortAtPlayhead()
             } label: {
                 Label("New", systemImage: "plus")
             }
             .help("New short at the playhead")
 
             Button {
-                exportRequest = ShortsExportRequest(shortIDs: project.shorts.map(\.id))
+                exportRequest = ShortsExportRequest(shortIDs: state.shorts.map(\.id))
             } label: {
                 Label("Export All", systemImage: "square.and.arrow.up")
             }
-            .disabled(project.shorts.isEmpty)
+            .disabled(state.shorts.isEmpty)
         }
         .controlSize(.small)
         .padding(.horizontal, 12)
@@ -606,12 +604,12 @@ private struct ShortsPanelView: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionTitle("Marked shorts")
 
-            if project.shorts.isEmpty {
+            if state.shorts.isEmpty {
                 Text("No shorts yet. Drag on the shorts strip in the timeline, use “New”, or accept a suggestion.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(project.shorts) { short in
+                ForEach(state.shorts) { short in
                     shortRow(short)
                 }
             }
@@ -619,13 +617,13 @@ private struct ShortsPanelView: View {
     }
 
     private func shortRow(_ short: ShortDefinition) -> some View {
-        let isSelected = viewModel.shortsSelectedShortID == short.id
-        let platform = short.effectivePlatform(default: project.shortsExportSettings.platform)
+        let isSelected = state.selectedShortID == short.id
+        let platform = short.effectivePlatform(default: state.exportSettings.platform)
         let overLimit = short.durationMs > platform.durationLimitMs
 
         return HStack(spacing: 8) {
             Button {
-                viewModel.shortsSelectedShortID = short.id
+                actions.selectShort(id: short.id)
                 onSeek(short.startMs)
             } label: {
                 HStack(spacing: 8) {
@@ -667,7 +665,7 @@ private struct ShortsPanelView: View {
             .accessibilityAddTraits(isSelected ? .isSelected : [])
 
             Button {
-                viewModel.deleteShort(id: short.id)
+                actions.deleteShort(id: short.id)
             } label: {
                 Image(systemName: "trash")
                     .font(.system(size: 10))
@@ -688,7 +686,7 @@ private struct ShortsPanelView: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionTitle("Suggestions")
 
-            ForEach(viewModel.shortsSuggestions) { suggestion in
+            ForEach(state.suggestions) { suggestion in
                 HStack(spacing: 8) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(SubtitleTimeFormatter.format(milliseconds: suggestion.startMs)) – \(SubtitleTimeFormatter.format(milliseconds: suggestion.endMs))")
@@ -701,12 +699,12 @@ private struct ShortsPanelView: View {
                     Spacer()
 
                     Button("Add") {
-                        viewModel.acceptShortSuggestion(suggestion)
+                        actions.acceptSuggestion(suggestion)
                     }
                     .controlSize(.mini)
 
                     Button {
-                        viewModel.dismissShortSuggestion(suggestion)
+                        actions.dismissSuggestion(suggestion)
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 9))
@@ -722,16 +720,16 @@ private struct ShortsPanelView: View {
     }
 
     private var inspectorSection: some View {
-        let settings = project.shortsExportSettings
+        let settings = state.exportSettings
 
         return VStack(alignment: .leading, spacing: 8) {
             sectionTitle("Selected short")
 
-            if let short = viewModel.selectedShort {
+            if let short = state.selectedShort {
                 TextField("Short title", text: Binding(
                     get: { short.title },
                     set: { newValue in
-                        viewModel.updateShort(id: short.id, undoActionName: "Rename Short") {
+                        actions.updateShort(id: short.id, undoActionName: "Rename Short") {
                             $0.title = newValue
                         }
                     }
@@ -741,7 +739,7 @@ private struct ShortsPanelView: View {
                 TextField("Hook title (burned at the top)", text: Binding(
                     get: { short.hookText },
                     set: { newValue in
-                        viewModel.updateShort(id: short.id, undoActionName: "Edit Hook") {
+                        actions.updateShort(id: short.id, undoActionName: "Edit Hook") {
                             $0.hookText = newValue
                         }
                     }
@@ -751,7 +749,7 @@ private struct ShortsPanelView: View {
                 Picker("Framing", selection: Binding(
                     get: { short.reframing },
                     set: { newValue in
-                        viewModel.updateShort(id: short.id, undoActionName: "Change Framing") {
+                        actions.updateShort(id: short.id, undoActionName: "Change Framing") {
                             $0.reframing = newValue
                         }
                     }
@@ -766,7 +764,7 @@ private struct ShortsPanelView: View {
                 Picker("Platform", selection: Binding(
                     get: { short.platformOverride },
                     set: { newValue in
-                        viewModel.updateShort(id: short.id, undoActionName: "Change Platform") {
+                        actions.updateShort(id: short.id, undoActionName: "Change Platform") {
                             $0.platformOverride = newValue
                         }
                     }
@@ -782,12 +780,12 @@ private struct ShortsPanelView: View {
                     LabeledContent("Crop position") {
                         Slider(value: Binding(
                             get: {
-                                short.cropOffset(atTimelineTimeMs: viewModel.currentTimeMs)
+                                short.cropOffset(atTimelineTimeMs: state.currentTimeMs)
                             },
                             set: { newValue in
                                 let editTimeMs = cropSliderTimelineTimeMs
-                                    ?? min(max(viewModel.currentTimeMs, short.startMs), short.endMs)
-                                viewModel.updateShortCropOffset(
+                                    ?? min(max(state.currentTimeMs, short.startMs), short.endMs)
+                                actions.updateShortCropOffset(
                                     id: short.id,
                                     timelineTimeMs: editTimeMs,
                                     offsetX: newValue
@@ -796,13 +794,13 @@ private struct ShortsPanelView: View {
                         ), in: 0...1) { isEditing in
                             if isEditing {
                                 cropSliderTimelineTimeMs = min(
-                                    max(viewModel.currentTimeMs, short.startMs),
+                                    max(state.currentTimeMs, short.startMs),
                                     short.endMs
                                 )
-                                viewModel.beginInteractiveShortEdit()
+                                actions.beginInteractiveShortEdit()
                             } else {
                                 cropSliderTimelineTimeMs = nil
-                                viewModel.endInteractiveShortEdit(
+                                actions.endInteractiveShortEdit(
                                     undoActionName: "Adjust Crop Framing"
                                 )
                             }
@@ -810,13 +808,13 @@ private struct ShortsPanelView: View {
                     }
 
                     Button {
-                        viewModel.addCropPointAtPlayhead(shortID: short.id)
+                        actions.addCropPointAtPlayhead(shortID: short.id)
                     } label: {
                         Label("Add Crop Point at Playhead", systemImage: "plus.circle")
                     }
                     .disabled(
-                        viewModel.currentTimeMs < short.startMs
-                            || viewModel.currentTimeMs > short.endMs
+                        state.currentTimeMs < short.startMs
+                            || state.currentTimeMs > short.endMs
                     )
                     .help("Crop changes at the playhead without animation")
 
@@ -843,7 +841,7 @@ private struct ShortsPanelView: View {
                                         .foregroundStyle(.secondary)
 
                                     Button {
-                                        viewModel.deleteShortCropKeyframe(
+                                        actions.deleteShortCropKeyframe(
                                             shortID: short.id,
                                             keyframeID: keyframe.id
                                         )

@@ -20,7 +20,9 @@ let package = Package(
     targets: [
         .target(
             name: "ExportFeature",
-            dependencies: [],
+            dependencies: [
+                .product(name: "Subtitles", package: "Subtitles"),
+            ],
             path: "Sources/Api"
         ),
         .target(
@@ -35,6 +37,14 @@ let package = Package(
                 .product(name: "VideoRendering", package: "VideoRendering"),
             ],
             path: "Sources/Impl"
+        ),
+        .testTarget(
+            name: "ExportFeatureTests",
+            dependencies: [
+                "ExportFeature",
+                .product(name: "Subtitles", package: "Subtitles"),
+            ],
+            path: "Tests/ExportFeatureTests"
         ),
     ],
     swiftLanguageModes: [.v5]

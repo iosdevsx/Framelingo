@@ -10,25 +10,24 @@ let package = Package(
         .library(name: "SubtitleEditorFeatureImpl", targets: ["SubtitleEditorFeatureImpl"]),
     ],
     dependencies: [
-        .package(path: "../Application"),
         .package(path: "../DesignSystem"),
-        .package(path: "../Project"),
         .package(path: "../SpeakerAnalysis"),
         .package(path: "../Subtitles"),
     ],
     targets: [
         .target(
             name: "SubtitleEditorFeature",
-            dependencies: [],
+            dependencies: [
+                .product(name: "SpeakerAnalysis", package: "SpeakerAnalysis"),
+                .product(name: "Subtitles", package: "Subtitles"),
+            ],
             path: "Sources/Api"
         ),
         .target(
             name: "SubtitleEditorFeatureImpl",
             dependencies: [
                 "SubtitleEditorFeature",
-                .product(name: "Application", package: "Application"),
                 .product(name: "DesignSystem", package: "DesignSystem"),
-                .product(name: "Project", package: "Project"),
                 .product(name: "SpeakerAnalysis", package: "SpeakerAnalysis"),
                 .product(name: "Subtitles", package: "Subtitles"),
             ],

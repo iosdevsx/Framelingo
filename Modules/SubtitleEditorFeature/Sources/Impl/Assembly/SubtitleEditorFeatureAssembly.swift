@@ -1,5 +1,3 @@
-import Application
-import Project
 import Subtitles
 import SubtitleEditorFeature
 import SwiftUI
@@ -7,16 +5,16 @@ import SwiftUI
 @MainActor
 public enum SubtitleEditorFeatureAssembly {
     public static func makeCueList(
-        project: Project,
-        viewModel: ProjectViewModel,
+        state: SubtitleEditorState,
+        actions: SubtitleEditorActions,
         focusedField: FocusState<SubtitleEditorFocus?>.Binding,
         onSeek: @escaping (Int) -> Void,
         onError: @escaping (String) -> Void
     ) -> AnyView {
         AnyView(
             CueListView(
-                project: project,
-                viewModel: viewModel,
+                state: state,
+                actions: actions,
                 focusedField: focusedField,
                 onSeek: onSeek,
                 onError: onError
@@ -25,24 +23,24 @@ public enum SubtitleEditorFeatureAssembly {
     }
 
     public static func makeEditorPane(
-        project: Project,
-        viewModel: ProjectViewModel,
+        state: SubtitleEditorState,
+        actions: SubtitleEditorActions,
         onSeek: @escaping (Int) -> Void
     ) -> AnyView {
-        AnyView(EditorPaneView(project: project, viewModel: viewModel, onSeek: onSeek))
+        AnyView(EditorPaneView(state: state, actions: actions, onSeek: onSeek))
     }
 
     public static func makeSubtitleEditor(
-        project: Project,
-        viewModel: ProjectViewModel,
+        state: SubtitleEditorState,
+        actions: SubtitleEditorActions,
         focusedField: FocusState<SubtitleEditorFocus?>.Binding,
         onSeek: @escaping (Int) -> Void,
         onError: @escaping (String) -> Void
     ) -> AnyView {
         AnyView(
             SubtitleEditorView(
-                project: project,
-                viewModel: viewModel,
+                state: state,
+                actions: actions,
                 focusedField: focusedField,
                 onSeek: onSeek,
                 onError: onError

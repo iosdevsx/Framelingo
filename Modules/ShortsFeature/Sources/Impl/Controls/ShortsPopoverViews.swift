@@ -1,15 +1,14 @@
-import Application
 import DesignSystem
-import Project
 import Shorts
+import ShortsFeature
 import Subtitles
 import VideoRendering
 import AppKit
 import SwiftUI
 
 struct ShortsSettingsPopover: View {
-    let project: Project
-    @ObservedObject var viewModel: ProjectViewModel
+    let settings: ShortsExportSettings
+    let actions: ShortsWorkspaceActions
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -46,19 +45,19 @@ struct ShortsSettingsPopover: View {
         _ keyPath: WritableKeyPath<ShortsExportSettings, Value>
     ) -> Binding<Value> {
         Binding(
-            get: { project.shortsExportSettings[keyPath: keyPath] },
+            get: { settings[keyPath: keyPath] },
             set: { value in
-                var settings = project.shortsExportSettings
-                settings[keyPath: keyPath] = value
-                viewModel.updateShortsExportSettings(settings)
+                var updated = settings
+                updated[keyPath: keyPath] = value
+                actions.updateExportSettings(updated)
             }
         )
     }
 }
 
 struct ShortsSubtitleAppearancePopover: View {
-    let project: Project
-    @ObservedObject var viewModel: ProjectViewModel
+    let state: ShortsWorkspaceState
+    let actions: ShortsWorkspaceActions
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -176,7 +175,7 @@ struct ShortsSubtitleAppearancePopover: View {
                     }
 
                     Button("Restore Visible Caption Defaults") {
-                        viewModel.updateShortsSubtitleStyle(
+                        actions.updateSubtitleStyle(
                             ShortsExportSettings.defaultSubtitleStyle
                         )
                     }
@@ -193,8 +192,7 @@ struct ShortsSubtitleAppearancePopover: View {
     }
 
     private var style: VideoExportSettings {
-        viewModel.project?.shortsExportSettings.subtitleStyle
-            ?? project.shortsExportSettings.subtitleStyle
+        state.exportSettings.subtitleStyle
     }
 
     private var availableFonts: [String] {
@@ -213,7 +211,7 @@ struct ShortsSubtitleAppearancePopover: View {
             set: { value in
                 var updated = style
                 updated[keyPath: keyPath] = value
-                viewModel.updateShortsSubtitleStyle(updated, registerUndo: registerUndo)
+                actions.updateSubtitleStyle(updated, registerUndo: registerUndo)
             }
         )
     }
@@ -226,7 +224,7 @@ struct ShortsSubtitleAppearancePopover: View {
                 updated.subtitlePosition = position
                 updated.subtitlePositionX = 0.5
                 updated.subtitlePositionY = position.defaultYOffset
-                viewModel.updateShortsSubtitleStyle(updated)
+                actions.updateSubtitleStyle(updated)
             }
         )
     }
@@ -274,16 +272,16 @@ struct ShortsSubtitleAppearancePopover: View {
                 updated[keyPath: red] = components.red
                 updated[keyPath: green] = components.green
                 updated[keyPath: blue] = components.blue
-                viewModel.updateShortsSubtitleStyle(updated)
+                actions.updateSubtitleStyle(updated)
             }
         )
     }
 
     private func updateInteractiveStyleEdit(_ isEditing: Bool) {
         if isEditing {
-            viewModel.beginInteractiveShortsSubtitleStyleEdit()
+            actions.beginInteractiveSubtitleStyleEdit()
         } else {
-            viewModel.endInteractiveShortsSubtitleStyleEdit()
+            actions.endInteractiveSubtitleStyleEdit()
         }
     }
 
@@ -293,7 +291,7 @@ struct ShortsSubtitleAppearancePopover: View {
         updated.subtitlePosition = defaults.subtitlePosition
         updated.subtitlePositionX = defaults.subtitlePositionX
         updated.subtitlePositionY = defaults.subtitlePositionY
-        viewModel.updateShortsSubtitleStyle(updated)
+        actions.updateSubtitleStyle(updated)
     }
 
     private func colorComponents(_ color: Color) -> (red: Double, green: Double, blue: Double) {
@@ -315,22 +313,22 @@ struct ShortsSubtitleAppearancePopover: View {
 }
 
 struct ShortsExportOptionsPopover: View {
-    let project: Project
+    let settings: ShortsExportSettings
     let shorts: [ShortDefinition]
-    @ObservedObject var viewModel: ProjectViewModel
+    let actions: ShortsWorkspaceActions
 
     @Environment(\.dismiss) private var dismiss
     @State private var exportsSRT: Bool
 
     init(
-        project: Project,
+        settings: ShortsExportSettings,
         shorts: [ShortDefinition],
-        viewModel: ProjectViewModel
+        actions: ShortsWorkspaceActions
     ) {
-        self.project = project
+        self.settings = settings
         self.shorts = shorts
-        self.viewModel = viewModel
-        _exportsSRT = State(initialValue: project.shortsExportSettings.exportSRTSidecar)
+        self.actions = actions
+        _exportsSRT = State(initialValue: settings.exportSRTSidecar)
     }
 
     var body: some View {
@@ -379,10 +377,9 @@ struct ShortsExportOptionsPopover: View {
             return
         }
 
-        var settings = project.shortsExportSettings
-        settings.exportSRTSidecar = exportsSRT
-        viewModel.updateShortsExportSettings(settings)
-        viewModel.exportShorts(shorts, to: directory)
+        var updated = settings
+        updated.exportSRTSidecar = exportsSRT
+        actions.updateExportSettings(updated)
+        actions.exportShorts(shorts, to: directory)
     }
 }
-

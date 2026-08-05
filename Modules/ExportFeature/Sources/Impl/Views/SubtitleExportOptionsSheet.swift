@@ -1,17 +1,16 @@
-import Application
-import Project
+import ExportFeature
 import Subtitles
 import SwiftUI
 
 struct SubtitleExportOptionsSheet: View {
-    let project: Project
-    @ObservedObject var viewModel: ProjectViewModel
+    let state: SubtitleExportOptionsState
+    let actions: SubtitleExportOptionsActions
     let kind: SubtitleExportKind
     let onCancel: () -> Void
     let onExport: () -> Void
 
     private var options: SubtitleExportOptions {
-        viewModel.project?.speakerExportOptions ?? project.speakerExportOptions
+        state.options
     }
 
     private var usesWebVTT: Bool {
@@ -30,11 +29,11 @@ struct SubtitleExportOptionsSheet: View {
                     set: { isOn in
                         var updated = options
                         updated.includeSpeakerLabels = isOn
-                        viewModel.updateSpeakerExportOptions(updated)
+                        actions.update(updated)
                     }
                 )
             )
-            .disabled(project.speakerLabels.isEmpty)
+            .disabled(!state.hasSpeakerLabels)
 
             Picker(
                 "Speaker format",
@@ -43,7 +42,7 @@ struct SubtitleExportOptionsSheet: View {
                     set: { format in
                         var updated = options
                         updated.speakerFormat = format
-                        viewModel.updateSpeakerExportOptions(updated)
+                        actions.update(updated)
                     }
                 )
             ) {
@@ -57,7 +56,7 @@ struct SubtitleExportOptionsSheet: View {
                 Text(SpeakerExportFormat.none.displayName)
                     .tag(SpeakerExportFormat.none)
             }
-            .disabled(!options.includeSpeakerLabels || project.speakerLabels.isEmpty)
+            .disabled(!options.includeSpeakerLabels || !state.hasSpeakerLabels)
 
             HStack {
                 Spacer()
@@ -75,7 +74,7 @@ struct SubtitleExportOptionsSheet: View {
 
             var updated = options
             updated.speakerFormat = .webVTTVoiceTags
-            viewModel.updateSpeakerExportOptions(updated)
+            actions.update(updated)
         }
     }
 }

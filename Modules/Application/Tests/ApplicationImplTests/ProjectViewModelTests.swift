@@ -12,6 +12,114 @@ import XCTest
 
 @MainActor
 final class ProjectViewModelTests: XCTestCase {
+    func testEditorAndTimelineEditsReachExportThroughTheSameProjectArray() async throws {
+        let exporter = RecordingSubtitleExporter()
+        let originalProject = TestDoubles.project()
+        let appState = TestDoubles.appState(
+            project: originalProject,
+            subtitleExportService: exporter
+        )
+        let viewModel = TestDoubles.projectViewModel(appState: appState)
+        var editorSegment = try XCTUnwrap(viewModel.project?.subtitles.first)
+        editorSegment.translatedText = "Shared root text"
+
+        viewModel.updateSubtitle(editorSegment)
+
+        var timelineSubtitles = try XCTUnwrap(viewModel.project?.subtitles)
+        timelineSubtitles[0].endMs = 2_500
+        viewModel.updateSubtitlesFromTimeline(timelineSubtitles)
+        await viewModel.exportSubtitles(
+            kind: .translatedSRT,
+            to: URL(fileURLWithPath: "/tmp/shared-root.srt")
+        )
+
+        let rootSubtitles = try XCTUnwrap(viewModel.project?.subtitles)
+        XCTAssertEqual(appState.selectedProject?.subtitles, rootSubtitles)
+        XCTAssertEqual(exporter.request?.segments, rootSubtitles)
+        XCTAssertEqual(exporter.request?.segments.first?.translatedText, "Shared root text")
+        XCTAssertEqual(exporter.request?.segments.first?.endMs, 2_500)
+    }
+
+    func testSingleSubtitleEditCreatesOneUndoStepAndAutosavesUpdatedRoot() async throws {
+        let repository = TestDoubles.Repository()
+        let originalProject = TestDoubles.project()
+        let appState = TestDoubles.appState(project: originalProject, repository: repository)
+        let viewModel = TestDoubles.projectViewModel(appState: appState)
+        var segment = try XCTUnwrap(originalProject.subtitles.first)
+        segment.translatedText = "Autosaved"
+
+        viewModel.updateSubtitle(segment)
+
+        XCTAssertTrue(viewModel.canUndo)
+        try await Task.sleep(for: .milliseconds(650))
+        XCTAssertEqual(repository.savedProjects.last?.subtitles.first?.translatedText, "Autosaved")
+
+        viewModel.undo()
+
+        XCTAssertEqual(viewModel.project?.subtitles, originalProject.subtitles)
+        XCTAssertFalse(viewModel.canUndo)
+    }
+
+    func testSubtitleSelectionAndEditStayVisibleThroughRootProjectState() throws {
+        let originalProject = TestDoubles.project()
+        let appState = TestDoubles.appState(project: originalProject)
+        let viewModel = TestDoubles.projectViewModel(appState: appState)
+        let segment = try XCTUnwrap(originalProject.subtitles.first)
+
+        viewModel.selectSegment(id: segment.id)
+        var edited = segment
+        edited.startMs = 250
+        edited.translatedText = "Edited through subtitle workspace"
+        viewModel.updateSubtitle(edited)
+
+        XCTAssertEqual(viewModel.selectedSegmentID, segment.id)
+        XCTAssertEqual(viewModel.selectedCueIDs, [segment.id])
+        XCTAssertEqual(viewModel.project?.subtitles.first?.startMs, 250)
+        XCTAssertEqual(
+            appState.selectedProject?.subtitles.first?.translatedText,
+            "Edited through subtitle workspace"
+        )
+    }
+
+    func testShortsWorkspaceMutationUpdatesRootProjectAndSupportsUndo() throws {
+        var project = TestDoubles.project()
+        let short = ShortDefinition(title: "Original", startMs: 1_000, endMs: 4_000)
+        project.shorts = [short]
+        let appState = TestDoubles.appState(project: project)
+        let viewModel = TestDoubles.projectViewModel(appState: appState)
+        viewModel.shortsSelectedShortID = short.id
+
+        viewModel.updateShort(id: short.id, undoActionName: "Rename Short") {
+            $0.title = "Updated"
+        }
+
+        XCTAssertEqual(viewModel.selectedShort?.title, "Updated")
+        XCTAssertEqual(appState.selectedProject?.shorts.first?.title, "Updated")
+
+        viewModel.undo()
+
+        XCTAssertEqual(viewModel.project?.shorts.first?.title, "Original")
+        XCTAssertEqual(viewModel.shortsSelectedShortID, short.id)
+    }
+
+    func testSubtitleExportOptionsUpdateRootProjectAndSupportUndo() {
+        let project = TestDoubles.project()
+        let appState = TestDoubles.appState(project: project)
+        let viewModel = TestDoubles.projectViewModel(appState: appState)
+        var options = project.speakerExportOptions
+        options.includeSpeakerLabels = true
+        options.speakerFormat = .squareBrackets
+
+        viewModel.updateSpeakerExportOptions(options)
+
+        XCTAssertEqual(viewModel.project?.speakerExportOptions, options)
+        XCTAssertEqual(appState.selectedProject?.speakerExportOptions, options)
+
+        viewModel.undo()
+
+        XCTAssertEqual(viewModel.project?.speakerExportOptions, project.speakerExportOptions)
+    }
+
     func testSubtitleEditUsesProjectAsTheSingleSourceOfTruth() {
         let originalProject = TestDoubles.project()
         let appState = TestDoubles.appState(project: originalProject)
@@ -219,6 +327,26 @@ final class ProjectViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.project?.status, .failed(message))
         XCTAssertEqual(viewModel.exportMessage, message)
         XCTAssertNil(ffmpegService.outputURL)
+    }
+}
+
+private final class RecordingSubtitleExporter: SubtitleExportService {
+    var request: SubtitleExportRequest?
+
+    func export(
+        request: SubtitleExportRequest,
+        kind _: SubtitleExportKind,
+        destinationURL _: URL
+    ) async throws {
+        self.request = request
+    }
+
+    func exportSRT(
+        request: SubtitleExportRequest,
+        textMode _: SubtitleTextMode,
+        destinationURL _: URL
+    ) async throws {
+        self.request = request
     }
 }
 

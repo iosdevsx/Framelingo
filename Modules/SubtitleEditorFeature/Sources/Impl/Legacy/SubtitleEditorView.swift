@@ -1,13 +1,11 @@
-import Application
-import Project
 import SpeakerAnalysis
 import Subtitles
 import SubtitleEditorFeature
 import SwiftUI
 
 struct SubtitleEditorView: View {
-    let project: Project
-    @ObservedObject var viewModel: ProjectViewModel
+    let state: SubtitleEditorState
+    let actions: SubtitleEditorActions
     var focusedField: FocusState<SubtitleEditorFocus?>.Binding
     let onSeek: (Int) -> Void
     let onError: (String) -> Void
@@ -22,15 +20,15 @@ struct SubtitleEditorView: View {
 
             Divider()
 
-            List(project.subtitles) { segment in
+            List(state.subtitles) { segment in
                 SubtitleTableRow(
                     segment: segment,
-                    speakerLabels: project.speakerLabels,
-                    isActive: viewModel.activeSegmentID == segment.id,
-                    isSelected: viewModel.selectedSegmentID == segment.id,
+                    speakerLabels: state.speakerLabels,
+                    isActive: state.activeSegmentID == segment.id,
+                    isSelected: state.selectedSegmentID == segment.id,
                     focusedField: focusedField,
                     onSelect: {
-                        viewModel.selectSegment(id: segment.id)
+                        actions.selectSegment(id: segment.id)
                         onSeek(segment.startMs)
                     },
                     onUpdate: { updatedSegment in
@@ -43,7 +41,7 @@ struct SubtitleEditorView: View {
             }
             .listStyle(.plain)
 
-            if let autosaveErrorMessage = viewModel.autosaveErrorMessage {
+            if let autosaveErrorMessage = state.autosaveErrorMessage {
                 Divider()
                 Label(autosaveErrorMessage, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.red)
@@ -63,7 +61,7 @@ struct SubtitleEditorView: View {
             Button("Split") {
                 splitSelectedSegment()
             }
-            .disabled(viewModel.selectedSegmentID == nil)
+            .disabled(state.selectedSegmentID == nil)
 
             Button("Merge") {
                 mergeSelectedSegment()
@@ -73,12 +71,12 @@ struct SubtitleEditorView: View {
             Button("Add") {
                 addSegmentAfterSelected()
             }
-            .disabled(viewModel.selectedSegmentID == nil)
+            .disabled(state.selectedSegmentID == nil)
 
             Button("Delete", role: .destructive) {
                 deleteSelectedSegment()
             }
-            .disabled(viewModel.selectedSegmentID == nil)
+            .disabled(state.selectedSegmentID == nil)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 9)
@@ -105,27 +103,26 @@ struct SubtitleEditorView: View {
     }
 
     private var canMergeSelectedSegment: Bool {
-        guard let selectedSegmentID = viewModel.selectedSegmentID,
-              let index = project.subtitles.firstIndex(where: { $0.id == selectedSegmentID }) else {
+        guard let selectedSegmentID = state.selectedSegmentID,
+              let index = state.subtitles.firstIndex(where: { $0.id == selectedSegmentID }) else {
             return false
         }
 
-        return index + 1 < project.subtitles.count
+        return index + 1 < state.subtitles.count
     }
 
     private func updateSegment(_ segment: SubtitleSegment) {
-        viewModel.updateSubtitle(segment)
-        if let autosaveErrorMessage = viewModel.autosaveErrorMessage {
-            onError(autosaveErrorMessage)
+        if let errorMessage = actions.updateSubtitle(segment).errorMessage {
+            onError(errorMessage)
         }
     }
 
     private func rowBackground(for segment: SubtitleSegment) -> Color {
-        if viewModel.selectedSegmentID == segment.id {
+        if state.selectedSegmentID == segment.id {
             return Color.accentColor.opacity(0.24)
         }
 
-        if viewModel.activeSegmentID == segment.id {
+        if state.activeSegmentID == segment.id {
             return Color.accentColor.opacity(0.16)
         }
 
@@ -133,45 +130,44 @@ struct SubtitleEditorView: View {
     }
 
     private func splitSelectedSegment() {
-        guard let selectedSegmentID = viewModel.selectedSegmentID else {
+        guard let selectedSegmentID = state.selectedSegmentID else {
             return
         }
 
-        if let newID = viewModel.splitSegment(id: selectedSegmentID) {
-            viewModel.selectSegment(id: newID)
+        if let newID = actions.splitSegment(id: selectedSegmentID) {
+            actions.selectSegment(id: newID)
         }
 
-        if let autosaveErrorMessage = viewModel.autosaveErrorMessage {
+        if let autosaveErrorMessage = actions.currentErrorMessage {
             onError(autosaveErrorMessage)
         }
     }
 
     private func mergeSelectedSegment() {
-        guard let selectedSegmentID = viewModel.selectedSegmentID else {
+        guard let selectedSegmentID = state.selectedSegmentID else {
             return
         }
 
-        viewModel.selectSegment(id: viewModel.mergeWithNextSegment(id: selectedSegmentID) ?? selectedSegmentID)
+        actions.selectSegment(id: actions.mergeWithNextSegment(id: selectedSegmentID) ?? selectedSegmentID)
 
-        if let autosaveErrorMessage = viewModel.autosaveErrorMessage {
+        if let autosaveErrorMessage = actions.currentErrorMessage {
             onError(autosaveErrorMessage)
         }
     }
 
     private func deleteSelectedSegment() {
-        guard let selectedSegmentID = viewModel.selectedSegmentID else {
+        guard let selectedSegmentID = state.selectedSegmentID else {
             return
         }
 
-        viewModel.selectSegment(id: viewModel.deleteSegment(id: selectedSegmentID))
+        actions.selectSegment(id: actions.deleteSegment(id: selectedSegmentID))
     }
 
     private func addSegmentAfterSelected() {
-        guard let selectedSegmentID = viewModel.selectedSegmentID else {
+        guard let selectedSegmentID = state.selectedSegmentID else {
             return
         }
 
-        viewModel.selectSegment(id: viewModel.addSegmentAfter(id: selectedSegmentID) ?? selectedSegmentID)
+        actions.selectSegment(id: actions.addSegmentAfter(id: selectedSegmentID) ?? selectedSegmentID)
     }
 }
-

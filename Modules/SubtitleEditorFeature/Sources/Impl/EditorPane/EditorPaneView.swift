@@ -1,13 +1,12 @@
-import Application
 import DesignSystem
-import Project
 import SpeakerAnalysis
 import Subtitles
+import SubtitleEditorFeature
 import SwiftUI
 
 struct EditorPaneView: View {
-    let project: Project
-    @ObservedObject var viewModel: ProjectViewModel
+    let state: SubtitleEditorState
+    let actions: SubtitleEditorActions
     let onSeek: (Int) -> Void
 
     @State private var editingSegmentID: UUID?
@@ -25,8 +24,8 @@ struct EditorPaneView: View {
     }
 
     private var selectedSegment: SubtitleSegment? {
-        guard let id = viewModel.selectedSegmentID else { return nil }
-        return project.subtitles.first(where: { $0.id == id })
+        guard let id = state.selectedSegmentID else { return nil }
+        return state.subtitles.first(where: { $0.id == id })
     }
 
     private var selectedSegmentTextFingerprint: String {
@@ -49,7 +48,7 @@ struct EditorPaneView: View {
             } else {
                 emptyState
             }
-            if let autosaveErrorMessage = viewModel.autosaveErrorMessage {
+            if let autosaveErrorMessage = state.autosaveErrorMessage {
                 Divider()
                 Label(autosaveErrorMessage, systemImage: "exclamationmark.triangle")
                     .font(.system(size: 11))
@@ -63,7 +62,7 @@ struct EditorPaneView: View {
         }
         .onChange(of: selectedSegment?.id) { oldID, _ in
             commitDrafts(for: oldID)
-            viewModel.endSubtitleTextEdit()
+            actions.endTextEdit()
             syncDraftsIfNeeded(for: selectedSegment)
         }
         .onChange(of: selectedSegmentTextFingerprint) { _, _ in
@@ -71,7 +70,7 @@ struct EditorPaneView: View {
         }
         .onDisappear {
             commitDrafts(for: editingSegmentID)
-            viewModel.endSubtitleTextEdit()
+            actions.endTextEdit()
             textCommitTask?.cancel()
         }
         .background(colorScheme == .dark ? Color(white: 0.09) : Color.white)
@@ -169,11 +168,11 @@ struct EditorPaneView: View {
                 set: { newID in
                     var updated = segment
                     updated.speaker = newID.isEmpty ? nil : newID
-                    viewModel.updateSubtitle(updated)
+                    actions.updateSubtitle(updated)
                 }
             )) {
                 Text("None").tag("")
-                ForEach(project.speakers) { s in
+                ForEach(state.speakers) { s in
                     Text(s.name).tag(s.id)
                 }
             }
@@ -192,9 +191,8 @@ struct EditorPaneView: View {
                     onCommit: { ms in
                         var updated = segment
                         updated.startMs = ms
-                        viewModel.updateSubtitle(updated)
-                        let resolvedStartMs = viewModel.project?.subtitles
-                            .first(where: { $0.id == segment.id })?.startMs ?? ms
+                        let result = actions.updateSubtitle(updated)
+                        let resolvedStartMs = result.segment?.startMs ?? ms
                         onSeek(resolvedStartMs)
                     }
                 )
@@ -206,7 +204,7 @@ struct EditorPaneView: View {
                     onCommit: { ms in
                         var updated = segment
                         updated.endMs = ms
-                        viewModel.updateSubtitle(updated)
+                        actions.updateSubtitle(updated)
                     }
                 )
             }
@@ -381,10 +379,10 @@ struct EditorPaneView: View {
 
     private func scheduleTextCommit(for segmentID: UUID) {
         if editingSegmentID != segmentID {
-            syncDraftsIfNeeded(for: project.subtitles.first(where: { $0.id == segmentID }))
+            syncDraftsIfNeeded(for: state.subtitles.first(where: { $0.id == segmentID }))
         }
 
-        viewModel.beginSubtitleTextEdit(id: segmentID)
+        actions.beginTextEdit(id: segmentID)
         textCommitTask?.cancel()
         textCommitTask = Task { @MainActor in
             do {
@@ -403,7 +401,7 @@ struct EditorPaneView: View {
         textCommitTask = nil
 
         guard let segmentID,
-              var updated = project.subtitles.first(where: { $0.id == segmentID }) else {
+              var updated = state.subtitles.first(where: { $0.id == segmentID }) else {
             return
         }
 
@@ -413,7 +411,7 @@ struct EditorPaneView: View {
 
         updated.originalText = originalDraft
         updated.translatedText = translatedDraft
-        viewModel.updateSubtitle(updated)
+        actions.updateSubtitle(updated)
     }
 }
 
@@ -465,4 +463,3 @@ private struct TimecodeField: View {
         onCommit(ms)
     }
 }
-

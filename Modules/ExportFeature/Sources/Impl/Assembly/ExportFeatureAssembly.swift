@@ -1,4 +1,5 @@
 import Application
+import ExportFeature
 import Foundation
 import Media
 import Project
@@ -41,16 +42,16 @@ public enum ExportFeatureAssembly {
 
     @MainActor
     public static func makeSubtitleOptionsSheet(
-        project: Project,
-        viewModel: ProjectViewModel,
+        state: SubtitleExportOptionsState,
+        actions: SubtitleExportOptionsActions,
         kind: SubtitleExportKind,
         onCancel: @escaping () -> Void,
         onExport: @escaping () -> Void
     ) -> AnyView {
         AnyView(
             SubtitleExportOptionsSheet(
-                project: project,
-                viewModel: viewModel,
+                state: state,
+                actions: actions,
                 kind: kind,
                 onCancel: onCancel,
                 onExport: onExport

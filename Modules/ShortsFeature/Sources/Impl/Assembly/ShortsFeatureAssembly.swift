@@ -1,21 +1,19 @@
 import AVFoundation
-import Application
-import Project
 import ShortsFeature
 import SwiftUI
 
 @MainActor
 public enum ShortsFeatureAssembly {
     public static func makeWorkspace(
-        project: Project,
-        viewModel: ProjectViewModel,
+        state: ShortsWorkspaceState,
+        actions: ShortsWorkspaceActions,
         player: AVPlayer?,
         onSeek: @escaping (Int) -> Void
     ) -> AnyView {
         AnyView(
             ShortsWorkspaceView(
-                project: project,
-                viewModel: viewModel,
+                state: state,
+                actions: actions,
                 player: player,
                 onSeek: onSeek
             )

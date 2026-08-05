@@ -10,9 +10,7 @@ let package = Package(
         .library(name: "ShortsFeatureImpl", targets: ["ShortsFeatureImpl"]),
     ],
     dependencies: [
-        .package(path: "../Application"),
         .package(path: "../DesignSystem"),
-        .package(path: "../Project"),
         .package(path: "../Shorts"),
         .package(path: "../Subtitles"),
         .package(path: "../VideoRendering"),
@@ -20,21 +18,31 @@ let package = Package(
     targets: [
         .target(
             name: "ShortsFeature",
-            dependencies: [],
+            dependencies: [
+                .product(name: "Shorts", package: "Shorts"),
+                .product(name: "Subtitles", package: "Subtitles"),
+                .product(name: "VideoRendering", package: "VideoRendering"),
+            ],
             path: "Sources/Api"
         ),
         .target(
             name: "ShortsFeatureImpl",
             dependencies: [
                 "ShortsFeature",
-                .product(name: "Application", package: "Application"),
                 .product(name: "DesignSystem", package: "DesignSystem"),
-                .product(name: "Project", package: "Project"),
                 .product(name: "Shorts", package: "Shorts"),
                 .product(name: "Subtitles", package: "Subtitles"),
                 .product(name: "VideoRendering", package: "VideoRendering"),
             ],
             path: "Sources/Impl"
+        ),
+        .testTarget(
+            name: "ShortsFeatureTests",
+            dependencies: [
+                "ShortsFeature",
+                .product(name: "Shorts", package: "Shorts"),
+            ],
+            path: "Tests/ShortsFeatureTests"
         ),
     ],
     swiftLanguageModes: [.v5]

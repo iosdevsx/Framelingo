@@ -2,11 +2,13 @@ import AVFoundation
 import AppKit
 import Application
 import DesignSystem
+import ExportFeature
 import ExportFeatureImpl
 import PlayerFeature
 import PlayerFeatureImpl
 import Project
 import ProjectFeature
+import ShortsFeature
 import ShortsFeatureImpl
 import SubtitleEditorFeature
 import SubtitleEditorFeatureImpl
@@ -33,6 +35,9 @@ struct ProjectView: View {
     @State private var timelineHeight = 180.0
     @Binding var projectMode: ProjectWorkspaceMode
     let makeExportVideoViewModel: (Project) -> ExportVideoViewModel
+    let subtitleEditorActions: SubtitleEditorActions
+    let shortsWorkspaceActions: ShortsWorkspaceActions
+    let subtitleExportOptionsActions: SubtitleExportOptionsActions
     @State private var editPlaybackClipID: UUID?
     @AppStorage("Framelingo.timelineHeight") private var persistedTimelineHeight = 180.0
     @AppStorage("Framelingo.subtitleLayout") private var subtitleLayout: SubtitleLayoutMode = .split
@@ -133,8 +138,11 @@ struct ProjectView: View {
         .sheet(item: $pendingSubtitleExportKind) { kind in
             if let project = viewModel.project {
                 ExportFeatureAssembly.makeSubtitleOptionsSheet(
-                    project: project,
-                    viewModel: viewModel,
+                    state: SubtitleExportOptionsState(
+                        options: project.speakerExportOptions,
+                        hasSpeakerLabels: !project.speakerLabels.isEmpty
+                    ),
+                    actions: subtitleExportOptionsActions,
                     kind: kind,
                     onCancel: {
                         pendingSubtitleExportKind = nil
@@ -331,8 +339,8 @@ struct ProjectView: View {
 
     private func cueListView(_ project: Project) -> some View {
         SubtitleEditorFeatureAssembly.makeCueList(
-            project: project,
-            viewModel: viewModel,
+            state: subtitleEditorState(project),
+            actions: subtitleEditorActions,
             focusedField: $focusedEditorField,
             onSeek: { seek(to: $0) },
             onError: { alertMessage = $0 }
@@ -342,8 +350,8 @@ struct ProjectView: View {
 
     private func editorPaneView(_ project: Project) -> some View {
         SubtitleEditorFeatureAssembly.makeEditorPane(
-            project: project,
-            viewModel: viewModel,
+            state: subtitleEditorState(project),
+            actions: subtitleEditorActions,
             onSeek: { seek(to: $0) }
         )
         .padding(4)
@@ -356,8 +364,8 @@ struct ProjectView: View {
     ) -> some View {
         VStack(spacing: 0) {
             ShortsFeatureAssembly.makeWorkspace(
-                project: project,
-                viewModel: viewModel,
+                state: shortsWorkspaceState(project),
+                actions: shortsWorkspaceActions,
                 player: player,
                 onSeek: { seek(to: $0) }
             )
@@ -530,8 +538,8 @@ struct ProjectView: View {
 
     private func subtitleEditor(_ project: Project) -> some View {
         SubtitleEditorFeatureAssembly.makeSubtitleEditor(
-            project: project,
-            viewModel: viewModel,
+            state: subtitleEditorState(project),
+            actions: subtitleEditorActions,
             focusedField: $focusedEditorField,
             onSeek: { seek(to: $0) },
             onError: { alertMessage = $0 }
@@ -856,6 +864,31 @@ struct ProjectView: View {
         Binding(
             get: { viewModel.selectedSegmentID },
             set: { viewModel.selectSegment(id: $0) }
+        )
+    }
+
+    private func subtitleEditorState(_ project: Project) -> SubtitleEditorState {
+        SubtitleEditorState(
+            subtitles: project.subtitles,
+            speakers: project.speakers,
+            speakerLabels: project.speakerLabels,
+            selectedSegmentID: viewModel.selectedSegmentID,
+            selectedCueIDs: viewModel.selectedCueIDs,
+            activeSegmentID: viewModel.activeSegmentID,
+            autosaveErrorMessage: viewModel.autosaveErrorMessage
+        )
+    }
+
+    private func shortsWorkspaceState(_ project: Project) -> ShortsWorkspaceState {
+        ShortsWorkspaceState(
+            subtitles: project.subtitles,
+            shorts: project.shorts,
+            exportSettings: project.shortsExportSettings,
+            currentTimeMs: viewModel.currentTimeMs,
+            selectedShortID: viewModel.shortsSelectedShortID,
+            suggestions: viewModel.shortsSuggestions,
+            suggestionMessage: viewModel.shortsSuggestionMessage,
+            videoSourceInfo: viewModel.videoSourceInfo
         )
     }
 }

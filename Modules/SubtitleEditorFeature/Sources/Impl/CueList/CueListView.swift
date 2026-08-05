@@ -1,6 +1,4 @@
-import Application
 import DesignSystem
-import Project
 import SpeakerAnalysis
 import Subtitles
 import SubtitleEditorFeature
@@ -8,8 +6,8 @@ import AppKit
 import SwiftUI
 
 struct CueListView: View {
-    let project: Project
-    @ObservedObject var viewModel: ProjectViewModel
+    let state: SubtitleEditorState
+    let actions: SubtitleEditorActions
     var focusedField: FocusState<SubtitleEditorFocus?>.Binding
     let onSeek: (Int) -> Void
     let onError: (String) -> Void
@@ -28,9 +26,9 @@ struct CueListView: View {
     }
 
     private var filtered: [SubtitleSegment] {
-        guard !searchText.isEmpty else { return project.subtitles }
+        guard !searchText.isEmpty else { return state.subtitles }
         let q = searchText.lowercased()
-        return project.subtitles.filter {
+        return state.subtitles.filter {
             $0.originalText.lowercased().contains(q) || $0.translatedText.lowercased().contains(q)
         }
     }
@@ -129,11 +127,11 @@ struct CueListView: View {
                     .onPreferenceChange(CueRowFramePreferenceKey.self) { frames in
                         rowFrames = frames
                     }
-                    .onChange(of: viewModel.selectedSegmentID) { _, id in
-                        guard let id, id != viewModel.activeSegmentID else { return }
+                    .onChange(of: state.selectedSegmentID) { _, id in
+                        guard let id, id != state.activeSegmentID else { return }
                         scrollCueIfNeeded(id: id, proxy: proxy)
                     }
-                    .onChange(of: viewModel.activeSegmentID) { _, id in
+                    .onChange(of: state.activeSegmentID) { _, id in
                         guard let id, filtered.contains(where: { $0.id == id }) else { return }
                         scrollCueIfNeeded(id: id, proxy: proxy)
                     }
@@ -148,10 +146,10 @@ struct CueListView: View {
                     cueRow(for: segment)
                         .contextMenu {
                             Button("Create Short from Selection") {
-                                if !viewModel.selectedCueIDs.contains(segment.id) {
-                                    viewModel.selectSegment(id: segment.id)
+                                if !state.selectedCueIDs.contains(segment.id) {
+                                    actions.selectSegment(id: segment.id)
                                 }
-                                viewModel.createShortFromSelectedCues()
+                                actions.createShortFromSelectedCues()
                             }
                         }
                         .id(segment.id)
@@ -206,22 +204,22 @@ struct CueListView: View {
     }
 
     private func cueRow(for segment: SubtitleSegment) -> some View {
-        let idx = (project.subtitles.firstIndex(where: { $0.id == segment.id }) ?? 0) + 1
+        let idx = (state.subtitles.firstIndex(where: { $0.id == segment.id }) ?? 0) + 1
         return CueRow(
             segment: segment,
             index: idx,
-            speaker: project.speaker(for: segment),
-            speakerLabels: project.speakerLabels,
-            isPrimarySelected: viewModel.selectedSegmentID == segment.id,
-            isIncludedInSelection: viewModel.selectedCueIDs.contains(segment.id),
-            isActive: viewModel.activeSegmentID == segment.id,
+            speaker: state.speaker(for: segment),
+            speakerLabels: state.speakerLabels,
+            isPrimarySelected: state.selectedSegmentID == segment.id,
+            isIncludedInSelection: state.selectedCueIDs.contains(segment.id),
+            isActive: state.activeSegmentID == segment.id,
             showWarnings: showWarnings,
             density: density,
             accent: accent,
             focusedField: focusedField,
             onSelect: {
                 let modifiers = NSEvent.modifierFlags
-                viewModel.selectSegment(
+                actions.selectSegment(
                     id: segment.id,
                     extendingSelection: modifiers.contains(.shift),
                     togglingSelection: modifiers.contains(.command)
@@ -229,8 +227,7 @@ struct CueListView: View {
                 onSeek(segment.startMs)
             },
             onUpdate: { updated in
-                viewModel.updateSubtitle(updated)
-                if let err = viewModel.autosaveErrorMessage { onError(err) }
+                if let error = actions.updateSubtitle(updated).errorMessage { onError(error) }
             },
             onValidationError: onError
         )
@@ -241,36 +238,36 @@ struct CueListView: View {
     private var listFooter: some View {
         HStack(spacing: 4) {
             footerButton(label: "Add", icon: "plus") {
-                guard let id = viewModel.selectedSegmentID else { return }
-                viewModel.selectSegment(id: viewModel.addSegmentAfter(id: id) ?? id)
+                guard let id = state.selectedSegmentID else { return }
+                actions.selectSegment(id: actions.addSegmentAfter(id: id) ?? id)
             }
-            .disabled(viewModel.selectedSegmentID == nil)
+            .disabled(state.selectedSegmentID == nil)
 
             footerButton(label: "Split", icon: "scissors") {
-                guard let id = viewModel.selectedSegmentID,
-                      let newID = viewModel.splitSegment(id: id) else { return }
-                viewModel.selectSegment(id: newID)
+                guard let id = state.selectedSegmentID,
+                      let newID = actions.splitSegment(id: id) else { return }
+                actions.selectSegment(id: newID)
             }
-            .disabled(viewModel.selectedSegmentID == nil)
+            .disabled(state.selectedSegmentID == nil)
 
             footerButton(label: "Merge", icon: "arrow.triangle.merge") {
-                guard let id = viewModel.selectedSegmentID else { return }
-                viewModel.selectSegment(id: viewModel.mergeWithNextSegment(id: id) ?? id)
+                guard let id = state.selectedSegmentID else { return }
+                actions.selectSegment(id: actions.mergeWithNextSegment(id: id) ?? id)
             }
             .disabled(!canMerge)
 
             footerButton(label: "Short", icon: "rectangle.portrait.badge.plus") {
-                viewModel.createShortFromSelectedCues()
+                actions.createShortFromSelectedCues()
             }
-            .disabled(viewModel.selectedCueIDs.isEmpty)
+            .disabled(state.selectedCueIDs.isEmpty)
 
             Spacer()
 
             footerButton(label: "Delete", icon: "trash", role: .destructive) {
-                guard let id = viewModel.selectedSegmentID else { return }
-                viewModel.selectSegment(id: viewModel.deleteSegment(id: id))
+                guard let id = state.selectedSegmentID else { return }
+                actions.selectSegment(id: actions.deleteSegment(id: id))
             }
-            .disabled(viewModel.selectedSegmentID == nil)
+            .disabled(state.selectedSegmentID == nil)
         }
         .padding(.horizontal, 10)
         .frame(height: 32)
@@ -298,9 +295,9 @@ struct CueListView: View {
     }
 
     private var canMerge: Bool {
-        guard let id = viewModel.selectedSegmentID,
-              let idx = project.subtitles.firstIndex(where: { $0.id == id }) else { return false }
-        return idx + 1 < project.subtitles.count
+        guard let id = state.selectedSegmentID,
+              let idx = state.subtitles.firstIndex(where: { $0.id == id }) else { return false }
+        return idx + 1 < state.subtitles.count
     }
 }
 
@@ -385,4 +382,3 @@ private struct CueRowFramePreferenceKey: PreferenceKey {
         value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
-
