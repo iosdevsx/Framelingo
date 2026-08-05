@@ -14,6 +14,13 @@ final class EditTimelineServiceTests: XCTestCase {
         XCTAssertEqual(timeline.clips[0].sourceEndMs, 10_000)
     }
 
+    func testInitialTimelineForEmptyDurationCreatesEmptyPlan() {
+        let timeline = service.makeInitialTimeline(durationMs: 0)
+
+        XCTAssertTrue(timeline.clips.isEmpty)
+        XCTAssertEqual(timeline.totalDurationMs, 0)
+    }
+
     func testDeleteMiddleRangeSplitsOneClipIntoTwo() throws {
         let timeline = service.makeInitialTimeline(durationMs: 10_000)
 
@@ -77,6 +84,31 @@ final class EditTimelineServiceTests: XCTestCase {
         XCTAssertEqual(updated.clips[1].sourceStartMs, 8_000)
         XCTAssertEqual(updated.clips[1].sourceEndMs, 12_000)
         XCTAssertEqual(updated.clips[1].timelineStartMs, 2_000)
+    }
+
+    func testSplitAtExistingClipBoundaryUsesTheFollowingClip() throws {
+        let initial = service.makeInitialTimeline(durationMs: 10_000)
+        let withCut = try service.rippleDeleteRange(
+            timeline: initial,
+            range: VideoCutRange(startMs: 3_000, endMs: 5_000)
+        )
+
+        let split = try service.splitAt(timeline: withCut, timelineMs: 4_000)
+
+        XCTAssertEqual(split.clips.count, 3)
+        XCTAssertEqual(split.clips.map(\.timelineStartMs), [0, 3_000, 4_000])
+        XCTAssertEqual(split.clips.map(\.timelineEndMs), [3_000, 4_000, 8_000])
+        XCTAssertEqual(split.clips.map(\.sourceStartMs), [0, 5_000, 6_000])
+    }
+
+    func testLookupAtTimelineEndReturnsLastClipAndSourceEnd() throws {
+        let timeline = try service.rippleDeleteRange(
+            timeline: service.makeInitialTimeline(durationMs: 10_000),
+            range: VideoCutRange(startMs: 3_000, endMs: 5_000)
+        )
+
+        XCTAssertEqual(service.clip(atTimelineTime: 8_000, in: timeline), timeline.clips.last)
+        XCTAssertEqual(service.sourceTime(forTimelineTime: 8_000, in: timeline), 10_000)
     }
 
     func testCannotDeleteEntireTimeline() {

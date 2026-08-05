@@ -62,6 +62,9 @@ public final class ProjectViewModel: ObservableObject {
     private let projectFileService: any ProjectFileServicing
     private let editTimelineService: any EditTimelineEditing
     private let subtitleTimelineMappingService = SubtitleTimelineMappingService()
+    private let subtitleStructuralEditingPolicy = SubtitleStructuralEditingPolicy()
+    private let subtitleImportMergePolicy = SubtitleImportMergePolicy()
+    private let shortsEditingPolicy = ShortsEditingPolicy()
     private let mediaMetadataService: any MediaMetadataProviding
     private let waveformService: any WaveformLoading
     private let speechToTextProviderResolver: any SpeechToTextProviderResolving
@@ -322,16 +325,16 @@ public final class ProjectViewModel: ObservableObject {
         var timingAdjustmentMessage: String?
 
         if timingChanged {
-            currentProject.subtitles = SubtitleTimingValidator.updateSegmentTiming(
+            let timingResult = SubtitleTimingValidator.updateSegmentTimingResult(
                 segments: currentProject.subtitles,
                 id: segment.id,
                 startMs: segment.startMs,
                 endMs: segment.endMs,
                 durationMs: timelineDurationMs(for: currentProject)
             )
+            currentProject.subtitles = timingResult.segments
 
-            if let clamped = currentProject.subtitles.first(where: { $0.id == segment.id }),
-               clamped.startMs != segment.startMs || clamped.endMs != segment.endMs {
+            if timingResult.adjustment == .adjustedToConstraints {
                 timingAdjustmentMessage = "Timing adjusted to keep a minimum \(SubtitleTimingValidator.minimumDurationMs)ms duration and \(SubtitleTimingValidator.minimumGapMs)ms gap between subtitles."
             }
         }
@@ -492,110 +495,85 @@ public final class ProjectViewModel: ObservableObject {
     }
 
     public func splitSegment(id: UUID) -> UUID? {
-        guard var currentProject = project,
-              let index = currentProject.subtitles.firstIndex(where: { $0.id == id }) else {
+        guard var currentProject = project else {
             return nil
         }
 
-        let segment = currentProject.subtitles[index]
-        let midpointMs = segment.startMs + max(1, segment.durationMs / 2)
-        guard midpointMs > segment.startMs, midpointMs < segment.endMs else {
+        do {
+            let result = try subtitleStructuralEditingPolicy.split(
+                segments: currentProject.subtitles,
+                id: id
+            )
+            currentProject.subtitles = result.segments
+            updateProject(currentProject, undoActionName: "Split Subtitle")
+            return result.selectedSegmentID
+        } catch SubtitleStructuralEditError.segmentTooShort {
             autosaveErrorMessage = "Segment is too short to split."
             return nil
+        } catch {
+            return nil
         }
-
-        let originalParts = splitText(segment.originalText)
-        let translatedParts = splitText(segment.translatedText)
-
-        var firstSegment = segment
-        firstSegment.endMs = midpointMs
-        firstSegment.originalText = originalParts.first
-        firstSegment.translatedText = translatedParts.first
-
-        let secondSegment = SubtitleSegment(
-            id: UUID(),
-            index: segment.index + 1,
-            startMs: midpointMs,
-            endMs: segment.endMs,
-            originalText: originalParts.second,
-            translatedText: translatedParts.second,
-            speaker: segment.speaker,
-            speakerId: segment.speakerId,
-            confidence: segment.confidence,
-            warnings: segment.warnings
-        )
-
-        currentProject.subtitles[index] = firstSegment
-        currentProject.subtitles.insert(secondSegment, at: index + 1)
-        currentProject.subtitles = SubtitleTimingValidator.reindexed(currentProject.subtitles)
-        updateProject(currentProject, undoActionName: "Split Subtitle")
-        return secondSegment.id
     }
 
     public func mergeWithNextSegment(id: UUID) -> UUID? {
-        guard var currentProject = project,
-              let index = currentProject.subtitles.firstIndex(where: { $0.id == id }),
-              index + 1 < currentProject.subtitles.count else {
+        guard var currentProject = project else {
+            return nil
+        }
+
+        do {
+            let result = try subtitleStructuralEditingPolicy.mergeWithNext(
+                segments: currentProject.subtitles,
+                id: id
+            )
+            currentProject.subtitles = result.segments
+            updateProject(currentProject, undoActionName: "Merge Subtitles")
+            return result.selectedSegmentID
+        } catch {
             autosaveErrorMessage = "No next segment to merge."
             return nil
         }
-
-        let segment = currentProject.subtitles[index]
-        let nextSegment = currentProject.subtitles[index + 1]
-
-        var mergedSegment = segment
-        mergedSegment.endMs = nextSegment.endMs
-        mergedSegment.originalText = joinedText(segment.originalText, nextSegment.originalText)
-        mergedSegment.translatedText = joinedText(segment.translatedText, nextSegment.translatedText)
-        mergedSegment.confidence = minOptional(segment.confidence, nextSegment.confidence)
-
-        currentProject.subtitles[index] = mergedSegment
-        currentProject.subtitles.remove(at: index + 1)
-        currentProject.subtitles = SubtitleTimingValidator.reindexed(currentProject.subtitles)
-        updateProject(currentProject, undoActionName: "Merge Subtitles")
-        return mergedSegment.id
     }
 
     public func deleteSegment(id: UUID) -> UUID? {
-        guard var currentProject = project,
-              let index = currentProject.subtitles.firstIndex(where: { $0.id == id }) else {
+        guard var currentProject = project else {
             return nil
         }
 
-        currentProject.subtitles.remove(at: index)
-        currentProject.subtitles = SubtitleTimingValidator.reindexed(currentProject.subtitles)
-        updateProject(currentProject, undoActionName: "Delete Subtitle")
-
-        if currentProject.subtitles.isEmpty {
+        do {
+            let result = try subtitleStructuralEditingPolicy.delete(
+                segments: currentProject.subtitles,
+                id: id
+            )
+            currentProject.subtitles = result.segments
+            updateProject(currentProject, undoActionName: "Delete Subtitle")
+            return result.selectedSegmentID
+        } catch SubtitleStructuralEditError.segmentNotFound {
+            return nil
+        } catch {
+            assertionFailure("Unexpected subtitle delete error: \(error)")
             return nil
         }
-
-        let nextIndex = min(index, currentProject.subtitles.count - 1)
-        return currentProject.subtitles[nextIndex].id
     }
 
     public func addSegmentAfter(id: UUID) -> UUID? {
-        guard var currentProject = project,
-              let index = currentProject.subtitles.firstIndex(where: { $0.id == id }) else {
+        guard var currentProject = project else {
             return nil
         }
 
-        let segment = currentProject.subtitles[index]
-        let newSegment = SubtitleSegment(
-            id: UUID(),
-            index: segment.index + 1,
-            startMs: segment.endMs,
-            endMs: segment.endMs + 2_000,
-            originalText: "",
-            translatedText: "",
-            speaker: nil,
-            confidence: nil
-        )
-
-        currentProject.subtitles.insert(newSegment, at: index + 1)
-        currentProject.subtitles = SubtitleTimingValidator.reindexed(currentProject.subtitles)
-        updateProject(currentProject, undoActionName: "Add Subtitle")
-        return newSegment.id
+        do {
+            let result = try subtitleStructuralEditingPolicy.addAfter(
+                segments: currentProject.subtitles,
+                id: id
+            )
+            currentProject.subtitles = result.segments
+            updateProject(currentProject, undoActionName: "Add Subtitle")
+            return result.selectedSegmentID
+        } catch SubtitleStructuralEditError.segmentNotFound {
+            return nil
+        } catch {
+            assertionFailure("Unexpected subtitle add error: \(error)")
+            return nil
+        }
     }
 
     public func updateSourceLanguage(_ language: String) {
@@ -681,8 +659,6 @@ public final class ProjectViewModel: ObservableObject {
         guard var currentProject = project else {
             return
         }
-
-        ensureEditTimeline()
 
         guard let timeline = resolvedEditTimeline(for: currentProject) else {
             exportMessage = EditTimelineError.invalidDuration.errorDescription
@@ -1171,66 +1147,17 @@ public final class ProjectViewModel: ObservableObject {
             return
         }
 
-        currentProject.subtitles = importedSubtitles(
-            currentSubtitles: currentProject.subtitles,
-            importedSubtitles: preview.segments,
+        currentProject.subtitles = subtitleImportMergePolicy.merge(
+            current: currentProject.subtitles,
+            imported: preview.segments,
             mode: mode,
             destination: destination
         )
 
-        currentProject.subtitles = SubtitleTimingValidator.reindexed(currentProject.subtitles)
         selectedSegmentID = currentProject.subtitles.first?.id
         autosaveErrorMessage = nil
         subtitleImportPreview = nil
         updateProject(currentProject, undoActionName: "Import Subtitles")
-    }
-
-    private func importedSubtitles(
-        currentSubtitles: [SubtitleSegment],
-        importedSubtitles: [SubtitleSegment],
-        mode: SubtitleImportMode,
-        destination: SubtitleImportDestination
-    ) -> [SubtitleSegment] {
-        switch destination {
-        case .original:
-            switch mode {
-            case .replaceExisting:
-                return importedSubtitles
-            case .appendToExisting:
-                return currentSubtitles + importedSubtitles
-            }
-
-        case .translated:
-            let translatedSubtitles = importedSubtitles.map { imported in
-                var updated = imported
-                updated.originalText = ""
-                updated.translatedText = imported.originalText
-                return updated
-            }
-
-            switch mode {
-            case .appendToExisting:
-                return currentSubtitles + translatedSubtitles
-
-            case .replaceExisting:
-                guard !currentSubtitles.isEmpty else {
-                    return translatedSubtitles
-                }
-
-                var result = currentSubtitles
-                let sharedCount = min(result.count, importedSubtitles.count)
-
-                for index in 0..<sharedCount {
-                    result[index].translatedText = importedSubtitles[index].originalText
-                }
-
-                if importedSubtitles.count > result.count {
-                    result.append(contentsOf: translatedSubtitles.dropFirst(result.count))
-                }
-
-                return result
-            }
-        }
     }
 
     public func saveProject() async {
@@ -1582,10 +1509,6 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    private func reindexed(_ segments: [SubtitleSegment]) -> [SubtitleSegment] {
-        SubtitleTimingValidator.reindexed(segments)
-    }
-
     public func timelineDurationMs(for project: Project) -> Int {
         if let timelineDurationMs = project.editTimeline?.totalDurationMs, timelineDurationMs > 0 {
             return timelineDurationMs
@@ -1601,39 +1524,6 @@ public final class ProjectViewModel: ObservableObject {
 
         let subtitleDurationMs = project.subtitles.map(\.endMs).max() ?? 0
         return subtitleDurationMs > 0 ? subtitleDurationMs : nil
-    }
-
-    private func splitText(_ text: String) -> (first: String, second: String) {
-        let words = text.split(separator: " ", omittingEmptySubsequences: false).map(String.init)
-        guard words.count > 1 else {
-            return (text, "")
-        }
-
-        let midpoint = max(1, words.count / 2)
-        return (
-            words.prefix(midpoint).joined(separator: " "),
-            words.dropFirst(midpoint).joined(separator: " ")
-        )
-    }
-
-    private func joinedText(_ first: String, _ second: String) -> String {
-        [first, second]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-    }
-
-    private func minOptional(_ first: Double?, _ second: Double?) -> Double? {
-        switch (first, second) {
-        case let (.some(first), .some(second)):
-            return min(first, second)
-        case let (.some(first), .none):
-            return first
-        case let (.none, .some(second)):
-            return second
-        case (.none, .none):
-            return nil
-        }
     }
 
     private func hasOverlappingSegments(_ segments: [SubtitleSegment]) -> Bool {
@@ -1667,20 +1557,27 @@ extension ProjectViewModel {
         title: String? = nil,
         undoActionName: String = "Add Short"
     ) -> UUID? {
-        guard var currentProject = project, endMs > startMs else {
+        guard var currentProject = project else {
             return nil
         }
 
-        let short = ShortDefinition(
-            title: title ?? defaultShortTitle(for: currentProject),
-            startMs: max(0, startMs),
-            endMs: endMs
-        )
-        currentProject.shorts.append(short)
-        currentProject.shorts.sort { $0.startMs < $1.startMs }
-        updateProject(currentProject, undoActionName: undoActionName)
-        shortsSelectedShortID = short.id
-        return short.id
+        do {
+            let result = try shortsEditingPolicy.add(
+                shorts: currentProject.shorts,
+                title: title ?? defaultShortTitle(for: currentProject),
+                startMs: startMs,
+                endMs: endMs
+            )
+            currentProject.shorts = result.shorts
+            updateProject(currentProject, undoActionName: undoActionName)
+            shortsSelectedShortID = result.editedShortID
+            return result.editedShortID
+        } catch ShortsEditError.invalidRange {
+            return nil
+        } catch {
+            assertionFailure("Unexpected add short error: \(error)")
+            return nil
+        }
     }
 
     public func addShortAtPlayhead() {
@@ -1751,45 +1648,51 @@ extension ProjectViewModel {
         undoActionName: String? = nil,
         mutate: (inout ShortDefinition) -> Void
     ) {
-        guard var currentProject = project,
-              let index = currentProject.shorts.firstIndex(where: { $0.id == id }) else {
+        guard var currentProject = project else {
             return
         }
 
-        var short = currentProject.shorts[index]
-        mutate(&short)
-        guard short != currentProject.shorts[index] else {
+        do {
+            let result = try shortsEditingPolicy.update(
+                shorts: currentProject.shorts,
+                id: id,
+                mutate: mutate
+            )
+            guard result.didChange else {
+                return
+            }
+            currentProject.shorts = result.shorts
+            updateProject(currentProject, undoActionName: undoActionName)
+        } catch ShortsEditError.shortNotFound {
             return
+        } catch {
+            assertionFailure("Unexpected update short error: \(error)")
         }
-
-        currentProject.shorts[index] = short
-        currentProject.shorts.sort { $0.startMs < $1.startMs }
-        updateProject(currentProject, undoActionName: undoActionName)
     }
 
     public func updateShortRange(id: UUID, startMs: Int, endMs: Int) {
-        let updatedStartMs = max(0, startMs)
-        guard endMs > updatedStartMs else {
+        guard var currentProject = project else {
             return
         }
 
-        updateShort(id: id, undoActionName: "Edit Short Range") { short in
-            let oldStartMs = short.startMs
-            let updatedDurationMs = endMs - updatedStartMs
-            short.cropKeyframes = short.cropKeyframes.compactMap { keyframe in
-                let absoluteTimeMs = oldStartMs + keyframe.timeMs
-                let updatedLocalTimeMs = absoluteTimeMs - updatedStartMs
-                guard updatedLocalTimeMs >= 0,
-                      updatedLocalTimeMs <= updatedDurationMs else {
-                    return nil
-                }
-
-                var updatedKeyframe = keyframe
-                updatedKeyframe.timeMs = updatedLocalTimeMs
-                return updatedKeyframe
+        do {
+            let result = try shortsEditingPolicy.updateRange(
+                shorts: currentProject.shorts,
+                id: id,
+                startMs: startMs,
+                endMs: endMs
+            )
+            guard result.didChange else {
+                return
             }
-            short.startMs = updatedStartMs
-            short.endMs = endMs
+            currentProject.shorts = result.shorts
+            updateProject(currentProject, undoActionName: "Edit Short Range")
+        } catch ShortsEditError.invalidRange {
+            return
+        } catch ShortsEditError.shortNotFound {
+            return
+        } catch {
+            assertionFailure("Unexpected short range error: \(error)")
         }
     }
 
@@ -1875,11 +1778,23 @@ extension ProjectViewModel {
         }
 
         let offsetX = short.cropOffset(atTimelineTimeMs: currentTimeMs)
-        updateShort(id: shortID, undoActionName: "Add Crop Point") { short in
-            short.upsertCropKeyframe(
-                localTimeMs: currentTimeMs - short.startMs,
+        guard var currentProject = project else {
+            return
+        }
+        do {
+            let result = try shortsEditingPolicy.upsertCropKeyframe(
+                shorts: currentProject.shorts,
+                id: shortID,
+                timelineTimeMs: currentTimeMs,
                 offsetX: offsetX
             )
+            guard result.didChange else { return }
+            currentProject.shorts = result.shorts
+            updateProject(currentProject, undoActionName: "Add Crop Point")
+        } catch ShortsEditError.shortNotFound {
+            return
+        } catch {
+            assertionFailure("Unexpected crop point error: \(error)")
         }
     }
 
@@ -1888,30 +1803,62 @@ extension ProjectViewModel {
         timelineTimeMs: Int,
         offsetX: Double
     ) {
-        updateShort(id: id) { short in
-            short.upsertCropKeyframe(
-                localTimeMs: timelineTimeMs - short.startMs,
+        guard var currentProject = project else {
+            return
+        }
+        do {
+            let result = try shortsEditingPolicy.upsertCropKeyframe(
+                shorts: currentProject.shorts,
+                id: id,
+                timelineTimeMs: timelineTimeMs,
                 offsetX: offsetX
             )
+            guard result.didChange else { return }
+            currentProject.shorts = result.shorts
+            updateProject(currentProject)
+        } catch ShortsEditError.shortNotFound {
+            return
+        } catch {
+            assertionFailure("Unexpected crop offset error: \(error)")
         }
     }
 
     public func deleteShortCropKeyframe(shortID: UUID, keyframeID: UUID) {
-        updateShort(id: shortID, undoActionName: "Delete Crop Point") { short in
-            short.cropKeyframes.removeAll { $0.id == keyframeID }
+        guard var currentProject = project else {
+            return
+        }
+        do {
+            let result = try shortsEditingPolicy.deleteCropKeyframe(
+                shorts: currentProject.shorts,
+                shortID: shortID,
+                keyframeID: keyframeID
+            )
+            guard result.didChange else { return }
+            currentProject.shorts = result.shorts
+            updateProject(currentProject, undoActionName: "Delete Crop Point")
+        } catch ShortsEditError.shortNotFound {
+            return
+        } catch {
+            assertionFailure("Unexpected crop point deletion error: \(error)")
         }
     }
 
     public func deleteShort(id: UUID) {
-        guard var currentProject = project,
-              currentProject.shorts.contains(where: { $0.id == id }) else {
+        guard var currentProject = project else {
             return
         }
 
-        currentProject.shorts.removeAll { $0.id == id }
-        updateProject(currentProject, undoActionName: "Delete Short")
-        if shortsSelectedShortID == id {
-            shortsSelectedShortID = currentProject.shorts.first?.id
+        do {
+            let result = try shortsEditingPolicy.delete(shorts: currentProject.shorts, id: id)
+            currentProject.shorts = result.shorts
+            updateProject(currentProject, undoActionName: "Delete Short")
+            if shortsSelectedShortID == id {
+                shortsSelectedShortID = result.shorts.first?.id
+            }
+        } catch ShortsEditError.shortNotFound {
+            return
+        } catch {
+            assertionFailure("Unexpected delete short error: \(error)")
         }
     }
 

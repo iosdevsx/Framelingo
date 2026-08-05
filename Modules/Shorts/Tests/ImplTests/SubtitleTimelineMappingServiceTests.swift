@@ -80,6 +80,62 @@ struct SubtitleTimelineMappingServiceTests {
         #expect(updated.map(\.index) == [1, 2])
     }
 
+    @Test
+    func zeroLengthRangeLeavesValuesIntactAndReindexesSubtitles() {
+        let subtitle = segment(index: 9, start: 1_000, end: 2_000)
+        let short = ShortDefinition(title: "Keep", startMs: 1_000, endMs: 3_000)
+        let range = VideoCutRange(startMs: 2_000, endMs: 2_000)
+
+        let subtitles = service.rippleDeleteSubtitles(segments: [subtitle], range: range)
+        let shorts = service.rippleDeleteShorts(shorts: [short], range: range)
+
+        #expect(subtitles[0].id == subtitle.id)
+        #expect(subtitles[0].index == 1)
+        #expect(shorts == [short])
+    }
+
+    @Test
+    func shortCrossingCutMovesRangeAndRelocatesOnlySurvivingKeyframes() {
+        let beforeID = UUID()
+        let insideID = UUID()
+        let afterID = UUID()
+        let short = ShortDefinition(
+            title: "Mapped",
+            startMs: 1_000,
+            endMs: 8_000,
+            cropKeyframes: [
+                ShortCropKeyframe(id: beforeID, timeMs: 500, offsetX: 0.2),
+                ShortCropKeyframe(id: insideID, timeMs: 2_000, offsetX: 0.5),
+                ShortCropKeyframe(id: afterID, timeMs: 5_000, offsetX: 0.8),
+            ]
+        )
+
+        let updated = service.rippleDeleteShorts(
+            shorts: [short],
+            range: VideoCutRange(startMs: 2_000, endMs: 5_000)
+        )
+
+        #expect(updated.count == 1)
+        #expect(updated[0].startMs == 1_000)
+        #expect(updated[0].endMs == 5_000)
+        #expect(updated[0].cropKeyframes.map(\.id) == [beforeID, afterID])
+        #expect(updated[0].cropKeyframes.map(\.timeMs) == [500, 2_000])
+    }
+
+    @Test
+    func shortsAtCutBoundariesStayOrShiftWithoutOverlap() {
+        let before = ShortDefinition(title: "Before", startMs: 0, endMs: 2_000)
+        let after = ShortDefinition(title: "After", startMs: 4_000, endMs: 6_000)
+
+        let updated = service.rippleDeleteShorts(
+            shorts: [before, after],
+            range: VideoCutRange(startMs: 2_000, endMs: 4_000)
+        )
+
+        #expect(updated.map(\.startMs) == [0, 2_000])
+        #expect(updated.map(\.endMs) == [2_000, 4_000])
+    }
+
     private func segment(index: Int, start: Int, end: Int) -> SubtitleSegment {
         SubtitleSegment(
             id: UUID(),

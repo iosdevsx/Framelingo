@@ -243,6 +243,7 @@ enum TestDoubles {
     @MainActor
     static func projectViewModel(
         appState: AppState,
+        editTimelineService: any EditTimelineEditing = EditTimelineService(),
         speechToTextProviderResolver: any SpeechToTextProviderResolving = SpeechProviderResolver(),
         makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() }
     ) -> ProjectViewModel {
@@ -251,7 +252,7 @@ enum TestDoubles {
             dependencies: ProjectViewModelDependencies(
                 subtitleImporter: SubtitleImporter(),
                 projectFileService: ProjectFileService(),
-                editTimelineService: EditTimelineService(),
+                editTimelineService: editTimelineService,
                 mediaMetadataProvider: MetadataProvider(),
                 waveformLoader: WaveformLoader(),
                 speechToTextProviderResolver: speechToTextProviderResolver,

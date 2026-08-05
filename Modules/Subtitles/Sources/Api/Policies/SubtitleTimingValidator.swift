@@ -45,9 +45,28 @@ public enum SubtitleTimingValidator {
         endMs: Int,
         durationMs: Int
     ) -> [SubtitleSegment] {
+        updateSegmentTimingResult(
+            segments: segments,
+            id: id,
+            startMs: startMs,
+            endMs: endMs,
+            durationMs: durationMs
+        ).segments
+    }
+
+    public static func updateSegmentTimingResult(
+        segments: [SubtitleSegment],
+        id: UUID,
+        startMs: Int,
+        endMs: Int,
+        durationMs: Int
+    ) -> SubtitleTimingUpdateResult {
         let sortedSegments = sorted(segments)
         guard let index = sortedSegments.firstIndex(where: { $0.id == id }) else {
-            return reindexed(sortedSegments)
+            return SubtitleTimingUpdateResult(
+                segments: reindexed(sortedSegments),
+                adjustment: .segmentNotFound
+            )
         }
 
         var updatedSegments = sortedSegments
@@ -75,7 +94,11 @@ public enum SubtitleTimingValidator {
         segment.startMs = proposedStart
         segment.endMs = proposedEnd
         updatedSegments[index] = segment
-        return reindexed(sorted(updatedSegments))
+        let reindexedSegments = reindexed(sorted(updatedSegments))
+        let adjustment: SubtitleTimingAdjustment = segment.startMs == startMs && segment.endMs == endMs
+            ? .unchanged
+            : .adjustedToConstraints
+        return SubtitleTimingUpdateResult(segments: reindexedSegments, adjustment: adjustment)
     }
 
     public static func moveSegment(
@@ -130,5 +153,21 @@ public enum SubtitleTimingValidator {
         }
 
         return min(max(value, lowerBound), upperBound)
+    }
+}
+
+public enum SubtitleTimingAdjustment: Equatable {
+    case unchanged
+    case adjustedToConstraints
+    case segmentNotFound
+}
+
+public struct SubtitleTimingUpdateResult: Equatable {
+    public let segments: [SubtitleSegment]
+    public let adjustment: SubtitleTimingAdjustment
+
+    public init(segments: [SubtitleSegment], adjustment: SubtitleTimingAdjustment) {
+        self.segments = segments
+        self.adjustment = adjustment
     }
 }
