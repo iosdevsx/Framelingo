@@ -1,12 +1,17 @@
 import Application
 import Foundation
+import Media
 import Project
 import SpeechToText
 import Subtitles
+import VideoRendering
 
 public struct MacFeatureDependencies {
     public var appState: AppState
     public var projectViewModelDependencies: ProjectViewModelDependencies
+    public var mediaMetadataProvider: any MediaMetadataProviding
+    public var subtitleScriptGenerator: any SubtitleScriptGenerating
+    public var makeFFmpegService: FFmpegServiceBuilder
     public var projectFileService: any ProjectFileServicing
     public var whisperModelManager: any WhisperModelManaging
     public var parakeetModelManager: any ParakeetModelManaging
@@ -18,6 +23,9 @@ public struct MacFeatureDependencies {
     public init(
         appState: AppState,
         projectViewModelDependencies: ProjectViewModelDependencies,
+        mediaMetadataProvider: any MediaMetadataProviding,
+        subtitleScriptGenerator: any SubtitleScriptGenerating,
+        makeFFmpegService: @escaping FFmpegServiceBuilder,
         projectFileService: any ProjectFileServicing,
         whisperModelManager: any WhisperModelManaging,
         parakeetModelManager: any ParakeetModelManaging,
@@ -28,6 +36,9 @@ public struct MacFeatureDependencies {
     ) {
         self.appState = appState
         self.projectViewModelDependencies = projectViewModelDependencies
+        self.mediaMetadataProvider = mediaMetadataProvider
+        self.subtitleScriptGenerator = subtitleScriptGenerator
+        self.makeFFmpegService = makeFFmpegService
         self.projectFileService = projectFileService
         self.whisperModelManager = whisperModelManager
         self.parakeetModelManager = parakeetModelManager

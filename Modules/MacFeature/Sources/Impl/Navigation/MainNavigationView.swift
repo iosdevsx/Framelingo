@@ -80,7 +80,7 @@ struct MainNavigationView: View {
                 whisperInstaller: dependencies.whisperModelManager,
                 parakeetModelStore: dependencies.parakeetModelManager,
                 usesEmbeddedVideoRenderingBackend: dependencies.usesEmbeddedVideoRenderingBackend,
-                makeFFmpegService: dependencies.projectViewModelDependencies.makeFFmpegService,
+                makeFFmpegService: dependencies.makeFFmpegService,
                 fileManager: dependencies.fileManager
             )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -94,9 +94,9 @@ struct MainNavigationView: View {
                         ExportFeatureAssembly.makeVideoViewModel(
                             project: project,
                             settings: project.videoExportSettings,
-                            ffmpegService: dependencies.projectViewModelDependencies.makeFFmpegService(appState.settings),
-                            subtitleScriptGenerator: dependencies.projectViewModelDependencies.subtitleScriptGenerator,
-                            mediaMetadataService: dependencies.projectViewModelDependencies.mediaMetadataProvider,
+                            ffmpegService: dependencies.makeFFmpegService(appState.settings),
+                            subtitleScriptGenerator: dependencies.subtitleScriptGenerator,
+                            mediaMetadataService: dependencies.mediaMetadataProvider,
                             fileManager: dependencies.fileManager
                         )
                     }
@@ -111,7 +111,7 @@ struct MainNavigationView: View {
             HomeFeatureAssembly.makeView(
                 appState: appState,
                 projectFileService: dependencies.projectFileService,
-                mediaMetadataService: dependencies.projectViewModelDependencies.mediaMetadataProvider,
+                mediaMetadataService: dependencies.mediaMetadataProvider,
                 fileManager: dependencies.fileManager,
                 mockProject: dependencies.mockProject,
                 mockSubtitles: dependencies.mockSubtitles,

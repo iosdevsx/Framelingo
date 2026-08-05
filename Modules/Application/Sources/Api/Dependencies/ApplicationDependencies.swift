@@ -9,7 +9,7 @@ import Timeline
 import Translation
 import VideoRendering
 
-public typealias FFmpegServiceBuilder = @MainActor (AppSettings) -> any FFmpegService
+public typealias FFmpegServiceBuilder = (AppSettings) -> any FFmpegService
 public typealias SubtitleFilePicker = @MainActor () async -> URL?
 
 public struct AppStateDependencies {
@@ -59,32 +59,26 @@ public struct ProjectViewModelDependencies {
     public var subtitleImporter: any SubtitleImporting
     public var projectFileService: any ProjectFileServicing
     public var editTimelineService: any EditTimelineEditing
-    public var mediaMetadataProvider: any MediaMetadataProviding
-    public var waveformLoader: any WaveformLoading
-    public var speechToTextProviderResolver: any SpeechToTextProviderResolving
-    public var subtitleScriptGenerator: any SubtitleScriptGenerating
-    public var makeFFmpegService: FFmpegServiceBuilder
+    public var projectPreparationWorkflow: any ProjectPreparationWorkflow
+    public var projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow
+    public var projectTranslationWorkflow: any ProjectTranslationWorkflow
     public var pickSubtitleFile: SubtitleFilePicker
 
     public init(
         subtitleImporter: any SubtitleImporting,
         projectFileService: any ProjectFileServicing,
         editTimelineService: any EditTimelineEditing,
-        mediaMetadataProvider: any MediaMetadataProviding,
-        waveformLoader: any WaveformLoading,
-        speechToTextProviderResolver: any SpeechToTextProviderResolving,
-        subtitleScriptGenerator: any SubtitleScriptGenerating,
-        makeFFmpegService: @escaping FFmpegServiceBuilder,
+        projectPreparationWorkflow: any ProjectPreparationWorkflow,
+        projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow,
+        projectTranslationWorkflow: any ProjectTranslationWorkflow,
         pickSubtitleFile: @escaping SubtitleFilePicker
     ) {
         self.subtitleImporter = subtitleImporter
         self.projectFileService = projectFileService
         self.editTimelineService = editTimelineService
-        self.mediaMetadataProvider = mediaMetadataProvider
-        self.waveformLoader = waveformLoader
-        self.speechToTextProviderResolver = speechToTextProviderResolver
-        self.subtitleScriptGenerator = subtitleScriptGenerator
-        self.makeFFmpegService = makeFFmpegService
+        self.projectPreparationWorkflow = projectPreparationWorkflow
+        self.projectTranscriptionWorkflow = projectTranscriptionWorkflow
+        self.projectTranslationWorkflow = projectTranslationWorkflow
         self.pickSubtitleFile = pickSubtitleFile
     }
 }

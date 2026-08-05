@@ -1,14 +1,10 @@
 import Combine
 import Foundation
-import Media
 import Project
 import Settings
 import Shorts
-import SpeakerAnalysis
-import SpeechToText
 import Subtitles
 import Timeline
-import Translation
 import VideoRendering
 
 @MainActor
@@ -16,10 +12,8 @@ public final class ProjectViewModel: ObservableObject {
     @Published public var project: Project?
     @Published public var autosaveErrorMessage: String?
     @Published public var exportMessage: String?
-    @Published public var mp4ExportResult: MP4ExportResult?
     @Published public var isTranscribing = false
     @Published public var isTranslating = false
-    @Published public var isExportingMP4 = false
     @Published public var isImportingSubtitles = false
     @Published public var subtitleImportPreview: SubtitleImportPreview?
     @Published public var subtitleImportErrorMessage: String?
@@ -65,16 +59,13 @@ public final class ProjectViewModel: ObservableObject {
     private let subtitleStructuralEditingPolicy = SubtitleStructuralEditingPolicy()
     private let subtitleImportMergePolicy = SubtitleImportMergePolicy()
     private let shortsEditingPolicy = ShortsEditingPolicy()
-    private let mediaMetadataService: any MediaMetadataProviding
-    private let waveformService: any WaveformLoading
-    private let speechToTextProviderResolver: any SpeechToTextProviderResolving
-    private let subtitleScriptGenerator: any SubtitleScriptGenerating
-    private let makeFFmpegService: FFmpegServiceBuilder
+    private let projectPreparationWorkflow: any ProjectPreparationWorkflow
+    private let projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow
+    private let projectTranslationWorkflow: any ProjectTranslationWorkflow
     private let pickSubtitleFile: SubtitleFilePicker
     private var autosaveTask: Task<Void, Never>?
     private var waveformTask: Task<Void, Never>?
     private var preparedWaveformProjectID: UUID?
-    private var videoSourceInfoProjectID: UUID?
     private var undoStack: [ProjectUndoSnapshot] = []
     private var redoStack: [ProjectUndoSnapshot] = []
     private var activeTextEditSegmentID: UUID?
@@ -83,7 +74,6 @@ public final class ProjectViewModel: ObservableObject {
     private var interactiveShortsSubtitleStyleSnapshot: ProjectUndoSnapshot?
     private var cueSelectionAnchorID: UUID?
     private let undoLimit = 200
-    private static let diarizationWarningMessage = "Transcription complete. Speaker analysis failed; subtitle timings were not refined."
 
     public init(
         appState: AppState,
@@ -93,11 +83,9 @@ public final class ProjectViewModel: ObservableObject {
         subtitleImportService = dependencies.subtitleImporter
         projectFileService = dependencies.projectFileService
         editTimelineService = dependencies.editTimelineService
-        mediaMetadataService = dependencies.mediaMetadataProvider
-        waveformService = dependencies.waveformLoader
-        speechToTextProviderResolver = dependencies.speechToTextProviderResolver
-        subtitleScriptGenerator = dependencies.subtitleScriptGenerator
-        makeFFmpegService = dependencies.makeFFmpegService
+        projectPreparationWorkflow = dependencies.projectPreparationWorkflow
+        projectTranscriptionWorkflow = dependencies.projectTranscriptionWorkflow
+        projectTranslationWorkflow = dependencies.projectTranslationWorkflow
         pickSubtitleFile = dependencies.pickSubtitleFile
         project = appState.selectedProject
     }
@@ -110,45 +98,9 @@ public final class ProjectViewModel: ObservableObject {
     public func loadSelectedProject() {
         if project?.id != appState.selectedProject?.id {
             videoSourceInfo = nil
-            videoSourceInfoProjectID = nil
             pendingShortStartMs = nil
         }
         project = appState.selectedProject
-    }
-
-    public func loadVideoSourceInfo() async {
-        guard let project else {
-            videoSourceInfo = nil
-            videoSourceInfoProjectID = nil
-            return
-        }
-
-        guard videoSourceInfoProjectID != project.id else {
-            return
-        }
-
-        let projectID = project.id
-        videoSourceInfoProjectID = projectID
-        videoSourceInfo = nil
-
-        do {
-            let metadata = try await mediaMetadataService.videoMetadata(
-                for: project.mediaFile.originalURL
-            )
-            guard self.project?.id == projectID else {
-                return
-            }
-            videoSourceInfo = VideoSourceInfo(
-                width: metadata.width,
-                height: metadata.height,
-                nominalFrameRate: metadata.nominalFrameRate
-            )
-        } catch {
-            guard self.project?.id == projectID else {
-                return
-            }
-            videoSourceInfo = nil
-        }
     }
 
     public func prepareProjectForEditing() {
@@ -177,62 +129,28 @@ public final class ProjectViewModel: ObservableObject {
 
         waveformTask = Task { [weak self] in
             guard let self else { return }
-            var project = project
-
+            let projectID = project.id
             do {
-                if project.mediaFile.durationMs == nil {
-                    projectPreparationProgress = 0.06
-                    projectPreparationStatus = "Reading video duration..."
-
-                    do {
-                        if let durationMs = try await mediaMetadataService.durationMs(for: project.mediaFile.originalURL) {
-                            guard !Task.isCancelled else { return }
-                            project.mediaFile.durationMs = durationMs
-                            project.updatedAt = Date()
-                            applyProject(project)
-                            scheduleAutosave(project)
-                        }
-                    } catch {
-                        projectPreparationStatus = "Preparing waveform..."
-                    }
-                }
-
-                let waveformAudioURL = temporaryWaveformAudioURL(for: project)
-                defer {
-                    try? FileManager.default.removeItem(at: waveformAudioURL)
-                }
-                let peaks = try await waveformService.loadWaveform(
-                    for: WaveformRequest(
-                        projectID: project.id,
-                        mediaURL: project.mediaFile.originalURL,
-                        mediaSizeBytes: project.mediaFile.sizeBytes,
-                        durationMs: project.mediaFile.durationMs,
-                        fallbackContentEndMs: project.subtitles.map(\.endMs).max()
-                    ),
-                    audioProvider: {
-                        try await self.ffmpegService.extractAudio(
-                            from: project.mediaFile.originalURL,
-                            to: waveformAudioURL
-                        )
-                    },
-                    progressHandler: { progress, status in
-                        await MainActor.run {
-                            self.projectPreparationProgress = progress
-                            self.projectPreparationStatus = status
-                        }
+                let output = try await projectPreparationWorkflow.prepare(
+                    ProjectPreparationRequest(project: project, settings: settings),
+                    events: { [weak self] event in
+                        self?.handlePreparationEvent(event, projectID: projectID)
                     }
                 )
-
-                guard !Task.isCancelled else { return }
-                waveformPeaks = peaks
-                preparedWaveformProjectID = project.id
+                guard self.project?.id == projectID else { return }
+                applyProject(output.project)
+                waveformPeaks = output.waveformPeaks
+                videoSourceInfo = output.videoSourceInfo
+                preparedWaveformProjectID = projectID
                 projectPreparationProgress = 1
-                projectPreparationStatus = "Project ready"
+                projectPreparationStatus = output.status
                 isPreparingProject = false
+            } catch is CancellationError {
+                return
             } catch {
-                guard !Task.isCancelled else { return }
+                guard self.project?.id == projectID else { return }
                 waveformPeaks = []
-                preparedWaveformProjectID = project.id
+                preparedWaveformProjectID = projectID
                 projectPreparationProgress = 1
                 projectPreparationStatus = "Project ready. Waveform unavailable."
                 isPreparingProject = false
@@ -802,7 +720,7 @@ public final class ProjectViewModel: ObservableObject {
     }
 
     public func transcribe() async {
-        guard var currentProject = project, !isTranscribing else {
+        guard let currentProject = project, !isTranscribing else {
             return
         }
 
@@ -815,161 +733,95 @@ public final class ProjectViewModel: ObservableObject {
         autosaveTask?.cancel()
         autosaveTask = nil
 
-        currentProject.status = .extractingAudio
-        applyProject(currentProject)
-
         do {
-            try await appState.projectRepository.saveProject(currentProject)
-
-            let audioURL = temporaryAudioURL(for: currentProject)
-            // STT and diarization must share this exact edit-timeline audio so
-            // every returned timestamp remains in the player's time domain.
-            let transcriptionClips = try transcriptionClips(for: currentProject)
-            let extractedAudioURL = try await ffmpegService.extractAudio(
-                from: currentProject.mediaFile.originalURL,
-                to: audioURL,
-                clips: transcriptionClips
-            )
-            appState.updateTranscriptionActivity(statusText: "Transcribing audio...", progress: 0.15)
-
-            currentProject.status = .transcribing
-            currentProject.updatedAt = Date()
-            applyProject(currentProject)
-            try await appState.projectRepository.saveProject(currentProject)
-
-            let appState = appState
-            let input = TranscriptionInput(
-                audioURL: extractedAudioURL,
-                videoURL: currentProject.mediaFile.originalURL,
-                sourceLanguage: currentProject.sourceLanguage,
-                progressHandler: { progress, status in
-                    await appState.updateTranscriptionActivity(statusText: status, progress: progress)
+            let projectID = currentProject.id
+            let output = try await projectTranscriptionWorkflow.transcribe(
+                ProjectTranscriptionRequest(project: currentProject, settings: settings),
+                events: { [weak self] event in
+                    self?.handleTranscriptionEvent(event, projectID: projectID)
                 }
             )
-            let provider = try speechToTextProviderResolver.resolve(
-                configuration: speechToTextConfiguration(from: appState.settings)
-            )
-            let result = try await provider.transcribe(input)
-
-            currentProject.subtitles = result.segments
-            currentProject.wordTimings = result.words
-            if let detectedLanguage = result.detectedLanguage {
-                currentProject.sourceLanguage = detectedLanguage
-            }
-            if transcriptionClips == nil, let durationMs = result.durationMs {
-                currentProject.mediaFile.durationMs = durationMs
-            }
-
-            let diarizationOutcome = try await performDiarizationAndAlignment(
-                for: currentProject,
-                audioURL: extractedAudioURL
-            )
-            currentProject = diarizationOutcome.project
-            if let transcriptionDurationMs = transcriptionClips.map({ clips in
-                clips.reduce(0) { $0 + $1.durationMs }
-            }) {
-                currentProject = projectByConstrainingTranscription(
-                    currentProject,
-                    to: transcriptionDurationMs
-                )
-            }
-
-            currentProject.status = .ready
-            currentProject.updatedAt = Date()
+            guard project?.id == projectID else { return }
+            applyProject(output.project)
             appState.finishTranscriptionActivity(
                 success: true,
-                message: transcriptionCompletionMessage(diarizationFailureMessage: diarizationOutcome.failureMessage)
+                message: output.completionMessage
             )
-
-            applyProject(currentProject)
-            try await appState.projectRepository.saveProject(currentProject)
-        } catch FFmpegServiceError.notFound {
-            let message = "FFmpeg is not installed or path is incorrect."
-            currentProject.status = .failed(message)
-            currentProject.updatedAt = Date()
-            applyProject(currentProject)
-            appState.finishTranscriptionActivity(success: false, message: message)
-            exportMessage = message
-            try? await appState.projectRepository.saveProject(currentProject)
-        } catch let error as LocalizedError {
-            let message = error.errorDescription ?? "Transcription failed."
-            currentProject.status = .failed(message)
-            currentProject.updatedAt = Date()
-            applyProject(currentProject)
-            appState.finishTranscriptionActivity(success: false, message: message)
-            exportMessage = message
-            try? await appState.projectRepository.saveProject(currentProject)
+        } catch is CancellationError {
+            appState.dismissTranscriptionActivity()
         } catch {
-            let message = "Transcription failed."
-            currentProject.status = .failed(message)
-            currentProject.updatedAt = Date()
-            applyProject(currentProject)
+            let localizedError = error as? LocalizedError
+            let message = localizedError?.errorDescription ?? "Transcription failed."
             appState.finishTranscriptionActivity(success: false, message: message)
             exportMessage = message
-            try? await appState.projectRepository.saveProject(currentProject)
         }
     }
 
     public func translate() async {
-        guard var currentProject = project, !isTranslating else {
+        guard let currentProject = project, !isTranslating else {
             return
         }
 
         guard !currentProject.subtitles.isEmpty else {
-            exportMessage = "No subtitles to translate."
+            exportMessage = ProjectTranslationError.noSubtitles.errorDescription
             return
         }
 
         isTranslating = true
+        defer {
+            isTranslating = false
+        }
         autosaveTask?.cancel()
         autosaveTask = nil
 
-        currentProject.status = .translating
-        applyProject(currentProject)
-
         do {
-            try await appState.projectRepository.saveProject(currentProject)
-
-            let input = SubtitleTranslationInput(
-                segments: currentProject.subtitles,
-                sourceLanguage: currentProject.sourceLanguage,
-                targetLanguage: currentProject.targetLanguage,
-                style: .natural
+            let projectID = currentProject.id
+            let output = try await projectTranslationWorkflow.translate(
+                ProjectTranslationRequest(project: currentProject),
+                events: { [weak self] event in
+                    self?.handleTranslationEvent(event, projectID: projectID)
+                }
             )
-            let result = try await appState.translationService.translateSubtitles(input)
-
-            guard result.segments.count == currentProject.subtitles.count else {
-                throw TranslationValidationError.segmentCountMismatch
-            }
-
-            currentProject.subtitles = currentProject.subtitles.enumerated().map { index, segment in
-                var updatedSegment = segment
-                updatedSegment.translatedText = result.segments[index].translatedText
-                return updatedSegment
-            }
-            currentProject.status = .ready
-            currentProject.updatedAt = Date()
-
-            applyProject(currentProject)
-            try await appState.projectRepository.saveProject(currentProject)
-            isTranslating = false
-        } catch let error as LocalizedError {
-            currentProject.status = .failed(error.errorDescription ?? "Translation failed.")
-            currentProject.updatedAt = Date()
-            applyProject(currentProject)
-            exportMessage = error.errorDescription ?? "Translation failed."
-            try? await appState.projectRepository.saveProject(currentProject)
-            isTranslating = false
+            guard project?.id == projectID else { return }
+            applyProject(output.project)
+        } catch is CancellationError {
+            return
         } catch {
-            currentProject.status = .failed("Translation failed.")
-            currentProject.updatedAt = Date()
-            applyProject(currentProject)
-            exportMessage = "Translation failed."
-            try? await appState.projectRepository.saveProject(currentProject)
-            isTranslating = false
+            let localizedError = error as? LocalizedError
+            exportMessage = localizedError?.errorDescription ?? "Translation failed."
         }
     }
 
+    private func handlePreparationEvent(_ event: ProjectProcessingEvent, projectID: UUID) {
+        guard project?.id == projectID else { return }
+        switch event {
+        case .projectChanged(let project):
+            applyProject(project)
+            scheduleAutosave(project)
+        case .progress(let progress, let status):
+            if let progress {
+                projectPreparationProgress = progress
+            }
+            projectPreparationStatus = status
+        }
+    }
+
+    private func handleTranscriptionEvent(_ event: ProjectProcessingEvent, projectID: UUID) {
+        guard project?.id == projectID else { return }
+        switch event {
+        case .projectChanged(let project):
+            applyProject(project)
+        case .progress(let progress, let status):
+            appState.updateTranscriptionActivity(statusText: status, progress: progress)
+        }
+    }
+
+    private func handleTranslationEvent(_ event: ProjectProcessingEvent, projectID: UUID) {
+        guard project?.id == projectID else { return }
+        if case .projectChanged(let project) = event {
+            applyProject(project)
+        }
+    }
 
     public func suggestedExportFileName(for kind: SubtitleExportKind) -> String {
         let baseName = project?.displayName
@@ -979,16 +831,6 @@ public final class ProjectViewModel: ObservableObject {
 
         let safeBaseName = (baseName?.isEmpty == false ? baseName : "subtitles") ?? "subtitles"
         return "\(safeBaseName).\(kind.fileExtension)"
-    }
-
-    public func suggestedMP4ExportFileName() -> String {
-        let baseName = project?.displayName
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: " ", with: "-")
-            .lowercased()
-
-        let safeBaseName = (baseName?.isEmpty == false ? baseName : "subtitled-video") ?? "subtitled-video"
-        return "\(safeBaseName).mp4"
     }
 
     public func exportSubtitles(kind: SubtitleExportKind, to destinationURL: URL) async {
@@ -1012,99 +854,6 @@ public final class ProjectViewModel: ObservableObject {
             exportMessage = error.errorDescription ?? "Export failed."
         } catch {
             exportMessage = "Export failed."
-        }
-    }
-
-    public func exportMP4(to destinationURL: URL) async {
-        guard var currentProject = project, !isExportingMP4 else {
-            exportMessage = project == nil ? "No project selected." : nil
-            return
-        }
-
-        guard !currentProject.subtitles.isEmpty else {
-            exportMessage = "There are no subtitles to export."
-            return
-        }
-
-        isExportingMP4 = true
-        autosaveTask?.cancel()
-        autosaveTask = nil
-
-        currentProject.status = .exporting
-        currentProject.updatedAt = Date()
-        applyProject(currentProject)
-
-        do {
-            try await appState.projectRepository.saveProject(currentProject)
-
-            let settings = currentProject.videoExportSettings
-            let subtitlesURL = temporaryTranslatedASSURL(for: currentProject)
-            try writeASS(for: currentProject, settings: settings, to: subtitlesURL)
-
-            let sourceInfo: VideoSourceInfo?
-            do {
-                let metadata = try await mediaMetadataService.videoMetadata(
-                    for: currentProject.mediaFile.originalURL
-                )
-                sourceInfo = VideoSourceInfo(
-                    width: metadata.width,
-                    height: metadata.height,
-                    nominalFrameRate: metadata.nominalFrameRate
-                )
-            } catch {
-                sourceInfo = nil
-            }
-
-            let outputURL = try await ffmpegService.burnSubtitles(
-                videoURL: currentProject.mediaFile.originalURL,
-                subtitlesURL: subtitlesURL,
-                outputURL: destinationURL,
-                settings: settings,
-                sourceInfo: sourceInfo
-            )
-
-            currentProject.status = .ready
-            currentProject.updatedAt = Date()
-            applyProject(currentProject)
-            try await appState.projectRepository.saveProject(currentProject)
-
-            mp4ExportResult = .success(outputURL.path)
-            isExportingMP4 = false
-        } catch FFmpegServiceError.notFound {
-            let message = "FFmpeg was not found. Install FFmpeg or set the correct path in Settings."
-            currentProject.status = .failed(message)
-            currentProject.updatedAt = Date()
-            applyProject(currentProject)
-            mp4ExportResult = .failure(message: message, debugOutput: nil)
-            try? await appState.projectRepository.saveProject(currentProject)
-            isExportingMP4 = false
-        } catch FFmpegServiceError.processFailed(_, _, let standardError) {
-            let message = "MP4 export failed."
-            currentProject.status = .failed(message)
-            currentProject.updatedAt = Date()
-            applyProject(currentProject)
-            mp4ExportResult = .failure(
-                message: message,
-                debugOutput: standardError.isEmpty ? "FFmpeg did not return stderr output." : standardError
-            )
-            try? await appState.projectRepository.saveProject(currentProject)
-            isExportingMP4 = false
-        } catch let error as LocalizedError {
-            let message = error.errorDescription ?? "MP4 export failed."
-            currentProject.status = .failed(message)
-            currentProject.updatedAt = Date()
-            applyProject(currentProject)
-            mp4ExportResult = .failure(message: message, debugOutput: nil)
-            try? await appState.projectRepository.saveProject(currentProject)
-            isExportingMP4 = false
-        } catch {
-            let message = "MP4 export failed."
-            currentProject.status = .failed(message)
-            currentProject.updatedAt = Date()
-            applyProject(currentProject)
-            mp4ExportResult = .failure(message: message, debugOutput: nil)
-            try? await appState.projectRepository.saveProject(currentProject)
-            isExportingMP4 = false
         }
     }
 
@@ -1192,182 +941,6 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    private func performDiarizationAndAlignment(
-        for project: Project,
-        audioURL: URL
-    ) async throws -> (project: Project, failureMessage: String?) {
-        do {
-            appState.updateTranscriptionActivity(statusText: "Analyzing speakers...", progress: 0.95)
-            let speakerSegments = try await appState.speakerDiarizationEngine.diarize(audioURL: audioURL)
-
-            appState.updateTranscriptionActivity(statusText: "Aligning subtitles...", progress: 0.99)
-            let words = project.wordTimings.isEmpty
-                ? syntheticWordTimings(from: project.subtitles)
-                : project.wordTimings
-
-            let alignedSubtitles = try await appState.subtitleAlignmentEngine.align(
-                words: words,
-                existingCues: project.subtitles.map(subtitleAlignmentCue(from:)),
-                speakerSegments: speakerSegments,
-                options: SubtitleAlignmentOptions()
-            )
-
-            var alignedProject = project
-            alignedProject.speakerSegments = speakerSegments
-            alignedProject.speakerLabels = speakerLabels(for: speakerSegments, existingLabels: project.speakerLabels)
-            alignedProject.subtitles = SubtitleTimingValidator.reindexed(
-                alignedSubtitles.map(subtitleSegment(from:))
-            )
-            return (alignedProject, nil)
-        } catch let error as CancellationError {
-            throw error
-        } catch {
-            return (project, diarizationFailureMessage(from: error))
-        }
-    }
-
-    private func transcriptionClips(for project: Project) throws -> [ExportClipRange]? {
-        do {
-            return try ExportClipPlanResolver.clips(for: project)
-        } catch ExportClipPlanError.emptyPlan {
-            throw TranscriptionValidationError.editTimelineEmpty
-        }
-    }
-
-    private func transcriptionCompletionMessage(diarizationFailureMessage: String?) -> String? {
-        guard let diarizationFailureMessage else {
-            return nil
-        }
-
-        let detail = diarizationFailureMessage.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !detail.isEmpty else {
-            return Self.diarizationWarningMessage
-        }
-
-        return "\(Self.diarizationWarningMessage) \(detail)"
-    }
-
-    private func projectByConstrainingTranscription(
-        _ project: Project,
-        to durationMs: Int
-    ) -> Project {
-        let durationSeconds = Double(durationMs) / 1_000
-        var constrainedProject = project
-
-        constrainedProject.subtitles = SubtitleTimingValidator.reindexed(
-            project.subtitles.compactMap { segment in
-                let startMs = max(0, segment.startMs)
-                let endMs = min(durationMs, segment.endMs)
-                guard startMs < durationMs, endMs > startMs else { return nil }
-
-                var constrainedSegment = segment
-                constrainedSegment.startMs = startMs
-                constrainedSegment.endMs = endMs
-                return constrainedSegment
-            }
-        )
-        constrainedProject.wordTimings = project.wordTimings.compactMap { word in
-            let start = max(0, word.start)
-            let end = min(durationSeconds, word.end)
-            guard start < durationSeconds, end > start else { return nil }
-
-            var constrainedWord = word
-            constrainedWord.start = start
-            constrainedWord.end = end
-            return constrainedWord
-        }
-        constrainedProject.speakerSegments = project.speakerSegments.compactMap { segment in
-            let start = max(0, segment.start)
-            let end = min(durationSeconds, segment.end)
-            guard start < durationSeconds, end > start else { return nil }
-
-            var constrainedSegment = segment
-            constrainedSegment.start = start
-            constrainedSegment.end = end
-            return constrainedSegment
-        }
-
-        return constrainedProject
-    }
-
-    private func subtitleAlignmentCue(from segment: SubtitleSegment) -> SubtitleAlignmentCue {
-        SubtitleAlignmentCue(
-            id: segment.id,
-            index: segment.index,
-            startMs: segment.startMs,
-            endMs: segment.endMs,
-            originalText: segment.originalText,
-            translatedText: segment.translatedText,
-            speakerId: segment.speakerId,
-            confidence: segment.confidence,
-            warnings: segment.warnings
-        )
-    }
-
-    private func subtitleSegment(from cue: SubtitleAlignmentCue) -> SubtitleSegment {
-        SubtitleSegment(
-            id: cue.id,
-            index: cue.index,
-            startMs: cue.startMs,
-            endMs: cue.endMs,
-            originalText: cue.originalText,
-            translatedText: cue.translatedText,
-            speakerId: cue.speakerId,
-            confidence: cue.confidence,
-            warnings: cue.warnings
-        )
-    }
-
-    private func speechToTextConfiguration(
-        from settings: AppSettings
-    ) -> SpeechToTextProviderConfiguration {
-        SpeechToTextProviderConfiguration(
-            providerName: settings.speechToTextProviderName,
-            whisperExecutableURL: fileURL(from: settings.whisperExecutablePath),
-            whisperModelURL: fileURL(from: settings.whisperModelPath),
-            whisperModelName: settings.whisperModelName,
-            whisperVADEnabled: settings.whisperVADEnabled,
-            whisperVADModelURL: fileURL(from: settings.whisperVADModelPath)
-        )
-    }
-
-    private func fileURL(from path: String) -> URL? {
-        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        return URL(fileURLWithPath: trimmed)
-    }
-
-    private func diarizationFailureMessage(from error: Error) -> String {
-        if let localizedError = error as? LocalizedError,
-           let description = localizedError.errorDescription?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !description.isEmpty {
-            return description
-        }
-
-        let description = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        return description.isEmpty ? "Speaker analysis failed." : description
-    }
-
-    private func syntheticWordTimings(from subtitles: [SubtitleSegment]) -> [WordTiming] {
-        subtitles.flatMap { segment in
-            let words = segment.originalText
-                .components(separatedBy: .whitespaces)
-                .filter { !$0.isEmpty }
-            guard !words.isEmpty else { return [WordTiming]() }
-            let startSec = Double(segment.startMs) / 1000.0
-            let endSec = Double(segment.endMs) / 1000.0
-            let wordDuration = max(endSec - startSec, 0) / Double(words.count)
-            return words.enumerated().map { i, word in
-                WordTiming(
-                    text: word,
-                    start: startSec + Double(i) * wordDuration,
-                    end: startSec + Double(i + 1) * wordDuration,
-                    confidence: segment.confidence
-                )
-            }
-        }
-    }
-
     private func updateProject(_ project: Project, undoActionName: String? = nil) {
         if let undoActionName, let previousProject = self.project {
             pushUndoSnapshot(
@@ -1427,66 +1000,12 @@ public final class ProjectViewModel: ObservableObject {
         updateRecentProject(project)
     }
 
-    private var ffmpegService: any FFmpegService {
-        makeFFmpegService(appState.settings)
-    }
-
-    private func temporaryAudioURL(for project: Project) -> URL {
-        FileManager.default.temporaryDirectory
-            .appendingPathComponent("Framelingo", isDirectory: true)
-            .appendingPathComponent(project.id.uuidString, isDirectory: true)
-            .appendingPathComponent("audio-\(UUID().uuidString).wav")
-    }
-
-    private func temporaryWaveformAudioURL(for project: Project) -> URL {
-        FileManager.default.temporaryDirectory
-            .appendingPathComponent("Framelingo", isDirectory: true)
-            .appendingPathComponent(project.id.uuidString, isDirectory: true)
-            .appendingPathComponent("waveform-\(UUID().uuidString).wav")
-    }
-
-    private func temporaryTranslatedASSURL(for project: Project) -> URL {
-        FileManager.default.temporaryDirectory
-            .appendingPathComponent("Framelingo", isDirectory: true)
-            .appendingPathComponent(project.id.uuidString, isDirectory: true)
-            .appendingPathComponent("subtitles.ass")
-    }
-
-    private func writeASS(for project: Project, settings: VideoExportSettings, to subtitlesURL: URL) throws {
-        let directoryURL = subtitlesURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(
-            at: directoryURL,
-            withIntermediateDirectories: true
-        )
-
-        let content = try subtitleScriptGenerator.generateASS(
-            segments: project.subtitles,
-            settings: settings
-        )
-        try Data(content.utf8).write(to: subtitlesURL, options: .atomic)
-    }
-
     private func updateRecentProject(_ project: Project) {
         guard let index = appState.recentProjects.firstIndex(where: { $0.id == project.id }) else {
             return
         }
 
         appState.recentProjects[index] = project
-    }
-
-    private func speakerLabels(
-        for speakerSegments: [SpeakerSegment],
-        existingLabels: [SpeakerLabel]
-    ) -> [SpeakerLabel] {
-        let existingLabelsByID = Dictionary(uniqueKeysWithValues: existingLabels.map { ($0.id, $0.displayName) })
-        let speakerIDs = Set(speakerSegments.map(\.speakerId)).sorted()
-
-        return speakerIDs.map { speakerID in
-            SpeakerLabel(
-                id: speakerID,
-                displayName: existingLabelsByID[speakerID] ?? "Speaker \(speakerID + 1)"
-            )
-        }
     }
 
     private func scheduleAutosave(_ project: Project) {
@@ -1965,53 +1484,8 @@ extension ProjectViewModel {
     }
 }
 
-private enum TranslationValidationError: LocalizedError {
-    case segmentCountMismatch
-
-    public var errorDescription: String? {
-        switch self {
-        case .segmentCountMismatch:
-            return "Translation provider returned a different number of subtitle segments."
-        }
-    }
-}
-
-private enum TranscriptionValidationError: LocalizedError {
-    case editTimelineEmpty
-
-    var errorDescription: String? {
-        switch self {
-        case .editTimelineEmpty:
-            return "The edit timeline has no video to transcribe. Review your cuts in Edit mode."
-        }
-    }
-}
-
 private struct ProjectUndoSnapshot {
     let project: Project
     let selectedSegmentID: UUID?
     let currentTimeMs: Int
-}
-
-public enum MP4ExportResult: Equatable, Identifiable {
-    case success(String)
-    case failure(message: String, debugOutput: String?)
-
-    public var id: String {
-        switch self {
-        case .success(let outputPath):
-            "success-\(outputPath)"
-        case .failure(let message, let debugOutput):
-            "failure-\(message)-\(debugOutput ?? "")"
-        }
-    }
-
-    public var title: String {
-        switch self {
-        case .success:
-            "MP4 Export Complete"
-        case .failure:
-            "MP4 Export Failed"
-        }
-    }
 }

@@ -1,4 +1,5 @@
 import Application
+import ApplicationImpl
 import Foundation
 import Media
 import Project
@@ -245,19 +246,40 @@ enum TestDoubles {
         appState: AppState,
         editTimelineService: any EditTimelineEditing = EditTimelineService(),
         speechToTextProviderResolver: any SpeechToTextProviderResolving = SpeechProviderResolver(),
-        makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() }
+        makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() },
+        projectPreparationWorkflow: (any ProjectPreparationWorkflow)? = nil,
+        projectTranscriptionWorkflow: (any ProjectTranscriptionWorkflow)? = nil,
+        projectTranslationWorkflow: (any ProjectTranslationWorkflow)? = nil
     ) -> ProjectViewModel {
-        ProjectViewModel(
+        let preparationWorkflow = projectPreparationWorkflow
+            ?? ApplicationWorkflowAssembly.makeProjectPreparationWorkflow(
+                mediaMetadataProvider: MetadataProvider(),
+                waveformLoader: WaveformLoader(),
+                makeFFmpegService: makeFFmpegService
+            )
+        let transcriptionWorkflow = projectTranscriptionWorkflow
+            ?? ApplicationWorkflowAssembly.makeProjectTranscriptionWorkflow(
+                projectRepository: appState.projectRepository,
+                speechToTextProviderResolver: speechToTextProviderResolver,
+                speakerDiarizationEngine: appState.speakerDiarizationEngine,
+                subtitleAlignmentEngine: appState.subtitleAlignmentEngine,
+                makeFFmpegService: makeFFmpegService
+            )
+        let translationWorkflow = projectTranslationWorkflow
+            ?? ApplicationWorkflowAssembly.makeProjectTranslationWorkflow(
+                projectRepository: appState.projectRepository,
+                translationService: appState.translationService
+            )
+
+        return ProjectViewModel(
             appState: appState,
             dependencies: ProjectViewModelDependencies(
                 subtitleImporter: SubtitleImporter(),
                 projectFileService: ProjectFileService(),
                 editTimelineService: editTimelineService,
-                mediaMetadataProvider: MetadataProvider(),
-                waveformLoader: WaveformLoader(),
-                speechToTextProviderResolver: speechToTextProviderResolver,
-                subtitleScriptGenerator: ScriptGenerator(),
-                makeFFmpegService: makeFFmpegService,
+                projectPreparationWorkflow: preparationWorkflow,
+                projectTranscriptionWorkflow: transcriptionWorkflow,
+                projectTranslationWorkflow: translationWorkflow,
                 pickSubtitleFile: { nil }
             )
         )

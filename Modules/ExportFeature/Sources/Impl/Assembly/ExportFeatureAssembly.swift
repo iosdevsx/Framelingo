@@ -60,11 +60,6 @@ public enum ExportFeatureAssembly {
     }
 
     @MainActor
-    public static func makeResultView(result: MP4ExportResult) -> AnyView {
-        AnyView(MP4ExportResultView(result: result))
-    }
-
-    @MainActor
     public static func makeActivityOverlay(appState: AppState) -> AnyView {
         AnyView(ActivityToastOverlay().environmentObject(appState))
     }

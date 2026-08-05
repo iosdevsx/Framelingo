@@ -34,6 +34,14 @@ enum MacCompositionRoot {
         let subtitleScriptGenerator = VideoRenderingAssembly.makeSubtitleScriptGenerator()
         let projectRepository = ProjectAssembly.makeRepository(fileManager: fileManager)
         let projectFileService = ProjectAssembly.makeFileService()
+        let translationService = TranslationAssembly.makeMockService()
+        let speakerDiarizationEngine = SpeakerAnalysisAssembly.makeFluidAudioDiarizationEngine()
+        let subtitleAlignmentEngine = SpeakerAnalysisAssembly.makeWordLevelAlignmentEngine()
+        let mediaMetadataProvider = MediaAssembly.makeMetadataProvider()
+        let waveformLoader = MediaAssembly.makeWaveformLoader()
+        let speechToTextProviderResolver = SpeechToTextAssembly.makeProviderResolver(
+            subtitleParser: subtitleParser
+        )
 
         let appState = ApplicationAssembly.makeAppState(
             recentProjects: [MacMockData.project],
@@ -42,9 +50,9 @@ enum MacCompositionRoot {
             dependencies: AppStateDependencies(
                 projectRepository: projectRepository,
                 subtitleExportService: SubtitlesAssembly.makeExporter(),
-                translationService: TranslationAssembly.makeMockService(),
-                speakerDiarizationEngine: SpeakerAnalysisAssembly.makeFluidAudioDiarizationEngine(),
-                subtitleAlignmentEngine: SpeakerAnalysisAssembly.makeWordLevelAlignmentEngine(),
+                translationService: translationService,
+                speakerDiarizationEngine: speakerDiarizationEngine,
+                subtitleAlignmentEngine: subtitleAlignmentEngine,
                 audioPreparationService: VideoRenderingAssembly.makeAudioPreparationService(
                     ffmpegService: ffmpegService
                 ),
@@ -68,19 +76,33 @@ enum MacCompositionRoot {
             subtitleImporter: SubtitlesAssembly.makeImporter(),
             projectFileService: projectFileService,
             editTimelineService: TimelineAssembly.makeEditService(),
-            mediaMetadataProvider: MediaAssembly.makeMetadataProvider(),
-            waveformLoader: MediaAssembly.makeWaveformLoader(),
-            speechToTextProviderResolver: SpeechToTextAssembly.makeProviderResolver(
-                subtitleParser: subtitleParser
+            projectPreparationWorkflow: ApplicationWorkflowAssembly.makeProjectPreparationWorkflow(
+                mediaMetadataProvider: mediaMetadataProvider,
+                waveformLoader: waveformLoader,
+                makeFFmpegService: makeFFmpegService,
+                fileManager: fileManager
             ),
-            subtitleScriptGenerator: subtitleScriptGenerator,
-            makeFFmpegService: makeFFmpegService,
+            projectTranscriptionWorkflow: ApplicationWorkflowAssembly.makeProjectTranscriptionWorkflow(
+                projectRepository: projectRepository,
+                speechToTextProviderResolver: speechToTextProviderResolver,
+                speakerDiarizationEngine: speakerDiarizationEngine,
+                subtitleAlignmentEngine: subtitleAlignmentEngine,
+                makeFFmpegService: makeFFmpegService,
+                fileManager: fileManager
+            ),
+            projectTranslationWorkflow: ApplicationWorkflowAssembly.makeProjectTranslationWorkflow(
+                projectRepository: projectRepository,
+                translationService: translationService
+            ),
             pickSubtitleFile: pickSubtitleFile
         )
 
         return MacFeatureDependencies(
             appState: appState,
             projectViewModelDependencies: projectViewModelDependencies,
+            mediaMetadataProvider: mediaMetadataProvider,
+            subtitleScriptGenerator: subtitleScriptGenerator,
+            makeFFmpegService: makeFFmpegService,
             projectFileService: projectFileService,
             whisperModelManager: SpeechToTextAssembly.makeWhisperModelManager(),
             parakeetModelManager: SpeechToTextAssembly.makeParakeetModelManager(),

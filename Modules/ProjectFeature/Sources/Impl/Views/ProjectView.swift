@@ -27,8 +27,6 @@ struct ProjectView: View {
     @State private var timeObserver: Any?
     @State private var isPlaying = false
     @State private var alertMessage: String?
-    @State private var mp4SuccessPath: String?
-    @State private var mp4FailureResult: MP4ExportResult?
     @State private var exportVideoViewModel: ExportVideoViewModel?
     @State private var pendingSubtitleExportKind: SubtitleExportKind?
     @State private var accessedMediaURL: URL?
@@ -76,9 +74,6 @@ struct ProjectView: View {
             viewModel.prepareProjectForEditing()
             configurePlayerIfNeeded()
         }
-        .task(id: viewModel.project?.id) {
-            await viewModel.loadVideoSourceInfo()
-        }
         .onChange(of: projectMode) { _, mode in
             if mode == .edit {
                 viewModel.ensureEditTimeline()
@@ -108,14 +103,6 @@ struct ProjectView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(alertMessage ?? "")
-        }
-        .alert("MP4 Export Complete", isPresented: mp4SuccessAlertBinding) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Saved to:\n\(mp4SuccessPath ?? "")")
-        }
-        .sheet(item: $mp4FailureResult) { result in
-            ExportFeatureAssembly.makeResultView(result: result)
         }
         .sheet(item: $exportVideoViewModel) { exportViewModel in
             ExportFeatureAssembly.makeVideoSheet(viewModel: exportViewModel) { exportViewModel in
@@ -174,17 +161,6 @@ struct ProjectView: View {
             alertMessage = message
             viewModel.subtitleImportErrorMessage = nil
         }
-        .onChange(of: viewModel.mp4ExportResult) { _, result in
-            switch result {
-            case .success(let outputPath):
-                mp4SuccessPath = outputPath
-            case .failure:
-                mp4FailureResult = result
-            case nil:
-                break
-            }
-            viewModel.mp4ExportResult = nil
-        }
         .background(shortcutButtons)
     }
 
@@ -194,17 +170,6 @@ struct ProjectView: View {
             set: { isPresented in
                 if !isPresented {
                     alertMessage = nil
-                }
-            }
-        )
-    }
-
-    private var mp4SuccessAlertBinding: Binding<Bool> {
-        Binding(
-            get: { mp4SuccessPath != nil },
-            set: { isPresented in
-                if !isPresented {
-                    mp4SuccessPath = nil
                 }
             }
         )
