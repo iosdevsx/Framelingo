@@ -9,58 +9,83 @@ import VideoRendering
 
 public enum ExportFeatureAssembly {
     @MainActor
-    public static func makeVideoViewModel(
-        project: Project,
-        settings: VideoExportSettings,
-        ffmpegService: any FFmpegService,
+    public static func makeFactory(
+        makeFFmpegService: @escaping @MainActor () -> any FFmpegService,
         subtitleScriptGenerator: any SubtitleScriptGenerating,
         mediaMetadataService: any MediaMetadataProviding,
         fileManager: FileManager = .default
-    ) -> ExportVideoViewModel {
-        ExportVideoViewModel(
-            project: project,
-            settings: settings,
-            ffmpegService: ffmpegService,
-            subtitleScriptGenerator: subtitleScriptGenerator,
-            mediaMetadataService: mediaMetadataService,
-            fileManager: fileManager
-        )
-    }
-
-    @MainActor
-    public static func makeVideoSheet(
-        viewModel: ExportVideoViewModel,
-        onStartExport: @escaping (ExportVideoViewModel) -> Void
-    ) -> AnyView {
-        AnyView(
-            ExportVideoSheet(
-                viewModel: viewModel,
-                onStartExport: onStartExport
-            )
-        )
-    }
-
-    @MainActor
-    public static func makeSubtitleOptionsSheet(
-        state: SubtitleExportOptionsState,
-        actions: SubtitleExportOptionsActions,
-        kind: SubtitleExportKind,
-        onCancel: @escaping () -> Void,
-        onExport: @escaping () -> Void
-    ) -> AnyView {
-        AnyView(
-            SubtitleExportOptionsSheet(
-                state: state,
-                actions: actions,
-                kind: kind,
-                onCancel: onCancel,
-                onExport: onExport
-            )
+    ) -> ExportFeatureFactory {
+        ExportFeatureFactory(
+            makeVideoSheet: { request in
+                AnyView(
+                    ExportVideoPresentationContainer(
+                        request: request,
+                        ffmpegService: makeFFmpegService(),
+                        subtitleScriptGenerator: subtitleScriptGenerator,
+                        mediaMetadataService: mediaMetadataService,
+                        fileManager: fileManager
+                    )
+                )
+            },
+            makeSubtitleOptionsSheet: { request in
+                AnyView(
+                    SubtitleExportOptionsSheet(
+                        state: request.state,
+                        actions: request.actions,
+                        kind: request.kind,
+                        onCancel: request.cancel,
+                        onExport: request.export
+                    )
+                )
+            }
         )
     }
 
     @MainActor
     public static func makeActivityOverlay(appState: AppState) -> AnyView {
         AnyView(ActivityToastOverlay().environmentObject(appState))
+    }
+}
+
+@MainActor
+private struct ExportVideoPresentationContainer: View {
+    @StateObject private var viewModel: ExportVideoViewModel
+    private let actions: VideoExportPresentationActions
+
+    init(
+        request: VideoExportPresentationRequest,
+        ffmpegService: any FFmpegService,
+        subtitleScriptGenerator: any SubtitleScriptGenerating,
+        mediaMetadataService: any MediaMetadataProviding,
+        fileManager: FileManager
+    ) {
+        _viewModel = StateObject(
+            wrappedValue: ExportVideoViewModel(
+                project: request.project,
+                settings: request.project.videoExportSettings,
+                ffmpegService: ffmpegService,
+                subtitleScriptGenerator: subtitleScriptGenerator,
+                mediaMetadataService: mediaMetadataService,
+                fileManager: fileManager
+            )
+        )
+        actions = request.actions
+    }
+
+    var body: some View {
+        ExportVideoSheet(
+            viewModel: viewModel,
+            onStartExport: { viewModel in
+                guard let outputURL = viewModel.outputURL else { return }
+                actions.submit(
+                    VideoExportSubmission(
+                        project: viewModel.project,
+                        settings: viewModel.settings,
+                        sourceInfo: viewModel.sourceInfo,
+                        outputURL: outputURL
+                    )
+                )
+            }
+        )
     }
 }

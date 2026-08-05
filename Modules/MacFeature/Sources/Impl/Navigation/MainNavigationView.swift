@@ -98,16 +98,7 @@ struct MainNavigationView: View {
                         pickSubtitleFile: dependencies.pickSubtitleFile
                     ),
                     projectMode: $projectMode,
-                    makeExportVideoViewModel: { project in
-                        ExportFeatureAssembly.makeVideoViewModel(
-                            project: project,
-                            settings: project.videoExportSettings,
-                            ffmpegService: dependencies.makeFFmpegService(appState.settings),
-                            subtitleScriptGenerator: dependencies.subtitleScriptGenerator,
-                            mediaMetadataService: dependencies.mediaMetadataProvider,
-                            fileManager: dependencies.fileManager
-                        )
-                    }
+                    components: dependencies.projectFeatureComponents
                 )
                 .id(appState.selectedProject?.id)
 

@@ -3,20 +3,15 @@ import AppKit
 import Application
 import DesignSystem
 import ExportFeature
-import ExportFeatureImpl
 import PlayerFeature
-import PlayerFeatureImpl
 import Project
 import ProjectFeature
 import ShortsFeature
-import ShortsFeatureImpl
 import SubtitleEditorFeature
-import SubtitleEditorFeatureImpl
 import Subtitles
 import SwiftUI
 import Timeline
 import TimelineFeature
-import TimelineFeatureImpl
 import UniformTypeIdentifiers
 import VideoRendering
 
@@ -27,12 +22,12 @@ struct ProjectView: View {
     @State private var timeObserver: Any?
     @State private var isPlaying = false
     @State private var alertMessage: String?
-    @State private var exportVideoViewModel: ExportVideoViewModel?
+    @State private var videoExportRequest: VideoExportPresentationRequest?
     @State private var pendingSubtitleExportKind: SubtitleExportKind?
     @State private var accessedMediaURL: URL?
     @State private var timelineHeight = 180.0
     @Binding var projectMode: ProjectWorkspaceMode
-    let makeExportVideoViewModel: (Project) -> ExportVideoViewModel
+    let components: ProjectFeatureComponents
     let subtitleEditorActions: SubtitleEditorActions
     let shortsWorkspaceActions: ShortsWorkspaceActions
     let subtitleExportOptionsActions: SubtitleExportOptionsActions
@@ -104,53 +99,42 @@ struct ProjectView: View {
         } message: {
             Text(alertMessage ?? "")
         }
-        .sheet(item: $exportVideoViewModel) { exportViewModel in
-            ExportFeatureAssembly.makeVideoSheet(viewModel: exportViewModel) { exportViewModel in
-                guard let outputURL = exportViewModel.outputURL else {
-                    return
-                }
-
-                viewModel.updateVideoExportSettings(
-                    exportViewModel.settings,
-                    registerUndo: false
-                )
-                appState.enqueueVideoExport(
-                    project: exportViewModel.project,
-                    settings: exportViewModel.settings,
-                    sourceInfo: exportViewModel.sourceInfo,
-                    outputURL: outputURL
-                )
-            }
+        .sheet(item: $videoExportRequest) { request in
+            components.export.makeVideoSheet(request)
         }
         .sheet(item: $pendingSubtitleExportKind) { kind in
             if let project = viewModel.project {
-                ExportFeatureAssembly.makeSubtitleOptionsSheet(
-                    state: SubtitleExportOptionsState(
-                        options: project.speakerExportOptions,
-                        hasSpeakerLabels: !project.speakerLabels.isEmpty
-                    ),
-                    actions: subtitleExportOptionsActions,
-                    kind: kind,
-                    onCancel: {
-                        pendingSubtitleExportKind = nil
-                    },
-                    onExport: {
-                        showSavePanel(for: kind)
-                        pendingSubtitleExportKind = nil
-                    }
+                components.export.makeSubtitleOptionsSheet(
+                    SubtitleExportOptionsRequest(
+                        state: SubtitleExportOptionsState(
+                            options: project.speakerExportOptions,
+                            hasSpeakerLabels: !project.speakerLabels.isEmpty
+                        ),
+                        actions: subtitleExportOptionsActions,
+                        kind: kind,
+                        onCancel: {
+                            pendingSubtitleExportKind = nil
+                        },
+                        onExport: {
+                            showSavePanel(for: kind)
+                            pendingSubtitleExportKind = nil
+                        }
+                    )
                 )
             }
         }
         .sheet(item: $viewModel.subtitleImportPreview) { preview in
-            SubtitleEditorFeatureAssembly.makeImportPreview(
-                preview: preview,
-                hasExistingSubtitles: viewModel.project?.subtitles.isEmpty == false,
-                onCancel: {
-                    viewModel.subtitleImportPreview = nil
-                },
-                onImport: { mode, destination in
-                    viewModel.applySubtitleImport(preview, mode: mode, destination: destination)
-                }
+            components.subtitleEditor.makeImportPreview(
+                SubtitleImportPreviewRequest(
+                    preview: preview,
+                    hasExistingSubtitles: viewModel.project?.subtitles.isEmpty == false,
+                    onCancel: {
+                        viewModel.subtitleImportPreview = nil
+                    },
+                    onImport: { mode, destination in
+                        viewModel.applySubtitleImport(preview, mode: mode, destination: destination)
+                    }
+                )
             )
         }
         .onChange(of: viewModel.exportMessage) { _, message in
@@ -162,6 +146,13 @@ struct ProjectView: View {
             viewModel.subtitleImportErrorMessage = nil
         }
         .background(shortcutButtons)
+    }
+
+    private func beginVideoExport(for project: Project) {
+        videoExportRequest = VideoExportPresentationRequest(
+            project: project,
+            actions: VideoExportPresentationActions(submit: viewModel.submitVideoExport)
+        )
     }
 
     private var alertBinding: Binding<Bool> {
@@ -189,7 +180,7 @@ struct ProjectView: View {
                 project: project,
                 viewModel: viewModel,
                 onExportVideo: {
-                    exportVideoViewModel = makeExportVideoViewModel(project)
+                    beginVideoExport(for: project)
                 },
                 onExportProjectFile: {
                     showProjectSavePanel(project)
@@ -234,23 +225,10 @@ struct ProjectView: View {
 
             unifiedTimelineToolbar(project)
 
-            TimelineFeatureAssembly.makeSubtitleTimeline(
-                subtitles: subtitlesBinding(project),
-                selectedSegmentID: selectedSegmentBinding,
-                currentTimeMs: viewModel.currentTimeMs,
-                durationMs: viewModel.timelineDurationMs(for: project),
-                waveformPeaks: viewModel.waveformPeaks,
-                speakers: project.speakers,
-                zoomFactor: $subtitleTimelineZoom,
-                scrollToPlayheadRequest: $subtitleScrollToPlayheadRequest,
-                showsWaveform: $showsSubtitleWaveform,
-                onSeek: { seek(to: $0) },
-                onBeginTextEditing: { viewModel.beginSubtitleTextEdit(id: $0) },
-                onTranslatedTextChange: { viewModel.updateTimelineTranslatedText(segmentID: $0, text: $1) },
-                onEndTextEditing: { viewModel.endSubtitleTextEdit() }
+            components.timeline.makeSubtitleTimeline(
+                subtitleTimelineRequest(project: project)
             )
             .frame(height: visibleTimelineHeight)
-            .timelineKeyboardCommands(onStep: stepTimeline)
         }
         .clipped()
         .animation(waveformToggleAnimation, value: showsSubtitleWaveform)
@@ -303,21 +281,25 @@ struct ProjectView: View {
     }
 
     private func cueListView(_ project: Project) -> some View {
-        SubtitleEditorFeatureAssembly.makeCueList(
-            state: subtitleEditorState(project),
-            actions: subtitleEditorActions,
-            focusedField: $focusedEditorField,
-            onSeek: { seek(to: $0) },
-            onError: { alertMessage = $0 }
+        components.subtitleEditor.makeCueList(
+            SubtitleCueListRequest(
+                state: subtitleEditorState(project),
+                actions: subtitleEditorActions,
+                focusedField: $focusedEditorField,
+                onSeek: { seek(to: $0) },
+                onError: { alertMessage = $0 }
+            )
         )
         .padding(4)
     }
 
     private func editorPaneView(_ project: Project) -> some View {
-        SubtitleEditorFeatureAssembly.makeEditorPane(
-            state: subtitleEditorState(project),
-            actions: subtitleEditorActions,
-            onSeek: { seek(to: $0) }
+        components.subtitleEditor.makeEditorPane(
+            SubtitleEditorPaneRequest(
+                state: subtitleEditorState(project),
+                actions: subtitleEditorActions,
+                onSeek: { seek(to: $0) }
+            )
         )
         .padding(4)
     }
@@ -328,11 +310,13 @@ struct ProjectView: View {
         timelineHeight: Double
     ) -> some View {
         VStack(spacing: 0) {
-            ShortsFeatureAssembly.makeWorkspace(
-                state: shortsWorkspaceState(project),
-                actions: shortsWorkspaceActions,
-                player: player,
-                onSeek: { seek(to: $0) }
+            components.shorts.makeWorkspace(
+                ShortsWorkspaceRequest(
+                    state: shortsWorkspaceState(project),
+                    actions: shortsWorkspaceActions,
+                    player: player,
+                    onSeek: { seek(to: $0) }
+                )
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .frame(minHeight: 260)
@@ -341,34 +325,20 @@ struct ProjectView: View {
 
             unifiedTimelineToolbar(project)
 
-            TimelineFeatureAssembly.makeSubtitleTimeline(
-                subtitles: subtitlesBinding(project),
-                selectedSegmentID: selectedSegmentBinding,
-                currentTimeMs: viewModel.currentTimeMs,
-                durationMs: viewModel.timelineDurationMs(for: project),
-                waveformPeaks: viewModel.waveformPeaks,
-                speakers: project.speakers,
-                zoomFactor: $subtitleTimelineZoom,
-                scrollToPlayheadRequest: $subtitleScrollToPlayheadRequest,
-                showsWaveform: $showsSubtitleWaveform,
-                onSeek: { seek(to: $0) },
-                onBeginTextEditing: { viewModel.beginSubtitleTextEdit(id: $0) },
-                onTranslatedTextChange: { viewModel.updateTimelineTranslatedText(segmentID: $0, text: $1) },
-                onEndTextEditing: { viewModel.endSubtitleTextEdit() },
-                shortsOverlay: TimelineShortsOverlay(
+            components.timeline.makeSubtitleTimeline(
+                subtitleTimelineRequest(
+                    project: project,
+                    shortsOverlay: TimelineShortsOverlay(
                     shorts: project.shorts,
                     selectedShortID: viewModel.shortsSelectedShortID,
                     snapToCues: project.shortsExportSettings.snapToCues,
                     onSelect: { viewModel.shortsSelectedShortID = $0 },
                     onCommitRange: { viewModel.updateShortRange(id: $0, startMs: $1, endMs: $2) },
                     onCreate: { _ = viewModel.addShort(startMs: $0, endMs: $1) }
+                    )
                 )
             )
             .frame(height: timelineHeight)
-            .timelineKeyboardCommands(
-                onStep: stepTimeline,
-                onDelete: viewModel.deleteSelectedShort
-            )
         }
         .clipped()
     }
@@ -388,22 +358,30 @@ struct ProjectView: View {
             unifiedTimelineToolbar(project)
 
             if let timeline = viewModel.resolvedEditTimeline(for: project), !timeline.isEmpty {
-                TimelineFeatureAssembly.makeEditTimeline(
-                    timeline: timeline,
-                    subtitles: project.subtitles,
-                    selectedClipID: Binding(
-                        get: { viewModel.editModeSelectedClipID },
-                        set: { viewModel.editModeSelectedClipID = $0 }
-                    ),
-                    currentTimeMs: viewModel.currentTimeMs,
-                    rangeStartMs: viewModel.editRangeStartMs,
-                    rangeEndMs: viewModel.editRangeEndMs,
-                    onSeek: { seekEdit(to: $0) },
-                    onSelectClip: { viewModel.editModeSelectedClipID = $0 },
-                    zoomFactor: $editTimelineZoom
+                components.timeline.makeEditTimeline(
+                    EditTimelineRequest(
+                        state: EditTimelineState(
+                            timeline: timeline,
+                            subtitles: project.subtitles,
+                            currentTimeMs: viewModel.currentTimeMs,
+                            rangeStartMs: viewModel.editRangeStartMs,
+                            rangeEndMs: viewModel.editRangeEndMs
+                        ),
+                        bindings: EditTimelineBindings(
+                            selectedClipID: Binding(
+                                get: { viewModel.editModeSelectedClipID },
+                                set: { viewModel.editModeSelectedClipID = $0 }
+                            ),
+                            zoomFactor: $editTimelineZoom
+                        ),
+                        actions: EditTimelineActions(
+                            seek: { seekEdit(to: $0) },
+                            selectClip: { viewModel.editModeSelectedClipID = $0 }
+                        ),
+                        keyboardActions: TimelineKeyboardActions(onStep: stepTimeline)
+                    )
                 )
                 .frame(height: timelineHeight)
-                .timelineKeyboardCommands(onStep: stepTimeline)
             } else {
                 ContentUnavailableView(
                     "Video duration is unknown.",
@@ -468,19 +446,21 @@ struct ProjectView: View {
     }
 
     private func videoPreview(_ project: Project, showsControls: Bool = true) -> some View {
-        PlayerFeatureAssembly.makeProjectVideoPreview(
-            project: project,
-            player: player,
-            isPlaying: isPlaying,
-            currentTimeMs: viewModel.currentTimeMs,
-            showsControls: showsControls,
-            videoSourceInfo: viewModel.videoSourceInfo,
-            onTogglePlayback: {
-                togglePlayback()
-            },
-            onUpdateSettings: { settings, registerUndo in
-                viewModel.updateVideoExportSettings(settings, registerUndo: registerUndo)
-            }
+        components.player.makeProjectVideoPreview(
+            ProjectVideoPreviewRequest(
+                state: ProjectVideoPreviewState(
+                    project: project,
+                    player: player,
+                    isPlaying: isPlaying,
+                    currentTimeMs: viewModel.currentTimeMs,
+                    showsControls: showsControls,
+                    videoSourceInfo: viewModel.videoSourceInfo
+                ),
+                actions: ProjectVideoPreviewActions(
+                    togglePlayback: togglePlayback,
+                    updateSettings: viewModel.updateVideoExportSettings
+                )
+            )
         )
     }
 
@@ -502,12 +482,14 @@ struct ProjectView: View {
     }
 
     private func subtitleEditor(_ project: Project) -> some View {
-        SubtitleEditorFeatureAssembly.makeSubtitleEditor(
-            state: subtitleEditorState(project),
-            actions: subtitleEditorActions,
-            focusedField: $focusedEditorField,
-            onSeek: { seek(to: $0) },
-            onError: { alertMessage = $0 }
+        components.subtitleEditor.makeSubtitleEditor(
+            SubtitleEditorRequest(
+                state: subtitleEditorState(project),
+                actions: subtitleEditorActions,
+                focusedField: $focusedEditorField,
+                onSeek: { seek(to: $0) },
+                onError: { alertMessage = $0 }
+            )
         )
     }
 
@@ -829,6 +811,45 @@ struct ProjectView: View {
         Binding(
             get: { viewModel.selectedSegmentID },
             set: { viewModel.selectSegment(id: $0) }
+        )
+    }
+
+    private func subtitleTimelineRequest(
+        project: Project,
+        shortsOverlay: TimelineShortsOverlay? = nil
+    ) -> SubtitleTimelineRequest {
+        let deleteAction: (() -> Void)? = shortsOverlay == nil
+            ? nil
+            : { viewModel.deleteSelectedShort() }
+        let keyboardActions = TimelineKeyboardActions(
+            onStep: { stepTimeline(by: $0) },
+            onDelete: deleteAction
+        )
+
+        return SubtitleTimelineRequest(
+            state: SubtitleTimelineState(
+                currentTimeMs: viewModel.currentTimeMs,
+                durationMs: viewModel.timelineDurationMs(for: project),
+                waveformPeaks: viewModel.waveformPeaks,
+                speakers: project.speakers,
+                shortsOverlay: shortsOverlay
+            ),
+            bindings: SubtitleTimelineBindings(
+                subtitles: subtitlesBinding(project),
+                selectedSegmentID: selectedSegmentBinding,
+                zoomFactor: $subtitleTimelineZoom,
+                scrollToPlayheadRequest: $subtitleScrollToPlayheadRequest,
+                showsWaveform: $showsSubtitleWaveform
+            ),
+            actions: SubtitleTimelineActions(
+                seek: { seek(to: $0) },
+                beginTextEditing: { viewModel.beginSubtitleTextEdit(id: $0) },
+                translatedTextChange: {
+                    viewModel.updateTimelineTranslatedText(segmentID: $0, text: $1)
+                },
+                endTextEditing: viewModel.endSubtitleTextEdit
+            ),
+            keyboardActions: keyboardActions
         )
     }
 

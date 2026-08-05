@@ -21,7 +21,9 @@ let package = Package(
         .target(
             name: "ExportFeature",
             dependencies: [
+                .product(name: "Project", package: "Project"),
                 .product(name: "Subtitles", package: "Subtitles"),
+                .product(name: "VideoRendering", package: "VideoRendering"),
             ],
             path: "Sources/Api"
         ),

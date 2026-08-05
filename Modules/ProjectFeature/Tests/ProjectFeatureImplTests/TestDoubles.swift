@@ -1,13 +1,20 @@
 import Application
 import ApplicationImpl
+import ExportFeature
 import Foundation
 import Media
+import PlayerFeature
 import Project
+import ProjectFeature
 import Settings
 import SpeakerAnalysis
 import SpeechToText
+import ShortsFeature
 import Subtitles
+import SubtitleEditorFeature
+import SwiftUI
 import Timeline
+import TimelineFeature
 import Translation
 import VideoRendering
 
@@ -213,6 +220,28 @@ enum TestDoubles {
             targetLanguage: "Russian",
             subtitles: subtitles ?? [segment],
             status: .ready
+        )
+    }
+
+    @MainActor
+    static func projectFeatureComponents() -> ProjectFeatureComponents {
+        ProjectFeatureComponents(
+            player: PlayerFeatureFactory { _ in AnyView(EmptyView()) },
+            timeline: TimelineFeatureFactory(
+                makeSubtitleTimeline: { _ in AnyView(EmptyView()) },
+                makeEditTimeline: { _ in AnyView(EmptyView()) }
+            ),
+            subtitleEditor: SubtitleEditorFeatureFactory(
+                makeCueList: { _ in AnyView(EmptyView()) },
+                makeEditorPane: { _ in AnyView(EmptyView()) },
+                makeSubtitleEditor: { _ in AnyView(EmptyView()) },
+                makeImportPreview: { _ in AnyView(EmptyView()) }
+            ),
+            shorts: ShortsFeatureFactory { _ in AnyView(EmptyView()) },
+            export: ExportFeatureFactory(
+                makeVideoSheet: { _ in AnyView(EmptyView()) },
+                makeSubtitleOptionsSheet: { _ in AnyView(EmptyView()) }
+            )
         )
     }
 

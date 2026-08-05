@@ -1,7 +1,5 @@
 import Application
 import ExportFeature
-import ExportFeatureImpl
-import Project
 import ProjectFeature
 import ShortsFeature
 import SubtitleEditorFeature
@@ -13,13 +11,13 @@ public enum ProjectFeatureAssembly {
         appState: AppState,
         dependencies: ProjectFeatureDependencies,
         projectMode: Binding<ProjectWorkspaceMode>,
-        makeExportVideoViewModel: @escaping (Project) -> ExportVideoViewModel
+        components: ProjectFeatureComponents
     ) -> some View {
         ProjectFeatureRootView(
             appState: appState,
             dependencies: dependencies,
             projectMode: projectMode,
-            makeExportVideoViewModel: makeExportVideoViewModel
+            components: components
         )
     }
 }
@@ -30,7 +28,7 @@ private struct ProjectFeatureRootView: View {
     @Binding private var projectMode: ProjectWorkspaceMode
 
     private let appState: AppState
-    private let makeExportVideoViewModel: (Project) -> ExportVideoViewModel
+    private let components: ProjectFeatureComponents
     private let subtitleEditorActions: SubtitleEditorActions
     private let shortsWorkspaceActions: ShortsWorkspaceActions
     private let subtitleExportOptionsActions: SubtitleExportOptionsActions
@@ -39,7 +37,7 @@ private struct ProjectFeatureRootView: View {
         appState: AppState,
         dependencies: ProjectFeatureDependencies,
         projectMode: Binding<ProjectWorkspaceMode>,
-        makeExportVideoViewModel: @escaping (Project) -> ExportVideoViewModel
+        components: ProjectFeatureComponents
     ) {
         let viewModel = ProjectViewModel(
             appState: appState,
@@ -48,7 +46,7 @@ private struct ProjectFeatureRootView: View {
         self.appState = appState
         _viewModel = StateObject(wrappedValue: viewModel)
         _projectMode = projectMode
-        self.makeExportVideoViewModel = makeExportVideoViewModel
+        self.components = components
         self.subtitleEditorActions = SubtitleEditorActions(
             selectSegment: viewModel.selectSegment,
             updateSubtitle: { segment in
@@ -114,7 +112,7 @@ private struct ProjectFeatureRootView: View {
         ProjectView(
             viewModel: viewModel,
             projectMode: $projectMode,
-            makeExportVideoViewModel: makeExportVideoViewModel,
+            components: components,
             subtitleEditorActions: subtitleEditorActions,
             shortsWorkspaceActions: shortsWorkspaceActions,
             subtitleExportOptionsActions: subtitleExportOptionsActions

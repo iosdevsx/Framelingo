@@ -17,7 +17,10 @@ let package = Package(
     targets: [
         .target(
             name: "PlayerFeature",
-            dependencies: [],
+            dependencies: [
+                .product(name: "Project", package: "Project"),
+                .product(name: "VideoRendering", package: "VideoRendering"),
+            ],
             path: "Sources/Api"
         ),
         .target(

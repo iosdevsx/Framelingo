@@ -21,6 +21,9 @@ let package = Package(
             name: "TimelineFeature",
             dependencies: [
                 .product(name: "Shorts", package: "Shorts"),
+                .product(name: "SpeakerAnalysis", package: "SpeakerAnalysis"),
+                .product(name: "Subtitles", package: "Subtitles"),
+                .product(name: "Timeline", package: "Timeline"),
             ],
             path: "Sources/Api"
         ),

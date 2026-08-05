@@ -1,5 +1,6 @@
 import Application
 import ApplicationImpl
+import ExportFeature
 import Foundation
 import Media
 import Project
@@ -15,6 +16,40 @@ import XCTest
 
 @MainActor
 final class ProjectViewModelTests: XCTestCase {
+    func testVideoExportCancellationDoesNotMutateProjectOrQueue() {
+        let project = TestDoubles.project()
+        let appState = TestDoubles.appState(project: project)
+        let viewModel = TestDoubles.projectViewModel(appState: appState)
+        _ = VideoExportPresentationActions(submit: viewModel.submitVideoExport)
+
+        XCTAssertEqual(viewModel.project?.videoExportSettings, project.videoExportSettings)
+        XCTAssertTrue(appState.videoExportJobs.isEmpty)
+    }
+
+    func testVideoExportSubmissionPersistsSettingsAndQueuesExactlyOnce() {
+        let project = TestDoubles.project()
+        let appState = TestDoubles.appState(project: project)
+        let viewModel = TestDoubles.projectViewModel(appState: appState)
+        var settings = project.videoExportSettings
+        settings.fontSize = 48
+        let outputURL = URL(fileURLWithPath: "/tmp/contract-export.mp4")
+        let actions = VideoExportPresentationActions(submit: viewModel.submitVideoExport)
+
+        actions.submit(
+            VideoExportSubmission(
+                project: project,
+                settings: settings,
+                sourceInfo: nil,
+                outputURL: outputURL
+            )
+        )
+
+        XCTAssertEqual(viewModel.project?.videoExportSettings, settings)
+        XCTAssertEqual(appState.selectedProject?.videoExportSettings, settings)
+        XCTAssertEqual(appState.videoExportJobs.count, 1)
+        XCTAssertEqual(appState.videoExportJobs.first?.outputURL, outputURL)
+    }
+
     func testEditorAndTimelineEditsReachExportThroughTheSameProjectArray() async throws {
         let exporter = RecordingSubtitleExporter()
         let originalProject = TestDoubles.project()

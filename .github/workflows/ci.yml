@@ -33,6 +33,9 @@ jobs:
           restore-keys: |
             spm-${{ runner.os }}-
 
+      - name: Audit module boundaries
+        run: ruby Scripts/audit-module-boundaries.rb --self-test
+
       - name: Build and test
         run: |
           set -o pipefail

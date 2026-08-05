@@ -1,5 +1,6 @@
 import Combine
 import Application
+import ExportFeature
 import Foundation
 import Project
 import Settings
@@ -520,6 +521,16 @@ final class ProjectViewModel: ObservableObject {
 
         currentProject.videoExportSettings = settings
         updateProject(currentProject, undoActionName: registerUndo ? "Edit Subtitle Style" : nil)
+    }
+
+    func submitVideoExport(_ submission: VideoExportSubmission) {
+        updateVideoExportSettings(submission.settings, registerUndo: false)
+        appState.enqueueVideoExport(
+            project: submission.project,
+            settings: submission.settings,
+            sourceInfo: submission.sourceInfo,
+            outputURL: submission.outputURL
+        )
     }
 
     func updateSpeakerExportOptions(_ options: SubtitleExportOptions) {

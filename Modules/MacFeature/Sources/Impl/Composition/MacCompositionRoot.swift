@@ -6,17 +6,23 @@ import AppUpdateImpl
 import Foundation
 import MacFeature
 import MediaImpl
+import PlayerFeatureImpl
 import ProjectImpl
+import ProjectFeature
 import SettingsImpl
+import ShortsFeatureImpl
 import SpeakerAnalysisImpl
 import SpeechToTextImpl
 import Subtitles
 import SubtitlesImpl
+import SubtitleEditorFeatureImpl
 import TimelineImpl
+import TimelineFeatureImpl
 import TranslationImpl
 import UniformTypeIdentifiers
 import VideoRendering
 import VideoRenderingImpl
+import ExportFeatureImpl
 
 @MainActor
 enum MacCompositionRoot {
@@ -90,6 +96,18 @@ enum MacCompositionRoot {
                 projectRepository: projectRepository,
                 translationService: translationService
             )
+        let projectFeatureComponents = ProjectFeatureComponents(
+            player: PlayerFeatureAssembly.makeFactory(),
+            timeline: TimelineFeatureAssembly.makeFactory(),
+            subtitleEditor: SubtitleEditorFeatureAssembly.makeFactory(),
+            shorts: ShortsFeatureAssembly.makeFactory(),
+            export: ExportFeatureAssembly.makeFactory(
+                makeFFmpegService: { makeFFmpegService(appState.settings) },
+                subtitleScriptGenerator: subtitleScriptGenerator,
+                mediaMetadataService: mediaMetadataProvider,
+                fileManager: fileManager
+            )
+        )
 
         return MacFeatureDependencies(
             appState: appState,
@@ -103,6 +121,7 @@ enum MacCompositionRoot {
             subtitleScriptGenerator: subtitleScriptGenerator,
             makeFFmpegService: makeFFmpegService,
             projectFileService: projectFileService,
+            projectFeatureComponents: projectFeatureComponents,
             whisperModelManager: SpeechToTextAssembly.makeWhisperModelManager(),
             parakeetModelManager: SpeechToTextAssembly.makeParakeetModelManager(),
             usesEmbeddedVideoRenderingBackend: VideoRenderingAssembly.usesEmbeddedBackend,

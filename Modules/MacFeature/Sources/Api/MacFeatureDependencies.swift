@@ -2,6 +2,7 @@ import Application
 import Foundation
 import Media
 import Project
+import ProjectFeature
 import SpeechToText
 import Subtitles
 import Timeline
@@ -19,6 +20,7 @@ public struct MacFeatureDependencies {
     public var subtitleScriptGenerator: any SubtitleScriptGenerating
     public var makeFFmpegService: FFmpegServiceBuilder
     public var projectFileService: any ProjectFileServicing
+    public var projectFeatureComponents: ProjectFeatureComponents
     public var whisperModelManager: any WhisperModelManaging
     public var parakeetModelManager: any ParakeetModelManaging
     public var usesEmbeddedVideoRenderingBackend: Bool
@@ -38,6 +40,7 @@ public struct MacFeatureDependencies {
         subtitleScriptGenerator: any SubtitleScriptGenerating,
         makeFFmpegService: @escaping FFmpegServiceBuilder,
         projectFileService: any ProjectFileServicing,
+        projectFeatureComponents: ProjectFeatureComponents,
         whisperModelManager: any WhisperModelManaging,
         parakeetModelManager: any ParakeetModelManaging,
         usesEmbeddedVideoRenderingBackend: Bool,
@@ -56,6 +59,7 @@ public struct MacFeatureDependencies {
         self.subtitleScriptGenerator = subtitleScriptGenerator
         self.makeFFmpegService = makeFFmpegService
         self.projectFileService = projectFileService
+        self.projectFeatureComponents = projectFeatureComponents
         self.whisperModelManager = whisperModelManager
         self.parakeetModelManager = parakeetModelManager
         self.usesEmbeddedVideoRenderingBackend = usesEmbeddedVideoRenderingBackend
