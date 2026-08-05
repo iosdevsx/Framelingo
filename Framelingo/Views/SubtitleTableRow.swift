@@ -55,9 +55,9 @@ struct SubtitleTableRow: View {
         }
         .padding(.vertical, 6)
         .contentShape(Rectangle())
-        .onTapGesture {
+        .simultaneousGesture(TapGesture().onEnded {
             onSelect()
-        }
+        })
         .onChange(of: segment) { _, newSegment in
             startText = SubtitleTimeFormatter.format(milliseconds: newSegment.startMs)
             endText = SubtitleTimeFormatter.format(milliseconds: newSegment.endMs)
