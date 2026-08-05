@@ -9,6 +9,39 @@ import VideoRenderingImpl
 @Suite(.serialized)
 struct VideoExportSmokeTests {
     @Test
+    func embeddedRendererExtractsOnlyEditedTimelineAudio() async throws {
+        let workspace = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VideoRenderingAudioSmoke-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(
+            at: workspace,
+            withIntermediateDirectories: true
+        )
+
+        let sourceURL = workspace.appendingPathComponent("source.wav")
+        try makeSilentAudio(at: sourceURL, durationSeconds: 2)
+
+        let outputURL = workspace.appendingPathComponent("edited.wav")
+        let renderer = VideoRenderingAssembly.makeDefaultService()
+        let result = try await renderer.extractAudio(
+            from: sourceURL,
+            to: outputURL,
+            clips: [
+                ExportClipRange(sourceStartMs: 0, sourceEndMs: 500),
+                ExportClipRange(sourceStartMs: 1_500, sourceEndMs: 2_000),
+            ]
+        )
+
+        #expect(result == outputURL)
+        let audioFile = try AVAudioFile(forReading: outputURL)
+        let duration = Double(audioFile.length) / audioFile.fileFormat.sampleRate
+        #expect(abs(duration - 1) < 0.05)
+        #expect(audioFile.fileFormat.sampleRate == 16_000)
+        #expect(audioFile.fileFormat.channelCount == 1)
+
+        try FileManager.default.removeItem(at: workspace)
+    }
+
+    @Test
     func embeddedRendererBurnsSubtitlesAndTrimsGenericClips() async throws {
         let workspace = FileManager.default.temporaryDirectory
             .appendingPathComponent("VideoRenderingSmoke-\(UUID().uuidString)")
@@ -128,5 +161,30 @@ struct VideoExportSmokeTests {
         guard writer.status == .completed else {
             throw writer.error ?? CocoaError(.fileWriteUnknown)
         }
+    }
+
+    private func makeSilentAudio(at url: URL, durationSeconds: Int) throws {
+        guard let format = AVAudioFormat(
+            standardFormatWithSampleRate: 48_000,
+            channels: 1
+        ) else {
+            throw CocoaError(.coderInvalidValue)
+        }
+
+        let frameCount = AVAudioFrameCount(durationSeconds * 48_000)
+        guard
+            let buffer = AVAudioPCMBuffer(
+                pcmFormat: format,
+                frameCapacity: frameCount
+            ),
+            let channel = buffer.floatChannelData?.pointee
+        else {
+            throw CocoaError(.coderInvalidValue)
+        }
+
+        buffer.frameLength = frameCount
+        channel.initialize(repeating: 0, count: Int(frameCount))
+        let file = try AVAudioFile(forWriting: url, settings: format.settings)
+        try file.write(from: buffer)
     }
 }

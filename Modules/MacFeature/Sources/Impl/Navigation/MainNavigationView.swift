@@ -88,10 +88,7 @@ struct MainNavigationView: View {
             ZStack(alignment: .topTrailing) {
                 ProjectFeatureAssembly.makeView(
                     appState: appState,
-                    viewModel: ProjectViewModel(
-                        appState: appState,
-                        dependencies: dependencies.projectViewModelDependencies
-                    ),
+                    dependencies: dependencies.projectViewModelDependencies,
                     projectMode: $projectMode,
                     makeExportVideoViewModel: { project in
                         ExportFeatureAssembly.makeVideoViewModel(

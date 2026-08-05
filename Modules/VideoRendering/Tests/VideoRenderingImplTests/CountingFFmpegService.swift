@@ -16,7 +16,11 @@ final class CountingFFmpegService: FFmpegService {
         )
     }
 
-    func extractAudio(from videoURL: URL, to outputURL: URL) async throws -> URL {
+    func extractAudio(
+        from videoURL: URL,
+        to outputURL: URL,
+        clips: [ExportClipRange]?
+    ) async throws -> URL {
         await counter.increment()
         try FileManager.default.createDirectory(
             at: outputURL.deletingLastPathComponent(),

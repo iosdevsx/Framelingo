@@ -14,7 +14,13 @@ public typealias FFmpegProgressHandler = @Sendable (_ processedTimeMs: Int) asyn
 
 public protocol FFmpegService {
     func checkAvailability() async throws -> FFmpegInfo
-    func extractAudio(from videoURL: URL, to outputURL: URL) async throws -> URL
+    /// Extracts the full audio stream when `clips` is `nil`, or concatenates
+    /// the supplied source-time ranges into edit-timeline order first.
+    func extractAudio(
+        from videoURL: URL,
+        to outputURL: URL,
+        clips: [ExportClipRange]?
+    ) async throws -> URL
     func burnSubtitles(
         videoURL: URL,
         subtitlesURL: URL,
@@ -28,6 +34,10 @@ public protocol FFmpegService {
 }
 
 public extension FFmpegService {
+    func extractAudio(from videoURL: URL, to outputURL: URL) async throws -> URL {
+        try await extractAudio(from: videoURL, to: outputURL, clips: nil)
+    }
+
     func burnSubtitles(
         videoURL: URL,
         subtitlesURL: URL,

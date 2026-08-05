@@ -846,9 +846,13 @@ public final class ProjectViewModel: ObservableObject {
             try await appState.projectRepository.saveProject(currentProject)
 
             let audioURL = temporaryAudioURL(for: currentProject)
+            // STT and diarization must share this exact edit-timeline audio so
+            // every returned timestamp remains in the player's time domain.
+            let transcriptionClips = try transcriptionClips(for: currentProject)
             let extractedAudioURL = try await ffmpegService.extractAudio(
                 from: currentProject.mediaFile.originalURL,
-                to: audioURL
+                to: audioURL,
+                clips: transcriptionClips
             )
             appState.updateTranscriptionActivity(statusText: "Transcribing audio...", progress: 0.15)
 
@@ -876,12 +880,23 @@ public final class ProjectViewModel: ObservableObject {
             if let detectedLanguage = result.detectedLanguage {
                 currentProject.sourceLanguage = detectedLanguage
             }
-            if let durationMs = result.durationMs {
+            if transcriptionClips == nil, let durationMs = result.durationMs {
                 currentProject.mediaFile.durationMs = durationMs
             }
 
-            let diarizationOutcome = try await performDiarizationAndAlignment(for: currentProject)
+            let diarizationOutcome = try await performDiarizationAndAlignment(
+                for: currentProject,
+                audioURL: extractedAudioURL
+            )
             currentProject = diarizationOutcome.project
+            if let transcriptionDurationMs = transcriptionClips.map({ clips in
+                clips.reduce(0) { $0 + $1.durationMs }
+            }) {
+                currentProject = projectByConstrainingTranscription(
+                    currentProject,
+                    to: transcriptionDurationMs
+                )
+            }
 
             currentProject.status = .ready
             currentProject.updatedAt = Date()
@@ -1250,13 +1265,12 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
-    private func performDiarizationAndAlignment(for project: Project) async throws -> (project: Project, failureMessage: String?) {
+    private func performDiarizationAndAlignment(
+        for project: Project,
+        audioURL: URL
+    ) async throws -> (project: Project, failureMessage: String?) {
         do {
             appState.updateTranscriptionActivity(statusText: "Analyzing speakers...", progress: 0.95)
-            let audioURL = try await appState.audioPreparationService.preparedAudioURL(
-                for: project.mediaFile.originalURL
-            )
-
             let speakerSegments = try await appState.speakerDiarizationEngine.diarize(audioURL: audioURL)
 
             appState.updateTranscriptionActivity(statusText: "Aligning subtitles...", progress: 0.99)
@@ -1285,6 +1299,14 @@ public final class ProjectViewModel: ObservableObject {
         }
     }
 
+    private func transcriptionClips(for project: Project) throws -> [ExportClipRange]? {
+        do {
+            return try ExportClipPlanResolver.clips(for: project)
+        } catch ExportClipPlanError.emptyPlan {
+            throw TranscriptionValidationError.editTimelineEmpty
+        }
+    }
+
     private func transcriptionCompletionMessage(diarizationFailureMessage: String?) -> String? {
         guard let diarizationFailureMessage else {
             return nil
@@ -1296,6 +1318,49 @@ public final class ProjectViewModel: ObservableObject {
         }
 
         return "\(Self.diarizationWarningMessage) \(detail)"
+    }
+
+    private func projectByConstrainingTranscription(
+        _ project: Project,
+        to durationMs: Int
+    ) -> Project {
+        let durationSeconds = Double(durationMs) / 1_000
+        var constrainedProject = project
+
+        constrainedProject.subtitles = SubtitleTimingValidator.reindexed(
+            project.subtitles.compactMap { segment in
+                let startMs = max(0, segment.startMs)
+                let endMs = min(durationMs, segment.endMs)
+                guard startMs < durationMs, endMs > startMs else { return nil }
+
+                var constrainedSegment = segment
+                constrainedSegment.startMs = startMs
+                constrainedSegment.endMs = endMs
+                return constrainedSegment
+            }
+        )
+        constrainedProject.wordTimings = project.wordTimings.compactMap { word in
+            let start = max(0, word.start)
+            let end = min(durationSeconds, word.end)
+            guard start < durationSeconds, end > start else { return nil }
+
+            var constrainedWord = word
+            constrainedWord.start = start
+            constrainedWord.end = end
+            return constrainedWord
+        }
+        constrainedProject.speakerSegments = project.speakerSegments.compactMap { segment in
+            let start = max(0, segment.start)
+            let end = min(durationSeconds, segment.end)
+            guard start < durationSeconds, end > start else { return nil }
+
+            var constrainedSegment = segment
+            constrainedSegment.start = start
+            constrainedSegment.end = end
+            return constrainedSegment
+        }
+
+        return constrainedProject
     }
 
     private func subtitleAlignmentCue(from segment: SubtitleSegment) -> SubtitleAlignmentCue {
@@ -1960,6 +2025,17 @@ private enum TranslationValidationError: LocalizedError {
         switch self {
         case .segmentCountMismatch:
             return "Translation provider returned a different number of subtitle segments."
+        }
+    }
+}
+
+private enum TranscriptionValidationError: LocalizedError {
+    case editTimelineEmpty
+
+    var errorDescription: String? {
+        switch self {
+        case .editTimelineEmpty:
+            return "The edit timeline has no video to transcribe. Review your cuts in Edit mode."
         }
     }
 }

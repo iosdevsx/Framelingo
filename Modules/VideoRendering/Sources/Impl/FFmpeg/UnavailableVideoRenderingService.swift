@@ -6,7 +6,11 @@ struct UnavailableFFmpegService: FFmpegService {
         throw FFmpegServiceError.notFound
     }
 
-    func extractAudio(from videoURL: URL, to outputURL: URL) async throws -> URL {
+    func extractAudio(
+        from videoURL: URL,
+        to outputURL: URL,
+        clips: [ExportClipRange]?
+    ) async throws -> URL {
         throw FFmpegServiceError.notFound
     }
 

@@ -16,7 +16,11 @@ final class FFmpegKitFFmpegService: FFmpegService {
         )
     }
 
-    func extractAudio(from videoURL: URL, to outputURL: URL) async throws -> URL {
+    func extractAudio(
+        from videoURL: URL,
+        to outputURL: URL,
+        clips: [ExportClipRange]?
+    ) async throws -> URL {
         let inputAccess = videoURL.startAccessingSecurityScopedResource()
         let outputAccess = outputURL.deletingLastPathComponent().startAccessingSecurityScopedResource()
         defer {
@@ -33,16 +37,11 @@ final class FFmpegKitFFmpegService: FFmpegService {
             withIntermediateDirectories: true
         )
 
-        try await runFFmpeg(arguments: [
-            "-y",
-            "-i", videoURL.path,
-            "-vn",
-            "-af", "aresample=async=1:first_pts=0",
-            "-acodec", "pcm_s16le",
-            "-ar", "16000",
-            "-ac", "1",
-            outputURL.path
-        ])
+        var arguments = ["-y", "-i", videoURL.path]
+        arguments += FFmpegExportArgumentsBuilder.audioExtractionArguments(clips: clips)
+        arguments.append(outputURL.path)
+
+        try await runFFmpeg(arguments: arguments)
 
         return outputURL
     }

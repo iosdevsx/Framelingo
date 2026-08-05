@@ -2,6 +2,38 @@ import Foundation
 import VideoRendering
 
 enum FFmpegExportArgumentsBuilder {
+    static func audioExtractionArguments(clips: [ExportClipRange]?) -> [String] {
+        var arguments = ["-vn"]
+
+        if let clips, !clips.isEmpty {
+            var chains: [String] = []
+            var concatInputs = ""
+
+            for (index, clip) in clips.enumerated() {
+                let start = seconds(fromMs: clip.sourceStartMs)
+                let end = seconds(fromMs: clip.sourceEndMs)
+                chains.append("[0:a]atrim=start=\(start):end=\(end),asetpts=PTS-STARTPTS[a\(index)]")
+                concatInputs += "[a\(index)]"
+            }
+
+            chains.append("\(concatInputs)concat=n=\(clips.count):v=0:a=1[acat]")
+            chains.append("[acat]aresample=async=1:first_pts=0[aout]")
+            arguments += [
+                "-filter_complex", chains.joined(separator: ";"),
+                "-map", "[aout]",
+            ]
+        } else {
+            arguments += ["-af", "aresample=async=1:first_pts=0"]
+        }
+
+        arguments += [
+            "-acodec", "pcm_s16le",
+            "-ar", "16000",
+            "-ac", "1",
+        ]
+        return arguments
+    }
+
     /// Filter arguments for subtitle burn-in. Without clips this is the plain
     /// `-vf ass=…` pass; with clips it becomes a `-filter_complex` graph that
     /// trims each kept range, concatenates them, and burns subtitles on the

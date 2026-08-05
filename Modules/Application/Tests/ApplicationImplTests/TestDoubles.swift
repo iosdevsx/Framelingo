@@ -102,7 +102,11 @@ enum TestDoubles {
             FFmpegInfo(executableURL: URL(fileURLWithPath: "/usr/bin/true"), version: "test")
         }
 
-        func extractAudio(from videoURL: URL, to outputURL: URL) async throws -> URL {
+        func extractAudio(
+            from videoURL: URL,
+            to outputURL: URL,
+            clips: [ExportClipRange]?
+        ) async throws -> URL {
             outputURL
         }
 
@@ -212,7 +216,10 @@ enum TestDoubles {
     @MainActor
     static func appState(
         project: Project,
-        repository: Repository = Repository()
+        repository: Repository = Repository(),
+        speakerDiarizationEngine: any SpeakerDiarizationEngine = DiarizationEngine(),
+        audioPreparationService: any AudioPreparationService = AudioPreparation(),
+        makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() }
     ) -> AppState {
         AppState(
             recentProjects: [project],
@@ -221,10 +228,10 @@ enum TestDoubles {
             projectRepository: repository,
             subtitleExportService: SubtitleExporter(),
             translationService: TranslationService(),
-            speakerDiarizationEngine: DiarizationEngine(),
+            speakerDiarizationEngine: speakerDiarizationEngine,
             subtitleAlignmentEngine: AlignmentEngine(),
-            audioPreparationService: AudioPreparation(),
-            makeFFmpegService: { _ in FFmpeg() },
+            audioPreparationService: audioPreparationService,
+            makeFFmpegService: makeFFmpegService,
             subtitleScriptGenerator: ScriptGenerator(),
             saveSettings: { _ in },
             revealVideoExport: { _ in },
@@ -233,7 +240,11 @@ enum TestDoubles {
     }
 
     @MainActor
-    static func projectViewModel(appState: AppState) -> ProjectViewModel {
+    static func projectViewModel(
+        appState: AppState,
+        speechToTextProviderResolver: any SpeechToTextProviderResolving = SpeechProviderResolver(),
+        makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() }
+    ) -> ProjectViewModel {
         ProjectViewModel(
             appState: appState,
             dependencies: ProjectViewModelDependencies(
@@ -242,9 +253,9 @@ enum TestDoubles {
                 editTimelineService: EditTimelineService(),
                 mediaMetadataProvider: MetadataProvider(),
                 waveformLoader: WaveformLoader(),
-                speechToTextProviderResolver: SpeechProviderResolver(),
+                speechToTextProviderResolver: speechToTextProviderResolver,
                 subtitleScriptGenerator: ScriptGenerator(),
-                makeFFmpegService: { _ in FFmpeg() },
+                makeFFmpegService: makeFFmpegService,
                 pickSubtitleFile: { nil }
             )
         )

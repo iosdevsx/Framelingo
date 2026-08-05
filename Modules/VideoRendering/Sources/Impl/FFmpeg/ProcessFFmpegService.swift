@@ -22,7 +22,11 @@ final class ProcessFFmpegService: FFmpegService {
         return FFmpegInfo(executableURL: executableURL, version: version)
     }
 
-    func extractAudio(from videoURL: URL, to outputURL: URL) async throws -> URL {
+    func extractAudio(
+        from videoURL: URL,
+        to outputURL: URL,
+        clips: [ExportClipRange]?
+    ) async throws -> URL {
         let executableURL = try resolveExecutableURL()
         let inputAccess = videoURL.startAccessingSecurityScopedResource()
         let outputAccess = outputURL.deletingLastPathComponent().startAccessingSecurityScopedResource()
@@ -40,18 +44,13 @@ final class ProcessFFmpegService: FFmpegService {
             withIntermediateDirectories: true
         )
 
+        var arguments = ["-y", "-i", videoURL.path]
+        arguments += FFmpegExportArgumentsBuilder.audioExtractionArguments(clips: clips)
+        arguments.append(outputURL.path)
+
         _ = try await runFFmpeg(
             executableURL: executableURL,
-            arguments: [
-                "-y",
-                "-i", videoURL.path,
-                "-vn",
-                "-af", "aresample=async=1:first_pts=0",
-                "-acodec", "pcm_s16le",
-                "-ar", "16000",
-                "-ac", "1",
-                outputURL.path
-            ]
+            arguments: arguments
         )
 
         return outputURL

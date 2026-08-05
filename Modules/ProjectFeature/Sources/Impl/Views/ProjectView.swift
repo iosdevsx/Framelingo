@@ -20,7 +20,7 @@ import VideoRendering
 
 struct ProjectView: View {
     @EnvironmentObject private var appState: AppState
-    @StateObject var viewModel: ProjectViewModel
+    @ObservedObject var viewModel: ProjectViewModel
     @State private var player: AVPlayer?
     @State private var timeObserver: Any?
     @State private var isPlaying = false
@@ -62,6 +62,10 @@ struct ProjectView: View {
             viewModel.loadSelectedProject()
             viewModel.prepareProjectForEditing()
             configurePlayerIfNeeded()
+        }
+        .onChange(of: appState.selectedProject) { _, selectedProject in
+            guard viewModel.project != selectedProject else { return }
+            viewModel.loadSelectedProject()
         }
         .onChange(of: viewModel.project?.id) { _, _ in
             viewModel.prepareProjectForEditing()

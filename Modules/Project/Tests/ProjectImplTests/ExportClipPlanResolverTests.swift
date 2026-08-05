@@ -129,6 +129,16 @@ final class ExportClipPlanResolverTests: XCTestCase {
         }
     }
 
+    func testResolverThrowsWhenTimelineContainsNoClips() {
+        let timeline = EditTimeline(clips: [], totalDurationMs: 0)
+
+        XCTAssertThrowsError(
+            try ExportClipPlanResolver.clips(for: makeProject(editTimeline: timeline))
+        ) { error in
+            XCTAssertEqual(error as? ExportClipPlanError, .emptyPlan)
+        }
+    }
+
     private func makeProject(
         editTimeline: EditTimeline?,
         mediaDurationMs: Int = 10_000

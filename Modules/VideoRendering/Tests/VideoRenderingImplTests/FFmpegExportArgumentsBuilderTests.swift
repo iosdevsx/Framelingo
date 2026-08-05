@@ -4,6 +4,36 @@ import XCTest
 @testable import VideoRenderingImpl
 
 final class FFmpegExportArgumentsBuilderTests: XCTestCase {
+    func testAudioExtractionWithoutClipsUsesFullAudioStream() {
+        XCTAssertEqual(
+            FFmpegExportArgumentsBuilder.audioExtractionArguments(clips: nil),
+            [
+                "-vn",
+                "-af", "aresample=async=1:first_pts=0",
+                "-acodec", "pcm_s16le",
+                "-ar", "16000",
+                "-ac", "1",
+            ]
+        )
+    }
+
+    func testAudioExtractionTrimsAndConcatenatesEditedTimelineClips() {
+        let arguments = FFmpegExportArgumentsBuilder.audioExtractionArguments(
+            clips: [
+                ExportClipRange(sourceStartMs: 1_250, sourceEndMs: 3_000),
+                ExportClipRange(sourceStartMs: 8_000, sourceEndMs: 9_500),
+            ]
+        )
+
+        let graph = arguments[2]
+        XCTAssertEqual(arguments[1], "-filter_complex")
+        XCTAssertTrue(graph.contains("atrim=start=1.250:end=3.000"))
+        XCTAssertTrue(graph.contains("atrim=start=8.000:end=9.500"))
+        XCTAssertTrue(graph.contains("concat=n=2:v=0:a=1[acat]"))
+        XCTAssertTrue(graph.contains("[acat]aresample=async=1:first_pts=0[aout]"))
+        XCTAssertEqual(Array(arguments[3...4]), ["-map", "[aout]"])
+    }
+
     func testFilterArgumentsWithoutClipsUsesVFPass() {
         let arguments = FFmpegExportArgumentsBuilder.filterArguments(
             clips: nil,
