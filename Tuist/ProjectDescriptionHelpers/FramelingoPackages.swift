@@ -1,44 +1,66 @@
-import ProjectDescription
-
 public enum FramelingoPackages {
-    public static let localModules: [Package.Dependency] = [
-        // Composition
-        .package(path: "AppTarget/Modules/Composition/MacApp"),
+    /// One public product per package. Referencing products (without package
+    /// pointers) lets the shared Xcode test plan discover package test targets
+    /// while packages stay nested in the synchronized Modules tree.
+    public static let testDiscoveryProducts: [String] = [
+        "MacApp",
+        "MediaImpl",
+        "ProjectImpl",
+        "SettingsImpl",
+        "ShortsImpl",
+        "SpeakerAnalysisImpl",
+        "SubtitlesImpl",
+        "TimelineImpl",
+        "ExportFeatureImpl",
+        "HomeFeatureImpl",
+        "PlayerFeatureImpl",
+        "ProjectFeatureImpl",
+        "SettingsFeatureImpl",
+        "ShortsFeatureImpl",
+        "SubtitleEditorFeatureImpl",
+        "TimelineFeatureImpl",
+        "AppUpdateImpl",
+        "FFmpeg",
+        "SpeechToTextImpl",
+        "TranslationImpl",
+        "VideoExportImpl",
+        "VideoRenderingImpl",
+        "DesignSystemImpl",
+        "ProjectPreparationImpl",
+        "ProjectSessionImpl",
+        "TranscriptionPipelineImpl",
+        "TranslationPipelineImpl",
+    ]
 
-        // Core domain and state
-        .package(path: "AppTarget/Modules/Core/Media"),
-        .package(path: "AppTarget/Modules/Core/Project"),
-        .package(path: "AppTarget/Modules/Core/Settings"),
-        .package(path: "AppTarget/Modules/Core/Shorts"),
-        .package(path: "AppTarget/Modules/Core/SpeakerAnalysis"),
-        .package(path: "AppTarget/Modules/Core/Subtitles"),
-        .package(path: "AppTarget/Modules/Core/Timeline"),
-
-        // Application workflows
-        .package(path: "AppTarget/Modules/Workflows/ProjectPreparation"),
-        .package(path: "AppTarget/Modules/Workflows/ProjectSession"),
-        .package(path: "AppTarget/Modules/Workflows/TranscriptionPipeline"),
-        .package(path: "AppTarget/Modules/Workflows/TranslationPipeline"),
-
-        // User-facing features
-        .package(path: "AppTarget/Modules/Features/ExportFeature"),
-        .package(path: "AppTarget/Modules/Features/HomeFeature"),
-        .package(path: "AppTarget/Modules/Features/PlayerFeature"),
-        .package(path: "AppTarget/Modules/Features/ProjectFeature"),
-        .package(path: "AppTarget/Modules/Features/SettingsFeature"),
-        .package(path: "AppTarget/Modules/Features/ShortsFeature"),
-        .package(path: "AppTarget/Modules/Features/SubtitleEditorFeature"),
-        .package(path: "AppTarget/Modules/Features/TimelineFeature"),
-
-        // Platform and external-service implementations
-        .package(path: "AppTarget/Modules/Infrastructure/AppUpdate"),
-        .package(path: "AppTarget/Modules/Infrastructure/FFmpeg"),
-        .package(path: "AppTarget/Modules/Infrastructure/SpeechToText"),
-        .package(path: "AppTarget/Modules/Infrastructure/Translation"),
-        .package(path: "AppTarget/Modules/Infrastructure/VideoExport"),
-        .package(path: "AppTarget/Modules/Infrastructure/VideoRendering"),
-
-        // Shared presentation primitives
-        .package(path: "AppTarget/Modules/UI/DesignSystem"),
+    /// Package directories that Xcode should discover inside the synchronized
+    /// AppTarget folder, but must not compile as app-target sources/resources.
+    public static let appTargetMembershipExclusions: [String] = [
+        "Modules/Composition/MacApp",
+        "Modules/Core/Media",
+        "Modules/Core/Project",
+        "Modules/Core/Settings",
+        "Modules/Core/Shorts",
+        "Modules/Core/SpeakerAnalysis",
+        "Modules/Core/Subtitles",
+        "Modules/Core/Timeline",
+        "Modules/Features/ExportFeature",
+        "Modules/Features/HomeFeature",
+        "Modules/Features/PlayerFeature",
+        "Modules/Features/ProjectFeature",
+        "Modules/Features/SettingsFeature",
+        "Modules/Features/ShortsFeature",
+        "Modules/Features/SubtitleEditorFeature",
+        "Modules/Features/TimelineFeature",
+        "Modules/Infrastructure/AppUpdate",
+        "Modules/Infrastructure/FFmpeg",
+        "Modules/Infrastructure/SpeechToText",
+        "Modules/Infrastructure/Translation",
+        "Modules/Infrastructure/VideoExport",
+        "Modules/Infrastructure/VideoRendering",
+        "Modules/UI/DesignSystem",
+        "Modules/Workflows/ProjectPreparation",
+        "Modules/Workflows/ProjectSession",
+        "Modules/Workflows/TranscriptionPipeline",
+        "Modules/Workflows/TranslationPipeline",
     ]
 }

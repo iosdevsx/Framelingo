@@ -141,7 +141,10 @@ BundledTools/Whisper/    # ресурс macOS-приложения
 ```
 
 Папки внутри `Modules` нужны только для навигации и отражают ответственность
-пакета. Имена SwiftPM packages/products от этого не меняются.
+пакета. Конечные каталоги (`Media`, `ProjectFeature`, `FFmpeg` и остальные) —
+настоящие SPM-пакеты со своим `Package.swift`. Xcode находит их прямо в
+синхронизированном дереве `AppTarget`; отдельных ссылок на локальные пакеты в
+проекте нет. Имена SwiftPM packages/products от группировки не меняются.
 
 `DesignSystem` содержит отдельные `Tokens` (цвета, типографика, отступы,
 радиусы), `Components` и environment values. Feature-specific state и логика

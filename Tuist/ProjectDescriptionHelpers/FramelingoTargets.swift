@@ -24,10 +24,17 @@ public enum FramelingoTargets {
                 "LSApplicationCategoryType": "public.app-category.video",
                 "NSHumanReadableCopyright": "",
             ]),
-            sources: ["AppTarget/FramelingoApp.swift"],
             resources: [
                 "Framelingo/Assets.xcassets",
                 .folderReference(path: "BundledTools/Whisper"),
+            ],
+            buildableFolders: [
+                .folder(
+                    "AppTarget",
+                    exceptions: .exceptions([
+                        .exception(excluded: FramelingoPackages.appTargetMembershipExclusions),
+                    ])
+                ),
             ],
             scripts: [
                 .pre(
@@ -59,7 +66,9 @@ public enum FramelingoTargets {
             sources: ["AppTargetTests/**"],
             dependencies: [
                 .target(name: applicationName),
-            ],
+            ] + FramelingoPackages.testDiscoveryProducts.map {
+                .package(product: $0)
+            },
             settings: FramelingoSettings.macOSTests
         )
     }

@@ -12,7 +12,6 @@ let project = Project(
         disableShowEnvironmentVarsInScriptPhases: true,
         xcodeProjectName: "Framelingo-Tuist"
     ),
-    packages: FramelingoPackages.localModules,
     settings: FramelingoSettings.project,
     targets: [
         FramelingoTargets.macOSApplication(),
@@ -26,12 +25,8 @@ let project = Project(
     additionalFiles: [
         "README.md",
         "docs/**",
-        "AppTarget/Modules/*/*/Package.swift",
-        "AppTarget/Modules/*/*/Package.resolved",
-        "AppTarget/Modules/*/*/README.md",
-        "AppTarget/Modules/*/*/Sources/**",
-        "AppTarget/Modules/*/*/Tests/**",
         "TestPlan.xctestplan",
         "Tuist/**",
-    ]
+    ],
+    resourceSynthesizers: []
 )

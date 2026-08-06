@@ -4,6 +4,11 @@ Tuist хранит устройство Xcode-проекта в обычных S
 
 Сейчас идёт переходный период. Старый `Framelingo.xcodeproj` остаётся рабочим эталоном, а новый workspace называется `Framelingo-Tuist.xcworkspace`. Основная macOS-сборка и полный тест-план уже работают через Tuist. Команды для iPhone и iPad заведены заранее, но честно завершаются ошибкой до появления отдельного mobile composition root из change `add-ios-app-composition`.
 
+`AppTarget/Modules` подключён как синхронизированное дерево, как в InterviewTask:
+группирующие каталоги остаются обычными папками, а лежащие внутри них каталоги
+с `Package.swift` Xcode показывает как SPM-пакеты. Tuist не создаёт для них
+отдельные `XCLocalSwiftPackageReference`.
+
 ## Первый запуск
 
 Нужны Xcode 26.3 и [Mise](https://mise.jdx.dev/). Версии Xcode и Tuist зафиксированы в `.xcode-version` и `.mise.toml`.
