@@ -3,6 +3,7 @@ import Foundation
 import Media
 import Project
 import ProjectFeature
+import Settings
 import SpeechToText
 import Subtitles
 import Timeline
@@ -10,6 +11,10 @@ import VideoRendering
 
 public struct MacFeatureDependencies {
     public var appState: AppState
+    public var settingsAccess: SettingsAccess
+    public var projectCatalog: any ProjectCatalogManaging
+    public var projectRepository: any ProjectRepository
+    public var activeProjectExportSettings: any ActiveProjectExportSettingsManaging
     public var subtitleImporter: any SubtitleImporting
     public var editTimelineService: any EditTimelineEditing
     public var projectPreparationWorkflow: any ProjectPreparationWorkflow
@@ -30,6 +35,10 @@ public struct MacFeatureDependencies {
 
     public init(
         appState: AppState,
+        settingsAccess: SettingsAccess,
+        projectCatalog: any ProjectCatalogManaging,
+        projectRepository: any ProjectRepository,
+        activeProjectExportSettings: any ActiveProjectExportSettingsManaging,
         subtitleImporter: any SubtitleImporting,
         editTimelineService: any EditTimelineEditing,
         projectPreparationWorkflow: any ProjectPreparationWorkflow,
@@ -49,6 +58,10 @@ public struct MacFeatureDependencies {
         mockSubtitles: [SubtitleSegment]
     ) {
         self.appState = appState
+        self.settingsAccess = settingsAccess
+        self.projectCatalog = projectCatalog
+        self.projectRepository = projectRepository
+        self.activeProjectExportSettings = activeProjectExportSettings
         self.subtitleImporter = subtitleImporter
         self.editTimelineService = editTimelineService
         self.projectPreparationWorkflow = projectPreparationWorkflow

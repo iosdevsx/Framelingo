@@ -5,7 +5,7 @@ import SwiftUI
 import VideoRendering
 
 struct SettingsView: View {
-    @StateObject var viewModel: SettingsViewModel
+    @StateObject private var viewModel: SettingsViewModel
 
     @State private var section: SettingsSection = .tools
     @Environment(\.colorScheme) private var colorScheme
@@ -13,6 +13,10 @@ struct SettingsView: View {
 
     private var accent: Color {
         AccentColorName(rawValue: accentColorName)?.color ?? AccentColorName.blue.color
+    }
+
+    init(viewModel: SettingsViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
     }
 
     var body: some View {
@@ -75,6 +79,11 @@ struct SettingsView: View {
     private var contentArea: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
+                if let message = viewModel.settingsPersistenceMessage {
+                    Label(message, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.red)
+                        .padding(.bottom, 16)
+                }
                 switch section {
                 case .tools:      toolsSection
                 case .appearance: appearanceSection

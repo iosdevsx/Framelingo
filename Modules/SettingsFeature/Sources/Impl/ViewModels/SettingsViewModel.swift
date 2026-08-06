@@ -1,4 +1,3 @@
-import Application
 import Combine
 import Foundation
 import Project
@@ -18,77 +17,71 @@ final class SettingsViewModel: ObservableObject {
     @Published var parakeetInstallMessage: String?
     @Published var parakeetInstallProgress: Double?
     @Published var isInstallingParakeet = false
-    @Published var selectedProject: Project?
+    @Published var selectedVideoExportSettings: VideoExportSettings?
+    @Published var settingsPersistenceMessage: String?
 
     let usesEmbeddedVideoRenderingBackend: Bool
 
-    private let appState: AppState
+    private let settingsAccess: SettingsAccess
+    private let activeProjectExportSettings: any ActiveProjectExportSettingsManaging
     private let whisperInstaller: any WhisperModelManaging
     private let parakeetModelStore: any ParakeetModelManaging
     private let makeFFmpegService: @MainActor (AppSettings) -> any FFmpegService
     private let fileManager: FileManager
-    private var projectSaveTask: Task<Void, Never>?
+    private var settingsSubscription: AnyCancellable?
 
     init(
-        appState: AppState,
+        settingsAccess: SettingsAccess,
+        activeProjectExportSettings: any ActiveProjectExportSettingsManaging,
         whisperInstaller: any WhisperModelManaging,
         parakeetModelStore: any ParakeetModelManaging,
         usesEmbeddedVideoRenderingBackend: Bool,
         makeFFmpegService: @escaping @MainActor (AppSettings) -> any FFmpegService,
         fileManager: FileManager = .default
     ) {
-        self.appState = appState
+        self.settingsAccess = settingsAccess
+        self.activeProjectExportSettings = activeProjectExportSettings
         self.whisperInstaller = whisperInstaller
         self.parakeetModelStore = parakeetModelStore
         self.usesEmbeddedVideoRenderingBackend = usesEmbeddedVideoRenderingBackend
         self.makeFFmpegService = makeFFmpegService
         self.fileManager = fileManager
-        settings = appState.settings
-        selectedProject = appState.selectedProject
-    }
-
-    deinit {
-        projectSaveTask?.cancel()
+        settings = settingsAccess.snapshot.settings
+        selectedVideoExportSettings = activeProjectExportSettings.current
+        if case .failed(let failure) = settingsAccess.snapshot.persistenceState {
+            settingsPersistenceMessage = failure.message
+        }
+        settingsSubscription = settingsAccess.snapshots.sink { [weak self] snapshot in
+            guard let self else { return }
+            if settings != snapshot.settings {
+                settings = snapshot.settings
+            }
+            if case .failed(let failure) = snapshot.persistenceState {
+                settingsPersistenceMessage = failure.message
+            } else {
+                settingsPersistenceMessage = nil
+            }
+        }
     }
 
     func save() {
-        appState.settings = settings
+        settingsAccess.update(settings)
     }
 
     var currentVideoExportSettings: VideoExportSettings {
-        selectedProject?.videoExportSettings ?? VideoExportSettings()
+        selectedVideoExportSettings ?? VideoExportSettings()
     }
 
     var hasSelectedProject: Bool {
-        selectedProject != nil
+        selectedVideoExportSettings != nil
     }
 
     func updateVideoExportSettings(_ settings: VideoExportSettings) {
-        guard var project = selectedProject else {
+        guard selectedVideoExportSettings != nil else {
             return
         }
-
-        project.videoExportSettings = settings
-        project.updatedAt = Date()
-        selectedProject = project
-        appState.selectedProject = project
-        if let index = appState.recentProjects.firstIndex(where: { $0.id == project.id }) {
-            appState.recentProjects[index] = project
-        }
-
-        projectSaveTask?.cancel()
-        let repository = appState.projectRepository
-        projectSaveTask = Task {
-            do {
-                try await Task.sleep(for: .milliseconds(400))
-                try Task.checkCancellation()
-                try await repository.saveProject(project)
-            } catch is CancellationError {
-                return
-            } catch {
-                return
-            }
-        }
+        selectedVideoExportSettings = settings
+        activeProjectExportSettings.update(settings)
     }
 
     var selectedWhisperModel: WhisperModel {
@@ -235,7 +228,7 @@ final class SettingsViewModel: ObservableObject {
             if !usesEmbeddedVideoRenderingBackend {
                 settings.ffmpegPath = info.executableURL.path
             }
-            appState.settings = settings
+            save()
             ffmpegVersion = usesEmbeddedVideoRenderingBackend
                 ? info.version
                 : "\(info.version) (\(info.executableURL.path))"

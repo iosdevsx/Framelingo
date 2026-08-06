@@ -2,6 +2,12 @@
 # frozen_string_literal: true
 
 PRODUCT_COMPOSERS = ["MacFeatureImpl"].freeze
+APP_STATE_FORBIDDEN_SURFACE = {
+  /@Published\s+public\s+var\s+settings\b/ => "AppState owns global settings",
+  /@Published\s+public\s+var\s+recentProjects\b/ => "AppState owns recent projects",
+  /public\s+let\s+projectRepository\b/ => "AppState exposes ProjectRepository",
+  /\bsaveSettings\b/ => "AppState construction exposes settings persistence"
+}.freeze
 
 def target_blocks(manifest)
   blocks = []
@@ -79,6 +85,12 @@ def audit_import(source, label, role, target_name)
   end
 end
 
+def audit_app_state_surface(source, label)
+  APP_STATE_FORBIDDEN_SURFACE.each_with_object([]) do |(pattern, description), failures|
+    failures << "#{label}: #{description}" if source.match?(pattern)
+  end
+end
+
 def run_self_test
   fixtures = {
     "accepted API-only dependency" => [
@@ -130,6 +142,19 @@ def run_self_test
     failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
   end
 
+
+  app_state_cases = [
+    ["reduced AppState", "@Published public var selectedProject: Project?\n", 0],
+    ["settings owner regression", "@Published public var settings: AppSettings\n", 1],
+    ["recents owner regression", "@Published public var recentProjects: [Project]\n", 1],
+    ["repository regression", "public let projectRepository: any ProjectRepository\n", 1],
+    ["settings persistence regression", "public var saveSettings: (AppSettings) -> Void\n", 1]
+  ]
+  app_state_cases.each do |name, source, expected_count|
+    actual_count = audit_app_state_surface(source, name).count
+    failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
+  end
+
   abort failures.join("\n") unless failures.empty?
   puts "Module-boundary audit self-tests passed."
 end
@@ -149,6 +174,17 @@ Dir.glob(File.join(repository_root, "Modules", "*", "Sources", "{Api,Impl}", "**
   role = parts[3] == "Api" ? :api : :impl
   target_name = role == :api ? package_name : "#{package_name}Impl"
   failures.concat(audit_import(File.read(source_path), relative, role, target_name))
+end
+
+
+app_state_surface_paths = [
+  "Modules/Application/Sources/Api/State/AppState.swift",
+  "Modules/Application/Sources/Api/Dependencies/ApplicationDependencies.swift",
+  "Modules/Application/Sources/Impl/Assembly/ApplicationAssembly.swift"
+]
+app_state_surface_paths.each do |relative|
+  path = File.join(repository_root, relative)
+  failures.concat(audit_app_state_surface(File.read(path), relative))
 end
 
 unless failures.empty?

@@ -1,4 +1,3 @@
-import Application
 import Foundation
 import Media
 import Project
@@ -8,7 +7,8 @@ import SwiftUI
 public enum HomeFeatureAssembly {
     @MainActor
     public static func makeView(
-        appState: AppState,
+        projectCatalog: any ProjectCatalogManaging,
+        projectRepository: any ProjectRepository,
         projectFileService: any ProjectFileServicing,
         mediaMetadataService: any MediaMetadataProviding,
         fileManager: FileManager = .default,
@@ -17,7 +17,8 @@ public enum HomeFeatureAssembly {
         onOpenProject: @escaping (Project) -> Void
     ) -> AnyView {
         let viewModel = HomeViewModel(
-            appState: appState,
+            projectCatalog: projectCatalog,
+            projectRepository: projectRepository,
             projectFileService: projectFileService,
             mediaMetadataService: mediaMetadataService,
             fileManager: fileManager,

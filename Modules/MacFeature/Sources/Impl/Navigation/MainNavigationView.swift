@@ -76,7 +76,8 @@ struct MainNavigationView: View {
     private var contentArea: some View {
         if workspaceMode == .settings {
             SettingsFeatureAssembly.makeView(
-                appState: appState,
+                settingsAccess: dependencies.settingsAccess,
+                activeProjectExportSettings: dependencies.activeProjectExportSettings,
                 whisperInstaller: dependencies.whisperModelManager,
                 parakeetModelStore: dependencies.parakeetModelManager,
                 usesEmbeddedVideoRenderingBackend: dependencies.usesEmbeddedVideoRenderingBackend,
@@ -89,6 +90,9 @@ struct MainNavigationView: View {
                 ProjectFeatureAssembly.makeView(
                     appState: appState,
                     dependencies: ProjectFeatureDependencies(
+                        projectRepository: dependencies.projectRepository,
+                        projectCatalog: dependencies.projectCatalog,
+                        settingsAccess: dependencies.settingsAccess,
                         subtitleImporter: dependencies.subtitleImporter,
                         projectFileService: dependencies.projectFileService,
                         editTimelineService: dependencies.editTimelineService,
@@ -108,13 +112,15 @@ struct MainNavigationView: View {
             }
         } else {
             HomeFeatureAssembly.makeView(
-                appState: appState,
+                projectCatalog: dependencies.projectCatalog,
+                projectRepository: dependencies.projectRepository,
                 projectFileService: dependencies.projectFileService,
                 mediaMetadataService: dependencies.mediaMetadataProvider,
                 fileManager: dependencies.fileManager,
                 mockProject: dependencies.mockProject,
                 mockSubtitles: dependencies.mockSubtitles,
-                onOpenProject: { _ in
+                onOpenProject: { project in
+                    appState.selectedProject = project
                     hasOpenedProject = true
                     workspaceMode = .subtitles
                 }

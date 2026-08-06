@@ -1,5 +1,6 @@
 import Application
 import ApplicationImpl
+import Combine
 import ExportFeature
 import Foundation
 import Media
@@ -21,6 +22,11 @@ import VideoRendering
 @testable import ProjectFeatureImpl
 
 enum TestDoubles {
+    @MainActor
+    private static var repositoriesByAppState: [ObjectIdentifier: Repository] = [:]
+    @MainActor
+    private static var catalogsByAppState: [ObjectIdentifier: Catalog] = [:]
+
     enum TestError: LocalizedError {
         case expected
 
@@ -51,6 +57,70 @@ enum TestDoubles {
 
         func deleteProject(id: UUID) async throws {
             projects[id] = nil
+        }
+    }
+
+    @MainActor
+    final class Catalog: ProjectCatalogManaging {
+        private(set) var snapshot: ProjectCatalogSnapshot
+        var snapshots: AnyPublisher<ProjectCatalogSnapshot, Never> {
+            subject.eraseToAnyPublisher()
+        }
+
+        private let repository: any ProjectRepository
+        private let subject: CurrentValueSubject<ProjectCatalogSnapshot, Never>
+        private(set) var registeredProjects: [Project] = []
+
+        init(repository: any ProjectRepository, projects: [Project] = []) {
+            self.repository = repository
+            snapshot = ProjectCatalogSnapshot(
+                summaries: projects.map(ProjectSummary.init)
+            )
+            subject = CurrentValueSubject(snapshot)
+        }
+
+        func refresh() async {
+            do {
+                let projects = try await repository.listProjects()
+                snapshot = ProjectCatalogSnapshot(
+                    summaries: projects
+                        .map(ProjectSummary.init)
+                        .sorted { $0.updatedAt > $1.updatedAt }
+                )
+                subject.send(snapshot)
+            } catch {
+                snapshot = ProjectCatalogSnapshot(
+                    summaries: snapshot.summaries,
+                    failure: ProjectCatalogFailure(
+                        operation: .refresh,
+                        message: error.localizedDescription
+                    )
+                )
+                subject.send(snapshot)
+            }
+        }
+
+        func register(_ project: Project) {
+            registeredProjects.append(project)
+            var summaries = snapshot.summaries.filter { $0.id != project.id }
+            summaries.append(ProjectSummary(project: project))
+            snapshot = ProjectCatalogSnapshot(
+                summaries: summaries.sorted { $0.updatedAt > $1.updatedAt }
+            )
+            subject.send(snapshot)
+        }
+
+        func open(id: UUID) async throws -> Project {
+            try await repository.loadProject(id: id)
+        }
+
+        func delete(id: UUID) async throws -> UUID {
+            try await repository.deleteProject(id: id)
+            snapshot = ProjectCatalogSnapshot(
+                summaries: snapshot.summaries.filter { $0.id != id }
+            )
+            subject.send(snapshot)
+            return id
         }
     }
 
@@ -254,11 +324,8 @@ enum TestDoubles {
         audioPreparationService: any AudioPreparationService = AudioPreparation(),
         makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() }
     ) -> AppState {
-        AppState(
-            recentProjects: [project],
+        let appState = AppState(
             selectedProject: project,
-            settings: .default,
-            projectRepository: repository,
             subtitleExportService: subtitleExportService,
             translationService: TranslationService(),
             speakerDiarizationEngine: speakerDiarizationEngine,
@@ -266,10 +333,12 @@ enum TestDoubles {
             audioPreparationService: audioPreparationService,
             makeFFmpegService: makeFFmpegService,
             subtitleScriptGenerator: ScriptGenerator(),
-            saveSettings: { _ in },
+            currentSettings: { .default },
             revealVideoExport: { _ in },
             copyText: { _ in }
         )
+        repositoriesByAppState[ObjectIdentifier(appState)] = repository
+        return appState
     }
 
     @MainActor
@@ -282,6 +351,26 @@ enum TestDoubles {
         projectTranscriptionWorkflow: (any ProjectTranscriptionWorkflow)? = nil,
         projectTranslationWorkflow: (any ProjectTranslationWorkflow)? = nil
     ) -> ProjectFeatureDependencies {
+        let repository = repositoriesByAppState[ObjectIdentifier(appState)] ?? Repository()
+        let catalog = Catalog(
+            repository: repository,
+            projects: appState.selectedProject.map { [$0] } ?? []
+        )
+        catalogsByAppState[ObjectIdentifier(appState)] = catalog
+        let settingsSubject = CurrentValueSubject<SettingsSnapshot, Never>(
+            SettingsSnapshot(settings: .default, persistenceState: .idle)
+        )
+        let settingsAccess = SettingsAccess(
+            snapshot: { settingsSubject.value },
+            snapshots: { settingsSubject.eraseToAnyPublisher() },
+            reload: {},
+            update: { settings in
+                settingsSubject.send(SettingsSnapshot(
+                    settings: settings,
+                    persistenceState: .saved
+                ))
+            }
+        )
         let preparationWorkflow = projectPreparationWorkflow
             ?? ApplicationWorkflowAssembly.makeProjectPreparationWorkflow(
                 mediaMetadataProvider: MetadataProvider(),
@@ -290,7 +379,7 @@ enum TestDoubles {
             )
         let transcriptionWorkflow = projectTranscriptionWorkflow
             ?? ApplicationWorkflowAssembly.makeProjectTranscriptionWorkflow(
-                projectRepository: appState.projectRepository,
+                projectRepository: repository,
                 speechToTextProviderResolver: speechToTextProviderResolver,
                 speakerDiarizationEngine: appState.speakerDiarizationEngine,
                 subtitleAlignmentEngine: appState.subtitleAlignmentEngine,
@@ -298,11 +387,14 @@ enum TestDoubles {
             )
         let translationWorkflow = projectTranslationWorkflow
             ?? ApplicationWorkflowAssembly.makeProjectTranslationWorkflow(
-                projectRepository: appState.projectRepository,
+                projectRepository: repository,
                 translationService: appState.translationService
             )
 
         return ProjectFeatureDependencies(
+            projectRepository: repository,
+            projectCatalog: catalog,
+            settingsAccess: settingsAccess,
             subtitleImporter: SubtitleImporter(),
             projectFileService: ProjectFileService(),
             editTimelineService: editTimelineService,
@@ -311,6 +403,11 @@ enum TestDoubles {
             projectTranslationWorkflow: translationWorkflow,
             pickSubtitleFile: { nil }
         )
+    }
+
+    @MainActor
+    static func catalog(for appState: AppState) -> Catalog? {
+        catalogsByAppState[ObjectIdentifier(appState)]
     }
 
     @MainActor

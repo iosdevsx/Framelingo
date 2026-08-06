@@ -24,6 +24,9 @@ final class MacCompositionRootTests: XCTestCase {
             _ = ProjectFeatureAssembly.makeView(
                 appState: dependencies.appState,
                 dependencies: ProjectFeatureDependencies(
+                    projectRepository: dependencies.projectRepository,
+                    projectCatalog: dependencies.projectCatalog,
+                    settingsAccess: dependencies.settingsAccess,
                     subtitleImporter: dependencies.subtitleImporter,
                     projectFileService: dependencies.projectFileService,
                     editTimelineService: dependencies.editTimelineService,

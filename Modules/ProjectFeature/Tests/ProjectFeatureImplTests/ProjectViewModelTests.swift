@@ -91,6 +91,10 @@ final class ProjectViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.canUndo)
         try await Task.sleep(for: .milliseconds(650))
         XCTAssertEqual(repository.savedProjects.last?.subtitles.first?.translatedText, "Autosaved")
+        XCTAssertEqual(
+            TestDoubles.catalog(for: appState)?.registeredProjects.last?.subtitles.first?.translatedText,
+            "Autosaved"
+        )
 
         viewModel.undo()
 
@@ -379,7 +383,6 @@ final class ProjectViewModelTests: XCTestCase {
 
         viewModel.prepareProjectForEditing()
         appState.selectedProject = replacement
-        appState.recentProjects.append(replacement)
         viewModel.loadSelectedProject()
         try await Task.sleep(for: .milliseconds(80))
 
@@ -400,7 +403,6 @@ final class ProjectViewModelTests: XCTestCase {
         let translationTask = Task { await viewModel.translate() }
         await Task.yield()
         appState.selectedProject = replacement
-        appState.recentProjects.append(replacement)
         viewModel.loadSelectedProject()
         await translationTask.value
 

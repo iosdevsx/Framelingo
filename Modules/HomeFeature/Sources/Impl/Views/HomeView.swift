@@ -95,19 +95,18 @@ struct HomeView: View {
                     .background(Color(nsColor: .controlBackgroundColor))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
-                ForEach(viewModel.recentProjects) { project in
-                    recentProjectRow(project)
+                ForEach(viewModel.recentProjects) { summary in
+                    recentProjectRow(summary)
                 }
             }
         }
     }
 
-    private func recentProjectRow(_ project: Project) -> some View {
+    private func recentProjectRow(_ project: ProjectSummary) -> some View {
         Button {
             Task {
-                await viewModel.selectProject(project)
-                if let selectedProject = viewModel.selectedProject {
-                    onOpenProject(selectedProject)
+                if let project = await viewModel.selectProject(project) {
+                    onOpenProject(project)
                 }
             }
         } label: {
@@ -120,7 +119,7 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(project.displayName)
                         .font(.headline)
-                    Text("\(project.mediaFile.fileName) • \(project.mediaFile.readableSize)")
+                    Text("\(project.mediaFileName) • \(project.readableMediaSize)")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

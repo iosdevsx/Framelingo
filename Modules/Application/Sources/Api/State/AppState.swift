@@ -11,17 +11,10 @@ import VideoRendering
 
 @MainActor
 public final class AppState: ObservableObject {
-    @Published public var recentProjects: [Project]
     @Published public var selectedProject: Project?
-    @Published public var settings: AppSettings {
-        didSet {
-            saveSettings(settings)
-        }
-    }
     @Published public var videoExportJobs: [VideoExportJob] = []
     @Published public var transcriptionActivity: TranscriptionActivity?
 
-    public let projectRepository: any ProjectRepository
     public let subtitleExportService: any SubtitleExportService
     public let translationService: any TranslationOrchestrating
     public let speakerDiarizationEngine: any SpeakerDiarizationEngine
@@ -31,17 +24,14 @@ public final class AppState: ObservableObject {
     private let makeFFmpegService: FFmpegServiceBuilder
     private let subtitleScriptGenerator: any SubtitleScriptGenerating
     private let fileManager: FileManager
-    private let saveSettings: @MainActor (AppSettings) -> Void
+    private let currentSettings: @MainActor () -> AppSettings
     private let revealVideoExport: @MainActor (URL) -> Void
     private let copyText: @MainActor (String) -> Void
     private var videoExportTask: Task<Void, Never>?
     private var videoExportPayloads: [UUID: VideoExportJobPayload] = [:]
 
     public init(
-        recentProjects: [Project],
         selectedProject: Project?,
-        settings: AppSettings,
-        projectRepository: any ProjectRepository,
         subtitleExportService: any SubtitleExportService,
         translationService: any TranslationOrchestrating,
         speakerDiarizationEngine: any SpeakerDiarizationEngine,
@@ -50,14 +40,11 @@ public final class AppState: ObservableObject {
         makeFFmpegService: @escaping FFmpegServiceBuilder,
         subtitleScriptGenerator: any SubtitleScriptGenerating,
         fileManager: FileManager = .default,
-        saveSettings: @escaping @MainActor (AppSettings) -> Void,
+        currentSettings: @escaping @MainActor () -> AppSettings,
         revealVideoExport: @escaping @MainActor (URL) -> Void,
         copyText: @escaping @MainActor (String) -> Void
     ) {
-        self.recentProjects = recentProjects
         self.selectedProject = selectedProject
-        self.settings = settings
-        self.projectRepository = projectRepository
         self.subtitleExportService = subtitleExportService
         self.translationService = translationService
         self.speakerDiarizationEngine = speakerDiarizationEngine
@@ -66,7 +53,7 @@ public final class AppState: ObservableObject {
         self.makeFFmpegService = makeFFmpegService
         self.subtitleScriptGenerator = subtitleScriptGenerator
         self.fileManager = fileManager
-        self.saveSettings = saveSettings
+        self.currentSettings = currentSettings
         self.revealVideoExport = revealVideoExport
         self.copyText = copyText
     }
@@ -255,15 +242,6 @@ public final class AppState: ObservableObject {
         selectedProject = nil
     }
 
-    public func deleteProject(_ project: Project) async throws {
-        try audioPreparationService.removePreparedAudio(for: project.mediaFile.originalURL)
-        try await projectRepository.deleteProject(id: project.id)
-        recentProjects.removeAll { $0.id == project.id }
-        if selectedProject?.id == project.id {
-            selectedProject = nil
-        }
-    }
-
     private func startNextVideoExportIfNeeded() {
         guard videoExportTask == nil,
               let jobIndex = videoExportJobs.lastIndex(where: { $0.status == .queued }) else {
@@ -282,7 +260,7 @@ public final class AppState: ObservableObject {
 
         let jobID = job.id
         let outputURL = job.outputURL
-        let ffmpegService = makeFFmpegService(settings)
+        let ffmpegService = makeFFmpegService(currentSettings())
         let fileManager = fileManager
         let subtitleScriptGenerator = subtitleScriptGenerator
         let subtitleExportService = subtitleExportService

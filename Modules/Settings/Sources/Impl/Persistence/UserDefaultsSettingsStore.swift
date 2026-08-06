@@ -11,19 +11,19 @@ final class UserDefaultsSettingsStore: SettingsStore {
     }
 
     func load() async throws -> AppSettings {
-        guard let data = userDefaults.data(forKey: key),
-              let settings = try? JSONDecoder().decode(AppSettings.self, from: data) else {
+        try loadSynchronously()
+    }
+
+    func loadSynchronously() throws -> AppSettings {
+        guard let data = userDefaults.data(forKey: key) else {
             return .default
         }
 
-        return settings
+        return try JSONDecoder().decode(AppSettings.self, from: data)
     }
 
     func save(_ settings: AppSettings) async throws {
-        guard let data = try? JSONEncoder().encode(settings) else {
-            return
-        }
-
+        let data = try JSONEncoder().encode(settings)
         userDefaults.set(data, forKey: key)
     }
 }

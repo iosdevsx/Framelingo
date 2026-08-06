@@ -51,9 +51,12 @@ final class ProjectViewModel: ObservableObject {
     @Published private(set) var canRedo = false
 
     let availableLanguages = ["English", "Russian", "Spanish", "French", "German", "Italian", "Portuguese", "Chinese", "Japanese", "Korean"]
-    var settings: AppSettings { appState.settings }
+    var settings: AppSettings { settingsAccess.snapshot.settings }
 
     private let appState: AppState
+    private let projectRepository: any ProjectRepository
+    private let projectCatalog: any ProjectCatalogManaging
+    private let settingsAccess: SettingsAccess
     private let subtitleImportService: any SubtitleImporting
     private let projectFileService: any ProjectFileServicing
     private let editTimelineService: any EditTimelineEditing
@@ -82,6 +85,9 @@ final class ProjectViewModel: ObservableObject {
         dependencies: ProjectFeatureDependencies
     ) {
         self.appState = appState
+        projectRepository = dependencies.projectRepository
+        projectCatalog = dependencies.projectCatalog
+        settingsAccess = dependencies.settingsAccess
         subtitleImportService = dependencies.subtitleImporter
         projectFileService = dependencies.projectFileService
         editTimelineService = dependencies.editTimelineService
@@ -931,7 +937,8 @@ final class ProjectViewModel: ObservableObject {
         autosaveTask = nil
 
         do {
-            try await appState.projectRepository.saveProject(project)
+            try await projectRepository.saveProject(project)
+            projectCatalog.register(project)
             autosaveErrorMessage = nil
             exportMessage = "Project saved."
         } catch {
@@ -1009,33 +1016,23 @@ final class ProjectViewModel: ObservableObject {
     private func applyProject(_ project: Project) {
         self.project = project
         appState.selectedProject = project
-        updateRecentProject(project)
-    }
-
-    private func updateRecentProject(_ project: Project) {
-        guard let index = appState.recentProjects.firstIndex(where: { $0.id == project.id }) else {
-            return
-        }
-
-        appState.recentProjects[index] = project
     }
 
     private func scheduleAutosave(_ project: Project) {
         autosaveTask?.cancel()
+        let projectRepository = projectRepository
+        let projectCatalog = projectCatalog
         autosaveTask = Task { [weak self] in
             do {
                 try await Task.sleep(for: .milliseconds(500))
                 try Task.checkCancellation()
-                try await self?.appState.projectRepository.saveProject(project)
-                await MainActor.run {
-                    self?.autosaveErrorMessage = nil
-                }
+                try await projectRepository.saveProject(project)
+                projectCatalog.register(project)
+                self?.autosaveErrorMessage = nil
             } catch is CancellationError {
                 return
             } catch {
-                await MainActor.run {
-                    self?.autosaveErrorMessage = "Autosave failed."
-                }
+                self?.autosaveErrorMessage = "Autosave failed."
             }
         }
     }

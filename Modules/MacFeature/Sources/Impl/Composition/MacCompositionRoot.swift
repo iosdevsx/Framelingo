@@ -7,6 +7,7 @@ import Foundation
 import MacFeature
 import MediaImpl
 import PlayerFeatureImpl
+import Project
 import ProjectImpl
 import ProjectFeature
 import SettingsImpl
@@ -28,7 +29,9 @@ import ExportFeatureImpl
 enum MacCompositionRoot {
     static func makeDependencies() -> MacFeatureDependencies {
         let fileManager = FileManager.default
-        let settings = SettingsAssembly.loadSettings()
+        let settingsManager = SettingsAssembly.makeManager()
+        let settingsAccess = settingsManager.access
+        let settings = settingsAccess.snapshot.settings
         let makeFFmpegService: FFmpegServiceBuilder = { settings in
             VideoRenderingAssembly.makeDefaultService(
                 preferredExecutableURL: URL(fileURLWithPath: settings.ffmpegPath)
@@ -48,26 +51,29 @@ enum MacCompositionRoot {
         let speechToTextProviderResolver = SpeechToTextAssembly.makeProviderResolver(
             subtitleParser: subtitleParser
         )
+        let audioPreparationService = VideoRenderingAssembly.makeAudioPreparationService(
+            ffmpegService: ffmpegService
+        )
+        let projectCatalog = ProjectAssembly.makeCatalog(
+            repository: projectRepository,
+            preparedMediaCleanup: PreparedMediaCleanup { mediaURL in
+                try audioPreparationService.removePreparedAudio(for: mediaURL)
+            }
+        )
+        projectCatalog.register(MacMockData.project)
 
         let appState = ApplicationAssembly.makeAppState(
-            recentProjects: [MacMockData.project],
             selectedProject: MacMockData.project,
-            settings: settings,
             dependencies: AppStateDependencies(
-                projectRepository: projectRepository,
                 subtitleExportService: SubtitlesAssembly.makeExporter(),
                 translationService: translationService,
                 speakerDiarizationEngine: speakerDiarizationEngine,
                 subtitleAlignmentEngine: subtitleAlignmentEngine,
-                audioPreparationService: VideoRenderingAssembly.makeAudioPreparationService(
-                    ffmpegService: ffmpegService
-                ),
+                audioPreparationService: audioPreparationService,
                 makeFFmpegService: makeFFmpegService,
                 subtitleScriptGenerator: subtitleScriptGenerator,
                 fileManager: fileManager,
-                saveSettings: { settings in
-                    SettingsAssembly.saveSettings(settings)
-                },
+                currentSettings: { settingsAccess.snapshot.settings },
                 revealVideoExport: { url in
                     NSWorkspace.shared.activateFileViewerSelecting([url])
                 },
@@ -76,6 +82,11 @@ enum MacCompositionRoot {
                     NSPasteboard.general.setString(value, forType: .string)
                 }
             )
+        )
+        let activeProjectExportSettings = AppStateActiveProjectExportSettingsAdapter(
+            appState: appState,
+            projectRepository: projectRepository,
+            projectCatalog: projectCatalog
         )
 
         let projectPreparationWorkflow = ApplicationWorkflowAssembly.makeProjectPreparationWorkflow(
@@ -102,7 +113,7 @@ enum MacCompositionRoot {
             subtitleEditor: SubtitleEditorFeatureAssembly.makeFactory(),
             shorts: ShortsFeatureAssembly.makeFactory(),
             export: ExportFeatureAssembly.makeFactory(
-                makeFFmpegService: { makeFFmpegService(appState.settings) },
+                makeFFmpegService: { makeFFmpegService(settingsAccess.snapshot.settings) },
                 subtitleScriptGenerator: subtitleScriptGenerator,
                 mediaMetadataService: mediaMetadataProvider,
                 fileManager: fileManager
@@ -111,6 +122,10 @@ enum MacCompositionRoot {
 
         return MacFeatureDependencies(
             appState: appState,
+            settingsAccess: settingsAccess,
+            projectCatalog: projectCatalog,
+            projectRepository: projectRepository,
+            activeProjectExportSettings: activeProjectExportSettings,
             subtitleImporter: SubtitlesAssembly.makeImporter(),
             editTimelineService: TimelineAssembly.makeEditService(),
             projectPreparationWorkflow: projectPreparationWorkflow,

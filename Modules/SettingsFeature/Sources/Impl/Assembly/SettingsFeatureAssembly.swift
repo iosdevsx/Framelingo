@@ -1,5 +1,5 @@
-import Application
 import Foundation
+import Project
 import Settings
 import SpeechToText
 import SwiftUI
@@ -8,7 +8,8 @@ import VideoRendering
 public enum SettingsFeatureAssembly {
     @MainActor
     public static func makeView(
-        appState: AppState,
+        settingsAccess: SettingsAccess,
+        activeProjectExportSettings: any ActiveProjectExportSettingsManaging,
         whisperInstaller: any WhisperModelManaging,
         parakeetModelStore: any ParakeetModelManaging,
         usesEmbeddedVideoRenderingBackend: Bool,
@@ -16,7 +17,8 @@ public enum SettingsFeatureAssembly {
         fileManager: FileManager = .default
     ) -> AnyView {
         let viewModel = SettingsViewModel(
-            appState: appState,
+            settingsAccess: settingsAccess,
+            activeProjectExportSettings: activeProjectExportSettings,
             whisperInstaller: whisperInstaller,
             parakeetModelStore: parakeetModelStore,
             usesEmbeddedVideoRenderingBackend: usesEmbeddedVideoRenderingBackend,

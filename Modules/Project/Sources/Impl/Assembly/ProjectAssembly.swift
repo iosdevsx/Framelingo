@@ -2,6 +2,17 @@ import Foundation
 import Project
 
 public enum ProjectAssembly {
+    @MainActor
+    public static func makeCatalog(
+        repository: any ProjectRepository,
+        preparedMediaCleanup: PreparedMediaCleanup
+    ) -> any ProjectCatalogManaging {
+        DefaultProjectCatalog(
+            repository: repository,
+            preparedMediaCleanup: preparedMediaCleanup
+        )
+    }
+
     public static func makeRepository(
         fileManager: FileManager = .default,
         appName: String = "Framelingo"

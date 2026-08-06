@@ -5,6 +5,29 @@ import Testing
 
 struct UserDefaultsSettingsStoreTests {
     @Test
+    func emptyStorageLoadsDefaults() async throws {
+        let suiteName = "Framelingo.SettingsImplTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = SettingsAssembly.makeStore(userDefaults: defaults)
+
+        #expect(try await store.load() == .default)
+    }
+
+    @Test
+    func corruptStorageReportsLoadFailure() async throws {
+        let suiteName = "Framelingo.SettingsImplTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(Data("not-json".utf8), forKey: SettingsAssembly.defaultStorageKey)
+        let store = SettingsAssembly.makeStore(userDefaults: defaults)
+
+        await #expect(throws: DecodingError.self) {
+            try await store.load()
+        }
+    }
+
+    @Test
     func legacyFixtureSurvivesCurrentUserDefaultsPayloadPath() async throws {
         let fixtureURL = try #require(Bundle.module.url(
             forResource: "LegacyAppSettings",

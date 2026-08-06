@@ -1,6 +1,5 @@
 import Foundation
 import Media
-import Project
 import Settings
 import SpeakerAnalysis
 import Subtitles
@@ -9,7 +8,6 @@ import VideoRendering
 
 public typealias FFmpegServiceBuilder = (AppSettings) -> any FFmpegService
 public struct AppStateDependencies {
-    public var projectRepository: any ProjectRepository
     public var subtitleExportService: any SubtitleExportService
     public var translationService: any TranslationOrchestrating
     public var speakerDiarizationEngine: any SpeakerDiarizationEngine
@@ -18,12 +16,11 @@ public struct AppStateDependencies {
     public var makeFFmpegService: FFmpegServiceBuilder
     public var subtitleScriptGenerator: any SubtitleScriptGenerating
     public var fileManager: FileManager
-    public var saveSettings: @MainActor (AppSettings) -> Void
+    public var currentSettings: @MainActor () -> AppSettings
     public var revealVideoExport: @MainActor (URL) -> Void
     public var copyText: @MainActor (String) -> Void
 
     public init(
-        projectRepository: any ProjectRepository,
         subtitleExportService: any SubtitleExportService,
         translationService: any TranslationOrchestrating,
         speakerDiarizationEngine: any SpeakerDiarizationEngine,
@@ -32,11 +29,10 @@ public struct AppStateDependencies {
         makeFFmpegService: @escaping FFmpegServiceBuilder,
         subtitleScriptGenerator: any SubtitleScriptGenerating,
         fileManager: FileManager = .default,
-        saveSettings: @escaping @MainActor (AppSettings) -> Void,
+        currentSettings: @escaping @MainActor () -> AppSettings,
         revealVideoExport: @escaping @MainActor (URL) -> Void,
         copyText: @escaping @MainActor (String) -> Void
     ) {
-        self.projectRepository = projectRepository
         self.subtitleExportService = subtitleExportService
         self.translationService = translationService
         self.speakerDiarizationEngine = speakerDiarizationEngine
@@ -45,7 +41,7 @@ public struct AppStateDependencies {
         self.makeFFmpegService = makeFFmpegService
         self.subtitleScriptGenerator = subtitleScriptGenerator
         self.fileManager = fileManager
-        self.saveSettings = saveSettings
+        self.currentSettings = currentSettings
         self.revealVideoExport = revealVideoExport
         self.copyText = copyText
     }

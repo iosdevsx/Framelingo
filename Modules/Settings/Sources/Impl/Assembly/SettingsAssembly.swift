@@ -11,27 +11,42 @@ public enum SettingsAssembly {
         UserDefaultsSettingsStore(userDefaults: userDefaults, key: key)
     }
 
-    public static func loadSettings(
+    @MainActor
+    public static func makeManager(
         userDefaults: UserDefaults = .standard,
         key: String = defaultStorageKey
-    ) -> AppSettings {
-        guard let data = userDefaults.data(forKey: key),
-              let settings = try? JSONDecoder().decode(AppSettings.self, from: data) else {
-            return .default
+    ) -> any SettingsManaging {
+        let store = UserDefaultsSettingsStore(userDefaults: userDefaults, key: key)
+        let initialSnapshot: SettingsSnapshot
+        do {
+            initialSnapshot = SettingsSnapshot(
+                settings: try store.loadSynchronously(),
+                persistenceState: .idle
+            )
+        } catch {
+            initialSnapshot = SettingsSnapshot(
+                settings: .default,
+                persistenceState: .failed(SettingsPersistenceFailure(
+                    operation: .load,
+                    message: "Settings could not be loaded. Defaults remain active."
+                ))
+            )
         }
 
-        return settings
+        return DefaultSettingsManager(store: store, initialSnapshot: initialSnapshot)
     }
 
-    public static func saveSettings(
-        _ settings: AppSettings,
-        userDefaults: UserDefaults = .standard,
-        key: String = defaultStorageKey
-    ) {
-        guard let data = try? JSONEncoder().encode(settings) else {
-            return
-        }
-
-        userDefaults.set(data, forKey: key)
+    @MainActor
+    public static func makeManager(
+        store: any SettingsStore,
+        initialSettings: AppSettings = .default
+    ) -> any SettingsManaging {
+        DefaultSettingsManager(
+            store: store,
+            initialSnapshot: SettingsSnapshot(
+                settings: initialSettings,
+                persistenceState: .idle
+            )
+        )
     }
 }

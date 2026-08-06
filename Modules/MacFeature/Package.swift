@@ -38,6 +38,7 @@ let package = Package(
                 .product(name: "Application", package: "Application"),
                 .product(name: "Project", package: "Project"),
                 .product(name: "ProjectFeature", package: "ProjectFeature"),
+                .product(name: "Settings", package: "Settings"),
                 .product(name: "SpeechToText", package: "SpeechToText"),
                 .product(name: "Subtitles", package: "Subtitles"),
             ],
