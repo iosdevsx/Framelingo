@@ -41,6 +41,7 @@ jobs:
           set -o pipefail
           xcodebuild test \
             -scheme Framelingo \
+            -testPlan TestPlan \
             -destination 'platform=macOS,arch=arm64' \
             -derivedDataPath DerivedData \
             CODE_SIGNING_ALLOWED=NO \
