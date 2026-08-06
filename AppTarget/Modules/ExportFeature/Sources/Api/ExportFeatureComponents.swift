@@ -3,6 +3,7 @@ import Project
 import Subtitles
 import SwiftUI
 import VideoRendering
+import VideoExport
 
 public struct VideoExportSubmission {
     public let project: Project
@@ -20,6 +21,15 @@ public struct VideoExportSubmission {
         self.settings = settings
         self.sourceInfo = sourceInfo
         self.outputURL = outputURL
+    }
+
+    public var request: FullProjectVideoExportRequest {
+        FullProjectVideoExportRequest(
+            project: project,
+            settings: settings,
+            sourceInfo: sourceInfo,
+            outputURL: outputURL
+        )
     }
 }
 

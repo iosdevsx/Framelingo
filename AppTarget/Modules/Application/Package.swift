@@ -14,26 +14,18 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../Media"),
-        .package(path: "../Project"),
-        .package(path: "../Settings"),
-        .package(path: "../Shorts"),
         .package(path: "../SpeakerAnalysis"),
         .package(path: "../Subtitles"),
         .package(path: "../Translation"),
-        .package(path: "../VideoRendering"),
     ],
     targets: [
         .target(
             name: "Application",
             dependencies: [
                 .product(name: "Media", package: "Media"),
-                .product(name: "Project", package: "Project"),
-                .product(name: "Settings", package: "Settings"),
-                .product(name: "Shorts", package: "Shorts"),
                 .product(name: "SpeakerAnalysis", package: "SpeakerAnalysis"),
                 .product(name: "Subtitles", package: "Subtitles"),
                 .product(name: "Translation", package: "Translation"),
-                .product(name: "VideoRendering", package: "VideoRendering"),
             ],
             path: "Sources/Api"
         ),

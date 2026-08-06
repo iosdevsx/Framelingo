@@ -32,6 +32,7 @@ let package = Package(
         .package(path: "../Timeline"),
         .package(path: "../TimelineFeature"),
         .package(path: "../Translation"),
+        .package(path: "../VideoExport"),
         .package(path: "../VideoRendering"),
     ],
     targets: [
@@ -47,6 +48,7 @@ let package = Package(
                 .product(name: "Settings", package: "Settings"),
                 .product(name: "SpeechToText", package: "SpeechToText"),
                 .product(name: "Subtitles", package: "Subtitles"),
+                .product(name: "VideoExport", package: "VideoExport"),
             ],
             path: "Sources/Api"
         ),
@@ -91,6 +93,8 @@ let package = Package(
                 .product(name: "TimelineFeature", package: "TimelineFeature"),
                 .product(name: "TimelineFeatureImpl", package: "TimelineFeature"),
                 .product(name: "TranslationImpl", package: "Translation"),
+                .product(name: "VideoExport", package: "VideoExport"),
+                .product(name: "VideoExportImpl", package: "VideoExport"),
                 .product(name: "VideoRendering", package: "VideoRendering"),
                 .product(name: "VideoRenderingImpl", package: "VideoRendering"),
             ],
@@ -110,6 +114,8 @@ let package = Package(
                 .product(name: "Subtitles", package: "Subtitles"),
                 .product(name: "SubtitleEditorFeature", package: "SubtitleEditorFeature"),
                 .product(name: "TimelineFeature", package: "TimelineFeature"),
+                .product(name: "VideoExport", package: "VideoExport"),
+                .product(name: "VideoRendering", package: "VideoRendering"),
             ],
             path: "Tests/MacFeatureImplTests"
         ),

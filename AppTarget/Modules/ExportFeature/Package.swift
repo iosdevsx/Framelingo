@@ -14,6 +14,7 @@ let package = Package(
         .package(path: "../Media"),
         .package(path: "../Project"),
         .package(path: "../Subtitles"),
+        .package(path: "../VideoExport"),
         .package(path: "../VideoRendering"),
     ],
     targets: [
@@ -22,6 +23,7 @@ let package = Package(
             dependencies: [
                 .product(name: "Project", package: "Project"),
                 .product(name: "Subtitles", package: "Subtitles"),
+                .product(name: "VideoExport", package: "VideoExport"),
                 .product(name: "VideoRendering", package: "VideoRendering"),
             ],
             path: "Sources/Api"
@@ -34,6 +36,7 @@ let package = Package(
                 .product(name: "Media", package: "Media"),
                 .product(name: "Project", package: "Project"),
                 .product(name: "Subtitles", package: "Subtitles"),
+                .product(name: "VideoExport", package: "VideoExport"),
                 .product(name: "VideoRendering", package: "VideoRendering"),
             ],
             path: "Sources/Impl"
@@ -43,6 +46,7 @@ let package = Package(
             dependencies: [
                 "ExportFeature",
                 .product(name: "Subtitles", package: "Subtitles"),
+                .product(name: "VideoExport", package: "VideoExport"),
             ],
             path: "Tests/ExportFeatureTests"
         ),

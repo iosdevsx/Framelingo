@@ -27,6 +27,8 @@ import TimelineFeatureImpl
 import TranslationImpl
 import VideoRendering
 import VideoRenderingImpl
+import VideoExport
+import VideoExportImpl
 import ExportFeatureImpl
 
 @MainActor
@@ -44,6 +46,7 @@ enum MacCompositionRoot {
 
         let ffmpegService = makeFFmpegService(settings)
         let subtitleParser = SubtitlesAssembly.makeParser()
+        let subtitleExporter = SubtitlesAssembly.makeExporter()
         let subtitleScriptGenerator = VideoRenderingAssembly.makeSubtitleScriptGenerator()
         let projectRepository = ProjectAssembly.makeRepository(fileManager: fileManager)
         let projectFileService = ProjectAssembly.makeFileService()
@@ -69,16 +72,18 @@ enum MacCompositionRoot {
 
         let appState = ApplicationAssembly.makeAppState(
             dependencies: AppStateDependencies(
-                subtitleExportService: SubtitlesAssembly.makeExporter(),
+                subtitleExportService: subtitleExporter,
                 translationService: translationService,
                 speakerDiarizationEngine: speakerDiarizationEngine,
                 subtitleAlignmentEngine: subtitleAlignmentEngine,
-                audioPreparationService: audioPreparationService,
-                makeFFmpegService: makeFFmpegService,
-                subtitleScriptGenerator: subtitleScriptGenerator,
-                fileManager: fileManager,
-                currentSettings: { settingsAccess.snapshot.settings }
+                audioPreparationService: audioPreparationService
             )
+        )
+        let videoExportQueue = VideoExportAssembly.makeQueue(
+            makeFFmpegService: { makeFFmpegService(settingsAccess.snapshot.settings) },
+            subtitleScriptGenerator: subtitleScriptGenerator,
+            subtitleExportService: subtitleExporter,
+            fileManager: fileManager
         )
         let outputRevealer = AppKitOutputRevealAdapter().port
         let diagnosticCopier = AppKitDiagnosticCopyAdapter().port
@@ -115,17 +120,15 @@ enum MacCompositionRoot {
             subtitleEditor: SubtitleEditorFeatureAssembly.makeFactory(),
             shorts: ShortsFeatureAssembly.makeFactory(),
             export: ExportFeatureAssembly.makeFactory(
-                makeFFmpegService: { makeFFmpegService(settingsAccess.snapshot.settings) },
-                subtitleScriptGenerator: subtitleScriptGenerator,
                 mediaMetadataService: mediaMetadataProvider,
                 outputRevealer: outputRevealer,
-                diagnosticCopier: diagnosticCopier,
-                fileManager: fileManager
+                diagnosticCopier: diagnosticCopier
             )
         )
 
         return MacFeatureDependencies(
             appState: appState,
+            videoExportQueue: videoExportQueue,
             settingsAccess: settingsAccess,
             projectCatalog: projectCatalog,
             projectRepository: projectRepository,

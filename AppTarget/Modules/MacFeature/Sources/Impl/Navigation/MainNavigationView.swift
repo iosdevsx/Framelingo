@@ -45,7 +45,10 @@ struct MainNavigationView: View {
         )
         subtitleDocumentPicker = AppKitSubtitleDocumentPickerAdapter().port
 
-        let activitySource = AppStateActivitySourceAdapter(appState: dependencies.appState).source
+        let activitySource = AppStateActivitySourceAdapter(
+            appState: dependencies.appState,
+            videoExportQueue: dependencies.videoExportQueue
+        ).source
         activityOverlay = ExportFeatureAssembly.makeActivityOverlay(
             source: activitySource,
             outputRevealer: AppKitOutputRevealAdapter().port,
@@ -116,7 +119,8 @@ struct MainNavigationView: View {
                         projectTranscriber: dependencies.projectTranscriber,
                         projectTranslator: dependencies.projectTranslator,
                         selection: shell.selectionAccess,
-                        subtitleDocumentPicker: subtitleDocumentPicker
+                        subtitleDocumentPicker: subtitleDocumentPicker,
+                        videoExportQueue: dependencies.videoExportQueue
                     ),
                     projectMode: $shell.projectMode,
                     components: dependencies.projectFeatureComponents

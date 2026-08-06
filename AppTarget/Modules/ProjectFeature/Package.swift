@@ -29,6 +29,7 @@ let package = Package(
         .package(path: "../Timeline"),
         .package(path: "../TimelineFeature"),
         .package(path: "../Translation"),
+        .package(path: "../VideoExport"),
         .package(path: "../VideoRendering"),
     ],
     targets: [
@@ -43,6 +44,7 @@ let package = Package(
                 .product(name: "ShortsFeature", package: "ShortsFeature"),
                 .product(name: "SubtitleEditorFeature", package: "SubtitleEditorFeature"),
                 .product(name: "TimelineFeature", package: "TimelineFeature"),
+                .product(name: "VideoExport", package: "VideoExport"),
             ],
             path: "Sources/Api"
         ),
@@ -58,6 +60,7 @@ let package = Package(
                 .product(name: "ProjectPreparation", package: "ProjectPreparation"),
                 .product(name: "TranscriptionPipeline", package: "TranscriptionPipeline"),
                 .product(name: "TranslationPipeline", package: "TranslationPipeline"),
+                .product(name: "VideoExport", package: "VideoExport"),
                 .product(name: "Settings", package: "Settings"),
                 .product(name: "Shorts", package: "Shorts"),
                 .product(name: "ShortsFeature", package: "ShortsFeature"),
@@ -92,6 +95,7 @@ let package = Package(
                 .product(name: "Timeline", package: "Timeline"),
                 .product(name: "TimelineFeature", package: "TimelineFeature"),
                 .product(name: "Translation", package: "Translation"),
+                .product(name: "VideoExport", package: "VideoExport"),
                 .product(name: "VideoRendering", package: "VideoRendering"),
             ],
             path: "Tests/ProjectFeatureImplTests"

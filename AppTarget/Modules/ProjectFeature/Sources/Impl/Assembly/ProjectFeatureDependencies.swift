@@ -9,6 +9,7 @@ import Settings
 import Subtitles
 import Timeline
 import SubtitleEditorFeature
+import VideoExport
 
 /// Composition inputs for the project workspace. Concrete implementations are
 /// supplied by MacFeatureImpl, while the workspace ViewModel stays internal.
@@ -25,6 +26,7 @@ public struct ProjectFeatureDependencies {
     let projectTranslator: any TranslatingProject
     let selection: ProjectSelectionAccess
     let subtitleDocumentPicker: SubtitleDocumentPicker
+    let videoExportQueue: any VideoExportQueue
 
     public init(
         projectRepository: any ProjectRepository,
@@ -38,7 +40,8 @@ public struct ProjectFeatureDependencies {
         projectTranscriber: any TranscribingProject,
         projectTranslator: any TranslatingProject,
         selection: ProjectSelectionAccess,
-        subtitleDocumentPicker: SubtitleDocumentPicker
+        subtitleDocumentPicker: SubtitleDocumentPicker,
+        videoExportQueue: any VideoExportQueue
     ) {
         self.projectRepository = projectRepository
         self.projectCatalog = projectCatalog
@@ -52,5 +55,6 @@ public struct ProjectFeatureDependencies {
         self.projectTranslator = projectTranslator
         self.selection = selection
         self.subtitleDocumentPicker = subtitleDocumentPicker
+        self.videoExportQueue = videoExportQueue
     }
 }

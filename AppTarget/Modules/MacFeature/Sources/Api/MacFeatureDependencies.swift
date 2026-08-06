@@ -11,9 +11,13 @@ import SpeechToText
 import Subtitles
 import Timeline
 import VideoRendering
+import VideoExport
+
+public typealias FFmpegServiceBuilder = (AppSettings) -> any FFmpegService
 
 public struct MacFeatureDependencies {
     public var appState: AppState
+    public var videoExportQueue: any VideoExportQueue
     public var settingsAccess: SettingsAccess
     public var projectCatalog: any ProjectCatalogManaging
     public var projectRepository: any ProjectRepository
@@ -38,6 +42,7 @@ public struct MacFeatureDependencies {
 
     public init(
         appState: AppState,
+        videoExportQueue: any VideoExportQueue,
         settingsAccess: SettingsAccess,
         projectCatalog: any ProjectCatalogManaging,
         projectRepository: any ProjectRepository,
@@ -61,6 +66,7 @@ public struct MacFeatureDependencies {
         mockSubtitles: [SubtitleSegment]
     ) {
         self.appState = appState
+        self.videoExportQueue = videoExportQueue
         self.settingsAccess = settingsAccess
         self.projectCatalog = projectCatalog
         self.projectRepository = projectRepository

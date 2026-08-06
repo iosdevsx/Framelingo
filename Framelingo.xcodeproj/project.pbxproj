@@ -58,6 +58,7 @@
 				Modules/TranscriptionPipeline,
 				Modules/Translation,
 				Modules/TranslationPipeline,
+				Modules/VideoExport,
 				Modules/VideoRendering,
 			);
 			target = 8CBA44342F9FAE3A00693B6B /* Framelingo */;

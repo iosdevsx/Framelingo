@@ -44,7 +44,8 @@ final class MacCompositionRootTests: XCTestCase {
                     projectTranscriber: dependencies.projectTranscriber,
                     projectTranslator: dependencies.projectTranslator,
                     selection: shell.selectionAccess,
-                    subtitleDocumentPicker: SubtitleDocumentPicker { _ in .cancelled }
+                    subtitleDocumentPicker: SubtitleDocumentPicker { _ in .cancelled },
+                    videoExportQueue: dependencies.videoExportQueue
                 ),
                 projectMode: Binding(get: { mode }, set: { mode = $0 }),
                 components: dependencies.projectFeatureComponents

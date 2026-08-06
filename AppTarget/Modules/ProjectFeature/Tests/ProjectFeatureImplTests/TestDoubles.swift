@@ -20,6 +20,7 @@ import Timeline
 import TimelineFeature
 import Translation
 import VideoRendering
+import VideoExport
 
 @testable import ProjectFeatureImpl
 
@@ -30,6 +31,61 @@ enum TestDoubles {
     private static var catalogsByAppState: [ObjectIdentifier: Catalog] = [:]
     @MainActor
     private static var selectionsByAppState: [ObjectIdentifier: Selection] = [:]
+    @MainActor
+    private static var exportQueuesByAppState: [ObjectIdentifier: ExportQueue] = [:]
+
+    @MainActor
+    final class ExportQueue: VideoExportQueue {
+        private let subject = CurrentValueSubject<[VideoExport.VideoExportJob], Never>([])
+        private(set) var jobs: [VideoExport.VideoExportJob] = [] {
+            didSet { subject.send(jobs) }
+        }
+        var jobSnapshots: AnyPublisher<[VideoExport.VideoExportJob], Never> {
+            subject.eraseToAnyPublisher()
+        }
+
+        func enqueue(_ request: VideoExportRequest) {
+            jobs.insert(VideoExport.VideoExportJob(
+                id: request.id,
+                projectName: request.projectName,
+                outputURL: request.outputURL,
+                status: .queued,
+                statusText: "Queued",
+                progress: nil
+            ), at: 0)
+        }
+
+        func enqueue(_ batch: ShortsVideoExportBatchRequest) {
+            for item in batch.items {
+                let failure: VideoExportFailure?
+                let status: VideoExport.VideoExportJobStatus
+                switch item.outcome {
+                case .valid:
+                    failure = nil
+                    status = .queued
+                case .invalid(let error):
+                    failure = VideoExportFailure(
+                        code: .emptyTimeline,
+                        message: error.errorDescription ?? "Invalid Short"
+                    )
+                    status = .failed
+                }
+                jobs.insert(VideoExport.VideoExportJob(
+                    id: item.id,
+                    projectName: item.displayName,
+                    outputURL: item.outputURL,
+                    status: status,
+                    statusText: status == .failed ? "Export failed" : "Queued",
+                    progress: nil,
+                    failure: failure
+                ), at: 0)
+            }
+        }
+
+        func removeFinishedJob(id: UUID) {
+            jobs.removeAll { $0.id == id && $0.isFinished }
+        }
+    }
 
     @MainActor
     private final class Selection {
@@ -378,18 +434,14 @@ enum TestDoubles {
         repository: Repository = Repository(),
         subtitleExportService: any SubtitleExportService = SubtitleExporter(),
         speakerDiarizationEngine: any SpeakerDiarizationEngine = DiarizationEngine(),
-        audioPreparationService: any AudioPreparationService = AudioPreparation(),
-        makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() }
+        audioPreparationService: any AudioPreparationService = AudioPreparation()
     ) -> AppState {
         let appState = AppState(
             subtitleExportService: subtitleExportService,
             translationService: TranslationService(),
             speakerDiarizationEngine: speakerDiarizationEngine,
             subtitleAlignmentEngine: AlignmentEngine(),
-            audioPreparationService: audioPreparationService,
-            makeFFmpegService: makeFFmpegService,
-            subtitleScriptGenerator: ScriptGenerator(),
-            currentSettings: { .default }
+            audioPreparationService: audioPreparationService
         )
         repositoriesByAppState[ObjectIdentifier(appState)] = repository
         selectionsByAppState[ObjectIdentifier(appState)] = Selection(project: project)
@@ -404,7 +456,8 @@ enum TestDoubles {
         projectPreparationConfiguration: ProjectPreparationConfigurationProvider? = nil,
         projectTranscriber: (any TranscribingProject)? = nil,
         projectTranslator: (any TranslatingProject)? = nil,
-        subtitleDocumentPicker: SubtitleDocumentPicker? = nil
+        subtitleDocumentPicker: SubtitleDocumentPicker? = nil,
+        videoExportQueue: ExportQueue? = nil
     ) -> ProjectFeatureDependencies {
         let repository = repositoriesByAppState[ObjectIdentifier(appState)] ?? Repository()
         let selection = selectionsByAppState[ObjectIdentifier(appState)] ?? Selection(project: nil)
@@ -430,6 +483,8 @@ enum TestDoubles {
         let preparer = projectPreparer ?? Preparer()
         let transcriber = projectTranscriber ?? Transcriber()
         let translator = projectTranslator ?? Translator()
+        let exportQueue = videoExportQueue ?? ExportQueue()
+        exportQueuesByAppState[ObjectIdentifier(appState)] = exportQueue
 
         return ProjectFeatureDependencies(
             projectRepository: repository,
@@ -447,8 +502,14 @@ enum TestDoubles {
             projectTranscriber: transcriber,
             projectTranslator: translator,
             selection: selection.access,
-            subtitleDocumentPicker: subtitleDocumentPicker ?? SubtitleDocumentPicker { _ in .cancelled }
+            subtitleDocumentPicker: subtitleDocumentPicker ?? SubtitleDocumentPicker { _ in .cancelled },
+            videoExportQueue: exportQueue
         )
+    }
+
+    @MainActor
+    static func videoExportQueue(for appState: AppState) -> ExportQueue? {
+        exportQueuesByAppState[ObjectIdentifier(appState)]
     }
 
     @MainActor

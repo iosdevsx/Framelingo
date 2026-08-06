@@ -14,6 +14,7 @@ import Timeline
 import TranscriptionPipeline
 import TranslationPipeline
 import VideoRendering
+import VideoExport
 import XCTest
 
 @testable import ProjectFeatureImpl
@@ -83,7 +84,7 @@ final class ProjectViewModelTests: XCTestCase {
         _ = VideoExportPresentationActions(submit: viewModel.submitVideoExport)
 
         XCTAssertEqual(viewModel.project?.videoExportSettings, project.videoExportSettings)
-        XCTAssertTrue(appState.videoExportJobs.isEmpty)
+        XCTAssertTrue(TestDoubles.videoExportQueue(for: appState)?.jobs.isEmpty == true)
     }
 
     func testVideoExportSubmissionPersistsSettingsAndQueuesExactlyOnce() {
@@ -106,8 +107,8 @@ final class ProjectViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.project?.videoExportSettings, settings)
         XCTAssertEqual(TestDoubles.selectedProject(for: appState)?.videoExportSettings, settings)
-        XCTAssertEqual(appState.videoExportJobs.count, 1)
-        XCTAssertEqual(appState.videoExportJobs.first?.outputURL, outputURL)
+        XCTAssertEqual(TestDoubles.videoExportQueue(for: appState)?.jobs.count, 1)
+        XCTAssertEqual(TestDoubles.videoExportQueue(for: appState)?.jobs.first?.outputURL, outputURL)
     }
 
     func testEditorAndTimelineEditsReachExportThroughTheSameProjectArray() async throws {
@@ -264,17 +265,14 @@ final class ProjectViewModelTests: XCTestCase {
         let appState = TestDoubles.appState(project: project)
         let short = ShortDefinition(title: "Invalid", startMs: 1_000, endMs: 1_000)
 
-        appState.enqueueShortsExport(
-            project: project,
-            shorts: [short],
-            sourceInfo: nil,
-            destinationDirectory: URL(fileURLWithPath: "/tmp")
-        )
+        let viewModel = TestDoubles.projectViewModel(appState: appState)
+        viewModel.exportShorts([short], to: URL(fileURLWithPath: "/tmp"))
 
-        XCTAssertEqual(appState.videoExportJobs.count, 1)
-        XCTAssertEqual(appState.videoExportJobs.first?.status, .failed)
+        let jobs = TestDoubles.videoExportQueue(for: appState)?.jobs
+        XCTAssertEqual(jobs?.count, 1)
+        XCTAssertEqual(jobs?.first?.status, .failed)
         XCTAssertEqual(
-            appState.videoExportJobs.first?.errorMessage,
+            jobs?.first?.errorMessage,
             "The edit timeline has no clips to export. Review your cuts in Edit mode."
         )
     }

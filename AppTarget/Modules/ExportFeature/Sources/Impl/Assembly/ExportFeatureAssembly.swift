@@ -1,32 +1,22 @@
 import ExportFeature
-import Foundation
 import Media
-import Project
-import Subtitles
 import SwiftUI
-import VideoRendering
 
 public enum ExportFeatureAssembly {
     @MainActor
     public static func makeFactory(
-        makeFFmpegService: @escaping @MainActor () -> any FFmpegService,
-        subtitleScriptGenerator: any SubtitleScriptGenerating,
         mediaMetadataService: any MediaMetadataProviding,
         outputRevealer: ExportOutputRevealing,
-        diagnosticCopier: ExportDiagnosticCopying,
-        fileManager: FileManager = .default
+        diagnosticCopier: ExportDiagnosticCopying
     ) -> ExportFeatureFactory {
         ExportFeatureFactory(
             makeVideoSheet: { request in
                 AnyView(
                     ExportVideoPresentationContainer(
                         request: request,
-                        ffmpegService: makeFFmpegService(),
-                        subtitleScriptGenerator: subtitleScriptGenerator,
                         mediaMetadataService: mediaMetadataService,
                         outputRevealer: outputRevealer,
-                        diagnosticCopier: diagnosticCopier,
-                        fileManager: fileManager
+                        diagnosticCopier: diagnosticCopier
                     )
                 )
             },
@@ -67,23 +57,17 @@ private struct ExportVideoPresentationContainer: View {
 
     init(
         request: VideoExportPresentationRequest,
-        ffmpegService: any FFmpegService,
-        subtitleScriptGenerator: any SubtitleScriptGenerating,
         mediaMetadataService: any MediaMetadataProviding,
         outputRevealer: ExportOutputRevealing,
-        diagnosticCopier: ExportDiagnosticCopying,
-        fileManager: FileManager
+        diagnosticCopier: ExportDiagnosticCopying
     ) {
         _viewModel = StateObject(
             wrappedValue: ExportVideoViewModel(
                 project: request.project,
                 settings: request.project.videoExportSettings,
-                ffmpegService: ffmpegService,
-                subtitleScriptGenerator: subtitleScriptGenerator,
                 mediaMetadataService: mediaMetadataService,
                 outputRevealer: outputRevealer,
-                diagnosticCopier: diagnosticCopier,
-                fileManager: fileManager
+                diagnosticCopier: diagnosticCopier
             )
         )
         actions = request.actions

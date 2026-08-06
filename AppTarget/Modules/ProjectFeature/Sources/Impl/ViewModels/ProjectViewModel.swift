@@ -13,6 +13,7 @@ import Subtitles
 import SubtitleEditorFeature
 import Timeline
 import VideoRendering
+import VideoExport
 
 @MainActor
 final class ProjectViewModel: ObservableObject {
@@ -75,6 +76,7 @@ final class ProjectViewModel: ObservableObject {
     private let projectTranslator: any TranslatingProject
     private let selection: ProjectSelectionAccess
     private let subtitleDocumentPicker: SubtitleDocumentPicker
+    private let videoExportQueue: any VideoExportQueue
     private var selectionSubscription: AnyCancellable?
     private var autosaveTask: Task<Void, Never>?
     private var waveformTask: Task<Void, Never>?
@@ -108,6 +110,7 @@ final class ProjectViewModel: ObservableObject {
         projectTranslator = dependencies.projectTranslator
         selection = dependencies.selection
         subtitleDocumentPicker = dependencies.subtitleDocumentPicker
+        videoExportQueue = dependencies.videoExportQueue
         project = dependencies.selection.current
         selectionSubscription = dependencies.selection.updates.sink { [weak self] selectedProject in
             guard let self, self.project != selectedProject else { return }
@@ -567,12 +570,7 @@ final class ProjectViewModel: ObservableObject {
 
     func submitVideoExport(_ submission: VideoExportSubmission) {
         updateVideoExportSettings(submission.settings, registerUndo: false)
-        appState.enqueueVideoExport(
-            project: submission.project,
-            settings: submission.settings,
-            sourceInfo: submission.sourceInfo,
-            outputURL: submission.outputURL
-        )
+        videoExportQueue.enqueue(.fullProject(submission.request))
     }
 
     func updateSpeakerExportOptions(_ options: SubtitleExportOptions) {
@@ -1574,12 +1572,23 @@ extension ProjectViewModel {
             return
         }
 
-        appState.enqueueShortsExport(
-            project: project,
+        let items = ShortsExportPlanner().plan(ShortsExportPlanningInput(
+            projectName: project.displayName,
             shorts: shorts,
+            settings: project.shortsExportSettings,
+            encodingSettings: project.videoExportSettings,
+            editTimeline: project.editTimeline,
+            subtitles: project.subtitles,
             sourceInfo: videoSourceInfo,
             destinationDirectory: destinationDirectory
-        )
+        ))
+        videoExportQueue.enqueue(ShortsVideoExportBatchRequest(
+            projectID: project.id,
+            mediaURL: project.mediaFile.originalURL,
+            speakerLabels: project.speakerLabels,
+            speakerExportOptions: project.speakerExportOptions,
+            items: items
+        ))
     }
 
     private func defaultShortTitle(for project: Project) -> String {

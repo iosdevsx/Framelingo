@@ -2,20 +2,20 @@ import Application
 import Combine
 import ExportFeature
 import Foundation
-import VideoRendering
+import VideoExport
 
 @MainActor
 final class AppStateActivitySourceAdapter {
     let source: ProductActivitySource
 
-    init(appState: AppState) {
+    init(appState: AppState, videoExportQueue: any VideoExportQueue) {
         let snapshots = appState.$transcriptionActivity
-            .combineLatest(appState.$videoExportJobs)
+            .combineLatest(videoExportQueue.jobSnapshots)
             .map(Self.snapshot)
             .eraseToAnyPublisher()
 
         source = ProductActivitySource(
-            snapshot: { Self.snapshot(appState.transcriptionActivity, appState.videoExportJobs) },
+            snapshot: { Self.snapshot(appState.transcriptionActivity, videoExportQueue.jobs) },
             snapshots: { snapshots },
             dismiss: { id in
                 if let activity = appState.transcriptionActivity,
@@ -24,10 +24,10 @@ final class AppStateActivitySourceAdapter {
                     return
                 }
 
-                guard let job = appState.videoExportJobs.first(where: {
+                guard let job = videoExportQueue.jobs.first(where: {
                     id == "video-export-\($0.id.uuidString)"
                 }) else { return }
-                appState.removeVideoExportJob(job)
+                videoExportQueue.removeFinishedJob(id: job.id)
             }
         )
     }
@@ -95,7 +95,7 @@ private extension TranscriptionActivityStatus {
 private extension VideoExportJobStatus {
     var productActivityStatus: ProductActivityStatus {
         switch self {
-        case .queued, .exporting: .running
+        case .queued, .preparing, .exporting, .writingSidecar: .running
         case .succeeded: .succeeded
         case .failed: .failed
         }
