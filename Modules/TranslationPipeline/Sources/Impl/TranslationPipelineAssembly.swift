@@ -1,13 +1,13 @@
-import Application
 import Project
 import Translation
+import TranslationPipeline
 
-public enum ApplicationWorkflowAssembly {
-    public static func makeProjectTranslationWorkflow(
+public enum TranslationPipelineAssembly {
+    public static func makeTranslator(
         projectRepository: any ProjectRepository,
         translationService: any TranslationOrchestrating
-    ) -> any ProjectTranslationWorkflow {
-        DefaultProjectTranslationWorkflow(
+    ) -> any TranslatingProject {
+        DefaultTranslationPipeline(
             projectRepository: projectRepository,
             translationService: translationService
         )

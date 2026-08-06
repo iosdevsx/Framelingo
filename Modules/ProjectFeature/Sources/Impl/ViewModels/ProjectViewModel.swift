@@ -6,6 +6,7 @@ import Project
 import ProjectFeature
 import ProjectPreparation
 import TranscriptionPipeline
+import TranslationPipeline
 import Settings
 import Shorts
 import Subtitles
@@ -71,7 +72,7 @@ final class ProjectViewModel: ObservableObject {
     private let projectPreparer: any ProjectPreparing
     private let projectPreparationConfiguration: ProjectPreparationConfigurationProvider
     private let projectTranscriber: any TranscribingProject
-    private let projectTranslationWorkflow: any ProjectTranslationWorkflow
+    private let projectTranslator: any TranslatingProject
     private let selection: ProjectSelectionAccess
     private let subtitleDocumentPicker: SubtitleDocumentPicker
     private var selectionSubscription: AnyCancellable?
@@ -79,6 +80,7 @@ final class ProjectViewModel: ObservableObject {
     private var waveformTask: Task<Void, Never>?
     private var preparationOperationID: UUID?
     private var transcriptionOperationID: UUID?
+    private var translationOperationID: UUID?
     private var preparedWaveformProjectID: UUID?
     private var undoStack: [ProjectUndoSnapshot] = []
     private var redoStack: [ProjectUndoSnapshot] = []
@@ -103,7 +105,7 @@ final class ProjectViewModel: ObservableObject {
         projectPreparer = dependencies.projectPreparer
         projectPreparationConfiguration = dependencies.projectPreparationConfiguration
         projectTranscriber = dependencies.projectTranscriber
-        projectTranslationWorkflow = dependencies.projectTranslationWorkflow
+        projectTranslator = dependencies.projectTranslator
         selection = dependencies.selection
         subtitleDocumentPicker = dependencies.subtitleDocumentPicker
         project = dependencies.selection.current
@@ -837,32 +839,43 @@ final class ProjectViewModel: ObservableObject {
         }
 
         guard !currentProject.subtitles.isEmpty else {
-            exportMessage = ProjectTranslationError.noSubtitles.errorDescription
+            exportMessage = TranslationPipelinePresentation.message(for: .noSubtitles)
             return
         }
 
+        let operationID = UUID()
+        translationOperationID = operationID
         isTranslating = true
         defer {
-            isTranslating = false
+            if translationOperationID == operationID {
+                translationOperationID = nil
+                isTranslating = false
+            }
         }
         autosaveTask?.cancel()
         autosaveTask = nil
+        let projectID = currentProject.id
 
         do {
-            let projectID = currentProject.id
-            let output = try await projectTranslationWorkflow.translate(
-                ProjectTranslationRequest(project: currentProject),
+            let output = try await projectTranslator.translate(
+                TranslationPipelineRequest(project: currentProject),
                 events: { [weak self] event in
-                    self?.handleTranslationEvent(event, projectID: projectID)
+                    self?.handleTranslationEvent(
+                        event,
+                        projectID: projectID,
+                        operationID: operationID
+                    )
                 }
             )
-            guard project?.id == projectID else { return }
+            guard translationOperationID == operationID,
+                  project?.id == projectID else { return }
             applyProject(output.project)
         } catch is CancellationError {
             return
         } catch {
-            let localizedError = error as? LocalizedError
-            exportMessage = localizedError?.errorDescription ?? "Translation failed."
+            guard translationOperationID == operationID,
+                  project?.id == projectID else { return }
+            exportMessage = TranslationPipelinePresentation.message(for: error)
         }
     }
 
@@ -903,11 +916,14 @@ final class ProjectViewModel: ObservableObject {
         }
     }
 
-    private func handleTranslationEvent(_ event: ProjectProcessingEvent, projectID: UUID) {
-        guard project?.id == projectID else { return }
-        if case .projectChanged(let project) = event {
-            applyProject(project)
-        }
+    private func handleTranslationEvent(
+        _ event: TranslationPipelineEvent,
+        projectID: UUID,
+        operationID: UUID
+    ) {
+        guard project?.id == projectID,
+              translationOperationID == operationID else { return }
+        applyProject(event.project)
     }
 
     func suggestedExportFileName(for kind: SubtitleExportKind) -> String {

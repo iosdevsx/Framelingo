@@ -18,6 +18,21 @@ SUBTITLE_PICKER_CONSUMER_ROOTS = [
   "Modules/ProjectFeature/",
   "Modules/SubtitleEditorFeature/"
 ].freeze
+APPLICATION_PROCESSING_SYMBOLS = %w[
+  ProjectProcessingEvent
+  ProjectProcessingEventHandler
+  ProjectTranslationRequest
+  ProjectTranslationOutput
+  ProjectTranslationError
+  ProjectTranslationWorkflow
+  DefaultProjectTranslationWorkflow
+  ApplicationWorkflowAssembly
+].freeze
+EXTRACTED_PIPELINES = %w[
+  ProjectPreparation
+  TranscriptionPipeline
+  TranslationPipeline
+].freeze
 
 def target_blocks(manifest)
   blocks = []
@@ -101,6 +116,24 @@ def audit_app_state_surface(source, label)
   end
 end
 
+def audit_application_processing_surface(source, label)
+  APPLICATION_PROCESSING_SYMBOLS.each_with_object([]) do |symbol, failures|
+    if source.match?(/\b#{Regexp.escape(symbol)}\b/)
+      failures << "#{label}: removed Application processing workflow symbol #{symbol} returned"
+    end
+  end
+end
+
+def audit_pipeline_independence(contents, label, pipeline)
+  (EXTRACTED_PIPELINES - [pipeline]).each_with_object([]) do |other_pipeline, failures|
+    imports_runtime_module = contents.match?(/^\s*import\s+#{Regexp.escape(other_pipeline)}(?:Impl)?\s*$/)
+    depends_on_package = contents.match?(/\.package\s*\(\s*path:\s*"\.\.\/#{Regexp.escape(other_pipeline)}"/)
+    if imports_runtime_module || depends_on_package
+      failures << "#{label}: #{pipeline} must not depend on extracted sibling #{other_pipeline}"
+    end
+  end
+end
+
 def run_self_test
   fixtures = {
     "accepted API-only dependency" => [
@@ -169,6 +202,25 @@ def run_self_test
     failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
   end
 
+  application_processing_cases = [
+    ["clean Application surface", "public final class AppState {}\n", 0],
+    ["workflow surface regression", "public protocol ProjectTranslationWorkflow {}\n", 1]
+  ]
+  application_processing_cases.each do |name, source, expected_count|
+    actual_count = audit_application_processing_surface(source, name).count
+    failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
+  end
+
+  pipeline_independence_cases = [
+    ["independent pipeline", "import Project\n", "TranslationPipeline", 0],
+    ["pipeline source regression", "import TranscriptionPipeline\n", "TranslationPipeline", 1],
+    ["pipeline manifest regression", ".package(path: \"../ProjectPreparation\")\n", "TranslationPipeline", 1]
+  ]
+  pipeline_independence_cases.each do |name, source, pipeline, expected_count|
+    actual_count = audit_pipeline_independence(source, name, pipeline).count
+    failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
+  end
+
   abort failures.join("\n") unless failures.empty?
   puts "Module-boundary audit self-tests passed."
 end
@@ -223,6 +275,32 @@ anonymous_picker_paths.each do |relative|
   next unless File.read(path).match?(/\bpickSubtitleFile\b/)
 
   failures << "#{relative}: anonymous subtitle picker authority returned"
+end
+
+Dir.glob(File.join(repository_root, "Modules", "Application", "Sources", "**", "*.swift")).sort.each do |path|
+  relative = path.delete_prefix("#{repository_root}/")
+  failures.concat(audit_application_processing_surface(File.read(path), relative))
+end
+
+EXTRACTED_PIPELINES.each do |pipeline|
+  package_root = File.join(repository_root, "Modules", pipeline)
+  manifest_path = File.join(package_root, "Package.swift")
+  failures.concat(
+    audit_pipeline_independence(
+      File.read(manifest_path),
+      manifest_path.delete_prefix("#{repository_root}/"),
+      pipeline
+    )
+  )
+  Dir.glob(File.join(package_root, "Sources", "**", "*.swift")).sort.each do |path|
+    failures.concat(
+      audit_pipeline_independence(
+        File.read(path),
+        path.delete_prefix("#{repository_root}/"),
+        pipeline
+      )
+    )
+  end
 end
 
 unless failures.empty?

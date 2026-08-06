@@ -1,5 +1,4 @@
 import Application
-import ApplicationImpl
 import Combine
 import ExportFeature
 import Foundation
@@ -9,6 +8,7 @@ import Project
 import ProjectFeature
 import ProjectPreparation
 import TranscriptionPipeline
+import TranslationPipeline
 import Settings
 import SpeakerAnalysis
 import SpeechToText
@@ -187,6 +187,20 @@ enum TestDoubles {
             _ input: SubtitleTranslationInput
         ) async throws -> SubtitleTranslationResult {
             SubtitleTranslationResult(segments: input.segments)
+        }
+    }
+
+    struct Translator: TranslatingProject {
+        func translate(
+            _ request: TranslationPipelineRequest,
+            events: @escaping TranslationPipelineEventHandler
+        ) async throws -> TranslationPipelineOutput {
+            var project = request.project
+            project.status = .translating
+            await events(.translating(project))
+            project.status = .ready
+            await events(.ready(project))
+            return TranslationPipelineOutput(project: project)
         }
     }
 
@@ -389,7 +403,7 @@ enum TestDoubles {
         projectPreparer: (any ProjectPreparing)? = nil,
         projectPreparationConfiguration: ProjectPreparationConfigurationProvider? = nil,
         projectTranscriber: (any TranscribingProject)? = nil,
-        projectTranslationWorkflow: (any ProjectTranslationWorkflow)? = nil,
+        projectTranslator: (any TranslatingProject)? = nil,
         subtitleDocumentPicker: SubtitleDocumentPicker? = nil
     ) -> ProjectFeatureDependencies {
         let repository = repositoriesByAppState[ObjectIdentifier(appState)] ?? Repository()
@@ -415,11 +429,7 @@ enum TestDoubles {
         )
         let preparer = projectPreparer ?? Preparer()
         let transcriber = projectTranscriber ?? Transcriber()
-        let translationWorkflow = projectTranslationWorkflow
-            ?? ApplicationWorkflowAssembly.makeProjectTranslationWorkflow(
-                projectRepository: repository,
-                translationService: appState.translationService
-            )
+        let translator = projectTranslator ?? Translator()
 
         return ProjectFeatureDependencies(
             projectRepository: repository,
@@ -435,7 +445,7 @@ enum TestDoubles {
                 )
             },
             projectTranscriber: transcriber,
-            projectTranslationWorkflow: translationWorkflow,
+            projectTranslator: translator,
             selection: selection.access,
             subtitleDocumentPicker: subtitleDocumentPicker ?? SubtitleDocumentPicker { _ in .cancelled }
         )
@@ -463,7 +473,7 @@ enum TestDoubles {
         projectPreparer: (any ProjectPreparing)? = nil,
         projectPreparationConfiguration: ProjectPreparationConfigurationProvider? = nil,
         projectTranscriber: (any TranscribingProject)? = nil,
-        projectTranslationWorkflow: (any ProjectTranslationWorkflow)? = nil,
+        projectTranslator: (any TranslatingProject)? = nil,
         subtitleDocumentPicker: SubtitleDocumentPicker? = nil
     ) -> ProjectViewModel {
         ProjectViewModel(
@@ -474,7 +484,7 @@ enum TestDoubles {
                 projectPreparer: projectPreparer,
                 projectPreparationConfiguration: projectPreparationConfiguration,
                 projectTranscriber: projectTranscriber,
-                projectTranslationWorkflow: projectTranslationWorkflow,
+                projectTranslator: projectTranslator,
                 subtitleDocumentPicker: subtitleDocumentPicker
             )
         )

@@ -41,13 +41,6 @@ let package = Package(
             name: "ApplicationImpl",
             dependencies: [
                 "Application",
-                .product(name: "Project", package: "Project"),
-                .product(name: "Settings", package: "Settings"),
-                .product(name: "Shorts", package: "Shorts"),
-                .product(name: "SpeakerAnalysis", package: "SpeakerAnalysis"),
-                .product(name: "Subtitles", package: "Subtitles"),
-                .product(name: "Translation", package: "Translation"),
-                .product(name: "VideoRendering", package: "VideoRendering"),
             ],
             path: "Sources/Impl"
         ),
@@ -56,13 +49,6 @@ let package = Package(
             dependencies: [
                 "Application",
                 "ApplicationImpl",
-                .product(name: "Project", package: "Project"),
-                .product(name: "Settings", package: "Settings"),
-                .product(name: "Shorts", package: "Shorts"),
-                .product(name: "SpeakerAnalysis", package: "SpeakerAnalysis"),
-                .product(name: "Subtitles", package: "Subtitles"),
-                .product(name: "Translation", package: "Translation"),
-                .product(name: "VideoRendering", package: "VideoRendering"),
             ],
             path: "Tests/ApplicationImplTests"
         ),

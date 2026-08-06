@@ -1,5 +1,4 @@
 import Application
-import ApplicationImpl
 import ExportFeature
 import Foundation
 import Media
@@ -13,6 +12,7 @@ import Subtitles
 import SubtitleEditorFeature
 import Timeline
 import TranscriptionPipeline
+import TranslationPipeline
 import VideoRendering
 import XCTest
 
@@ -412,7 +412,7 @@ final class ProjectViewModelTests: XCTestCase {
         let appState = TestDoubles.appState(project: original)
         let viewModel = TestDoubles.projectViewModel(
             appState: appState,
-            projectTranslationWorkflow: DelayedTranslationWorkflow()
+            projectTranslator: DelayedTranslator()
         )
 
         let translationTask = Task { await viewModel.translate() }
@@ -423,6 +423,73 @@ final class ProjectViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.project?.id, replacement.id)
         XCTAssertEqual(viewModel.project?.name, "Replacement")
+    }
+
+    func testTranslationSuccessAppliesTypedEventsAndOutput() async throws {
+        let project = TestDoubles.project()
+        let appState = TestDoubles.appState(project: project)
+        let viewModel = TestDoubles.projectViewModel(
+            appState: appState,
+            projectTranslator: SuccessfulTranslator()
+        )
+
+        await viewModel.translate()
+
+        XCTAssertEqual(viewModel.project?.status, .ready)
+        XCTAssertEqual(viewModel.project?.subtitles.first?.translatedText, "Translated")
+        XCTAssertFalse(viewModel.isTranslating)
+        XCTAssertNil(viewModel.exportMessage)
+    }
+
+    func testTranslationFailureMapsTypedEventAndErrorToPresentation() async throws {
+        let project = TestDoubles.project()
+        let appState = TestDoubles.appState(project: project)
+        let viewModel = TestDoubles.projectViewModel(
+            appState: appState,
+            projectTranslator: FailingTranslator()
+        )
+
+        await viewModel.translate()
+
+        XCTAssertEqual(viewModel.project?.status, .failed("Translation provider unavailable."))
+        XCTAssertEqual(viewModel.exportMessage, "Translation provider unavailable.")
+        XCTAssertFalse(viewModel.isTranslating)
+    }
+
+    func testTranslationCancellationLeavesProjectAndPresentationUnchanged() async throws {
+        let project = TestDoubles.project()
+        let appState = TestDoubles.appState(project: project)
+        let viewModel = TestDoubles.projectViewModel(
+            appState: appState,
+            projectTranslator: CancellingTranslator()
+        )
+
+        await viewModel.translate()
+
+        XCTAssertEqual(viewModel.project, project)
+        XCTAssertNil(viewModel.exportMessage)
+        XCTAssertFalse(viewModel.isTranslating)
+    }
+
+    func testTranslationCanRetryAfterFailure() async throws {
+        let project = TestDoubles.project()
+        let appState = TestDoubles.appState(project: project)
+        let translator = RetryTranslator()
+        let viewModel = TestDoubles.projectViewModel(
+            appState: appState,
+            projectTranslator: translator
+        )
+
+        await viewModel.translate()
+        XCTAssertEqual(viewModel.exportMessage, "Translation provider unavailable.")
+
+        viewModel.exportMessage = nil
+        await viewModel.translate()
+
+        XCTAssertEqual(translator.callCount, 2)
+        XCTAssertEqual(viewModel.project?.status, .ready)
+        XCTAssertEqual(viewModel.project?.subtitles.first?.translatedText, "Translated on retry")
+        XCTAssertNil(viewModel.exportMessage)
     }
 }
 
@@ -475,13 +542,69 @@ private struct DelayedTranscriber: TranscribingProject {
     }
 }
 
-private struct DelayedTranslationWorkflow: ProjectTranslationWorkflow {
+private struct DelayedTranslator: TranslatingProject {
     func translate(
-        _ request: ProjectTranslationRequest,
-        events: @escaping ProjectProcessingEventHandler
-    ) async throws -> ProjectTranslationOutput {
+        _ request: TranslationPipelineRequest,
+        events: @escaping TranslationPipelineEventHandler
+    ) async throws -> TranslationPipelineOutput {
         try await Task.sleep(for: .milliseconds(40))
-        await events(.projectChanged(request.project))
-        return ProjectTranslationOutput(project: request.project)
+        await events(.ready(request.project))
+        return TranslationPipelineOutput(project: request.project)
+    }
+}
+
+private struct SuccessfulTranslator: TranslatingProject {
+    func translate(
+        _ request: TranslationPipelineRequest,
+        events: @escaping TranslationPipelineEventHandler
+    ) async throws -> TranslationPipelineOutput {
+        var project = request.project
+        project.status = .translating
+        await events(.translating(project))
+        project.subtitles[0].translatedText = "Translated"
+        project.status = .ready
+        await events(.ready(project))
+        return TranslationPipelineOutput(project: project)
+    }
+}
+
+private struct FailingTranslator: TranslatingProject {
+    func translate(
+        _ request: TranslationPipelineRequest,
+        events: @escaping TranslationPipelineEventHandler
+    ) async throws -> TranslationPipelineOutput {
+        var project = request.project
+        project.status = .failed("Translation provider unavailable.")
+        await events(.failed(project))
+        throw TranslationPipelineError.providerFailed(message: "Translation provider unavailable.")
+    }
+}
+
+private struct CancellingTranslator: TranslatingProject {
+    func translate(
+        _ request: TranslationPipelineRequest,
+        events: @escaping TranslationPipelineEventHandler
+    ) async throws -> TranslationPipelineOutput {
+        throw CancellationError()
+    }
+}
+
+private final class RetryTranslator: TranslatingProject {
+    private(set) var callCount = 0
+
+    func translate(
+        _ request: TranslationPipelineRequest,
+        events: @escaping TranslationPipelineEventHandler
+    ) async throws -> TranslationPipelineOutput {
+        callCount += 1
+        if callCount == 1 {
+            throw TranslationPipelineError.providerFailed(message: "Translation provider unavailable.")
+        }
+
+        var project = request.project
+        project.subtitles[0].translatedText = "Translated on retry"
+        project.status = .ready
+        await events(.ready(project))
+        return TranslationPipelineOutput(project: project)
     }
 }

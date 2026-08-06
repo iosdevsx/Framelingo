@@ -13,6 +13,8 @@ import ProjectPreparation
 import ProjectPreparationImpl
 import TranscriptionPipeline
 import TranscriptionPipelineImpl
+import TranslationPipeline
+import TranslationPipelineImpl
 import SettingsImpl
 import ShortsFeatureImpl
 import SpeakerAnalysisImpl
@@ -103,10 +105,10 @@ enum MacCompositionRoot {
             },
             fileSystem: .live(fileManager: fileManager)
         )
-        let projectTranslationWorkflow = ApplicationWorkflowAssembly.makeProjectTranslationWorkflow(
-                projectRepository: projectRepository,
-                translationService: translationService
-            )
+        let projectTranslator = TranslationPipelineAssembly.makeTranslator(
+            projectRepository: projectRepository,
+            translationService: translationService
+        )
         let projectFeatureComponents = ProjectFeatureComponents(
             player: PlayerFeatureAssembly.makeFactory(),
             timeline: TimelineFeatureAssembly.makeFactory(),
@@ -137,7 +139,7 @@ enum MacCompositionRoot {
                 )
             },
             projectTranscriber: projectTranscriber,
-            projectTranslationWorkflow: projectTranslationWorkflow,
+            projectTranslator: projectTranslator,
             mediaMetadataProvider: mediaMetadataProvider,
             subtitleScriptGenerator: subtitleScriptGenerator,
             makeFFmpegService: makeFFmpegService,

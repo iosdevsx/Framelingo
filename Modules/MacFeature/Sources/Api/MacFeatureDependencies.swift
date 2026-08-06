@@ -5,6 +5,7 @@ import Project
 import ProjectFeature
 import ProjectPreparation
 import TranscriptionPipeline
+import TranslationPipeline
 import Settings
 import SpeechToText
 import Subtitles
@@ -22,7 +23,7 @@ public struct MacFeatureDependencies {
     public var projectPreparer: any ProjectPreparing
     public var projectPreparationConfiguration: ProjectPreparationConfigurationProvider
     public var projectTranscriber: any TranscribingProject
-    public var projectTranslationWorkflow: any ProjectTranslationWorkflow
+    public var projectTranslator: any TranslatingProject
     public var mediaMetadataProvider: any MediaMetadataProviding
     public var subtitleScriptGenerator: any SubtitleScriptGenerating
     public var makeFFmpegService: FFmpegServiceBuilder
@@ -46,7 +47,7 @@ public struct MacFeatureDependencies {
         projectPreparer: any ProjectPreparing,
         projectPreparationConfiguration: @escaping ProjectPreparationConfigurationProvider,
         projectTranscriber: any TranscribingProject,
-        projectTranslationWorkflow: any ProjectTranslationWorkflow,
+        projectTranslator: any TranslatingProject,
         mediaMetadataProvider: any MediaMetadataProviding,
         subtitleScriptGenerator: any SubtitleScriptGenerating,
         makeFFmpegService: @escaping FFmpegServiceBuilder,
@@ -69,7 +70,7 @@ public struct MacFeatureDependencies {
         self.projectPreparer = projectPreparer
         self.projectPreparationConfiguration = projectPreparationConfiguration
         self.projectTranscriber = projectTranscriber
-        self.projectTranslationWorkflow = projectTranslationWorkflow
+        self.projectTranslator = projectTranslator
         self.mediaMetadataProvider = mediaMetadataProvider
         self.subtitleScriptGenerator = subtitleScriptGenerator
         self.makeFFmpegService = makeFFmpegService

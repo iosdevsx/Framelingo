@@ -42,7 +42,7 @@ final class MacCompositionRootTests: XCTestCase {
                     projectPreparer: dependencies.projectPreparer,
                     projectPreparationConfiguration: dependencies.projectPreparationConfiguration,
                     projectTranscriber: dependencies.projectTranscriber,
-                    projectTranslationWorkflow: dependencies.projectTranslationWorkflow,
+                    projectTranslator: dependencies.projectTranslator,
                     selection: shell.selectionAccess,
                     subtitleDocumentPicker: SubtitleDocumentPicker { _ in .cancelled }
                 ),
