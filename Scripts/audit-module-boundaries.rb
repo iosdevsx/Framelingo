@@ -3,15 +3,15 @@
 
 PRODUCT_COMPOSERS = ["MacFeatureImpl"].freeze
 MODULES_RELATIVE_ROOT = "AppTarget/Modules".freeze
-APP_STATE_FORBIDDEN_SURFACE = {
-  /@Published\s+public\s+var\s+settings\b/ => "AppState owns global settings",
-  /@Published\s+public\s+var\s+recentProjects\b/ => "AppState owns recent projects",
-  /public\s+let\s+projectRepository\b/ => "AppState exposes ProjectRepository",
-  /\bsaveSettings\b/ => "AppState construction exposes settings persistence",
-  /@Published\s+public\s+var\s+selectedProject\b/ => "AppState owns selected project",
-  /\bcloseSelectedProject\b/ => "AppState owns product close navigation",
-  /\brevealVideoExport\b/ => "AppState owns Finder reveal authority",
-  /\bcopyText\b/ => "AppState owns clipboard authority"
+APPLICATION_RETIREMENT_PATTERNS = {
+  /^\s*(?:@testable\s+)?import\s+Application(?:Impl)?\s*$/ => "removed Application module import",
+  /\.package\s*\(\s*path:\s*"\.\.\/Application"/ => "removed Application package dependency",
+  /\.product\s*\(\s*name:\s*"Application(?:Impl)?"/ => "removed Application product dependency",
+  /\bAppState\b/ => "removed AppState symbol",
+  /\bAppStateDependencies\b/ => "removed AppStateDependencies symbol",
+  /\bApplicationAssembly\b/ => "removed ApplicationAssembly symbol",
+  /\bApplicationWorkflowAssembly\b/ => "removed ApplicationWorkflowAssembly symbol",
+  /Modules\/Application/ => "removed Application Xcode reference"
 }.freeze
 
 MAC_PRODUCT_PLATFORM_SYMBOLS = %w[NSWorkspace NSPasteboard].freeze
@@ -115,10 +115,25 @@ def audit_import(source, label, role, target_name)
   end
 end
 
-def audit_app_state_surface(source, label)
-  APP_STATE_FORBIDDEN_SURFACE.each_with_object([]) do |(pattern, description), failures|
+def audit_application_retirement(source, label)
+  APPLICATION_RETIREMENT_PATTERNS.each_with_object([]) do |(pattern, description), failures|
     failures << "#{label}: #{description}" if source.match?(pattern)
   end
+end
+
+def audit_broad_dependency_bag(source, label)
+  return [] if label.start_with?("#{MODULES_RELATIVE_ROOT}/MacFeature/")
+
+  groups = [
+    source.match?(/\bSettingsAccess\b/),
+    source.match?(/\bProjectCatalogManaging\b/),
+    %w[ProjectPreparing TranscribingProject TranslatingProject].all? { |name| source.match?(/\b#{name}\b/) },
+    source.match?(/\bVideoExportQueue\b/),
+    source.match?(/\b(?:SubtitleDocumentPicker|OutputReveal|DiagnosticCopy)\b/)
+  ]
+  return [] unless source.match?(/\bstruct\s+\w*Dependencies\b/) && groups.all?
+
+  ["#{label}: ordinary feature dependency bag combines settings, catalog, all pipelines, export, and platform ports"]
 end
 
 def audit_application_processing_surface(source, label)
@@ -191,24 +206,40 @@ def run_self_test
   end
 
 
-  app_state_cases = [
-    ["reduced AppState", "@Published public var videoExportJobs: [VideoExportJob]\n", 0],
-    ["settings owner regression", "@Published public var settings: AppSettings\n", 1],
-    ["recents owner regression", "@Published public var recentProjects: [Project]\n", 1],
-    ["repository regression", "public let projectRepository: any ProjectRepository\n", 1],
-    ["settings persistence regression", "public var saveSettings: (AppSettings) -> Void\n", 1],
-    ["selection owner regression", "@Published public var selectedProject: Project?\n", 1],
-    ["close owner regression", "public func closeSelectedProject() {}\n", 1],
-    ["reveal callback regression", "private let revealVideoExport: (URL) -> Void\n", 1],
-    ["clipboard callback regression", "public var copyText: (String) -> Void\n", 1]
+  retirement_cases = [
+    ["focused API", "import TranscriptionPipeline\n", 0],
+    ["Application import", "import Application\n", 1],
+    ["ApplicationImpl import", "@testable import ApplicationImpl\n", 1],
+    ["Application path", ".package(path: \"../Application\")\n", 1],
+    ["AppState resurrection", "let state: AppState\n", 1],
+    ["Xcode reference", "Modules/Application,\n", 1]
   ]
-  app_state_cases.each do |name, source, expected_count|
-    actual_count = audit_app_state_surface(source, name).count
+  retirement_cases.each do |name, source, expected_count|
+    actual_count = audit_application_retirement(source, name).count
+    failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
+  end
+
+  broad_dependency_cases = [
+    ["focused dependency", "struct EditingDependencies { let picker: SubtitleDocumentPicker }\n", 0],
+    ["broad replacement", <<~SWIFT, 1]
+      struct FeatureDependencies {
+        let settings: SettingsAccess
+        let catalog: ProjectCatalogManaging
+        let preparation: ProjectPreparing
+        let transcription: TranscribingProject
+        let translation: TranslatingProject
+        let exports: VideoExportQueue
+        let picker: SubtitleDocumentPicker
+      }
+    SWIFT
+  ]
+  broad_dependency_cases.each do |name, source, expected_count|
+    actual_count = audit_broad_dependency_bag(source, "#{MODULES_RELATIVE_ROOT}/Feature/#{name}.swift").count
     failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
   end
 
   application_processing_cases = [
-    ["clean Application surface", "public final class AppState {}\n", 0],
+    ["clean focused surface", "public final class ActivityTracker {}\n", 0],
     ["workflow surface regression", "public protocol ProjectTranslationWorkflow {}\n", 1]
   ]
   application_processing_cases.each do |name, source, expected_count|
@@ -248,6 +279,7 @@ Dir.glob(File.join(modules_root, "*", "Sources", "{Api,Impl}", "**", "*.swift"))
   target_name = role == :api ? package_name : "#{package_name}Impl"
   source = read_utf8(source_path)
   failures.concat(audit_import(source, relative, role, target_name))
+  failures.concat(audit_broad_dependency_bag(source, relative))
 
   MAC_PRODUCT_PLATFORM_SYMBOLS.each do |symbol|
     next unless source.match?(/\b#{Regexp.escape(symbol)}\b/)
@@ -264,14 +296,12 @@ Dir.glob(File.join(modules_root, "*", "Sources", "{Api,Impl}", "**", "*.swift"))
 end
 
 
-app_state_surface_paths = [
-  "#{MODULES_RELATIVE_ROOT}/Application/Sources/Api/State/AppState.swift",
-  "#{MODULES_RELATIVE_ROOT}/Application/Sources/Api/Dependencies/ApplicationDependencies.swift",
-  "#{MODULES_RELATIVE_ROOT}/Application/Sources/Impl/Assembly/ApplicationAssembly.swift"
-]
-app_state_surface_paths.each do |relative|
-  path = File.join(repository_root, relative)
-  failures.concat(audit_app_state_surface(read_utf8(path), relative))
+retirement_scan_paths = Dir.glob(File.join(modules_root, "**", "*.swift"))
+retirement_scan_paths.concat(Dir.glob(File.join(modules_root, "*", "Package.swift")))
+retirement_scan_paths << File.join(repository_root, "Framelingo.xcodeproj", "project.pbxproj")
+retirement_scan_paths.sort.each do |path|
+  relative = path.delete_prefix("#{repository_root}/")
+  failures.concat(audit_application_retirement(read_utf8(path), relative))
 end
 
 anonymous_picker_paths = [

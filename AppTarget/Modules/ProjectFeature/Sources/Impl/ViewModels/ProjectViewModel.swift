@@ -1,5 +1,4 @@
 import Combine
-import Application
 import ExportFeature
 import Foundation
 import Project
@@ -59,11 +58,11 @@ final class ProjectViewModel: ObservableObject {
     let availableLanguages = ["English", "Russian", "Spanish", "French", "German", "Italian", "Portuguese", "Chinese", "Japanese", "Korean"]
     var settings: AppSettings { settingsAccess.snapshot.settings }
 
-    private let appState: AppState
     private let projectRepository: any ProjectRepository
     private let projectCatalog: any ProjectCatalogManaging
     private let settingsAccess: SettingsAccess
     private let subtitleImportService: any SubtitleImporting
+    private let subtitleExportService: any SubtitleExportService
     private let projectFileService: any ProjectFileServicing
     private let editTimelineService: any EditTimelineEditing
     private let subtitleTimelineMappingService = SubtitleTimelineMappingService()
@@ -73,6 +72,7 @@ final class ProjectViewModel: ObservableObject {
     private let projectPreparer: any ProjectPreparing
     private let projectPreparationConfiguration: ProjectPreparationConfigurationProvider
     private let projectTranscriber: any TranscribingProject
+    private let transcriptionActivity: any TranscriptionActivityTracking
     private let projectTranslator: any TranslatingProject
     private let selection: ProjectSelectionAccess
     private let subtitleDocumentPicker: SubtitleDocumentPicker
@@ -93,26 +93,24 @@ final class ProjectViewModel: ObservableObject {
     private var cueSelectionAnchorID: UUID?
     private let undoLimit = 200
 
-    init(
-        appState: AppState,
-        dependencies: ProjectFeatureDependencies
-    ) {
-        self.appState = appState
-        projectRepository = dependencies.projectRepository
-        projectCatalog = dependencies.projectCatalog
-        settingsAccess = dependencies.settingsAccess
-        subtitleImportService = dependencies.subtitleImporter
-        projectFileService = dependencies.projectFileService
-        editTimelineService = dependencies.editTimelineService
-        projectPreparer = dependencies.projectPreparer
-        projectPreparationConfiguration = dependencies.projectPreparationConfiguration
-        projectTranscriber = dependencies.projectTranscriber
-        projectTranslator = dependencies.projectTranslator
-        selection = dependencies.selection
-        subtitleDocumentPicker = dependencies.subtitleDocumentPicker
+    init(dependencies: ProjectFeatureDependencies) {
+        projectRepository = dependencies.data.projectRepository
+        projectCatalog = dependencies.data.projectCatalog
+        settingsAccess = dependencies.data.settingsAccess
+        subtitleImportService = dependencies.editing.subtitleImporter
+        subtitleExportService = dependencies.editing.subtitleExportService
+        projectFileService = dependencies.editing.projectFileService
+        editTimelineService = dependencies.editing.editTimelineService
+        projectPreparer = dependencies.processing.projectPreparer
+        projectPreparationConfiguration = dependencies.processing.projectPreparationConfiguration
+        projectTranscriber = dependencies.processing.projectTranscriber
+        transcriptionActivity = dependencies.processing.transcriptionActivity
+        projectTranslator = dependencies.processing.projectTranslator
+        selection = dependencies.data.selection
+        subtitleDocumentPicker = dependencies.editing.subtitleDocumentPicker
         videoExportQueue = dependencies.videoExportQueue
-        project = dependencies.selection.current
-        selectionSubscription = dependencies.selection.updates.sink { [weak self] selectedProject in
+        project = dependencies.data.selection.current
+        selectionSubscription = dependencies.data.selection.updates.sink { [weak self] selectedProject in
             guard let self, self.project != selectedProject else { return }
             if self.project?.id != selectedProject?.id {
                 self.videoSourceInfo = nil
@@ -779,7 +777,7 @@ final class ProjectViewModel: ObservableObject {
         let operationID = UUID()
         transcriptionOperationID = operationID
         isTranscribing = true
-        appState.startTranscriptionActivity(projectName: currentProject.displayName)
+        transcriptionActivity.start(projectName: currentProject.displayName)
         defer {
             if transcriptionOperationID == operationID {
                 transcriptionOperationID = nil
@@ -807,26 +805,26 @@ final class ProjectViewModel: ObservableObject {
             )
             guard transcriptionOperationID == operationID else { return }
             guard project?.id == projectID else {
-                appState.dismissTranscriptionActivity()
+                transcriptionActivity.dismiss()
                 return
             }
             applyProject(output.project)
-            appState.finishTranscriptionActivity(
+            transcriptionActivity.finish(
                 success: true,
                 message: TranscriptionPipelinePresentation.completionMessage(for: output.warning)
             )
         } catch is CancellationError {
             guard transcriptionOperationID == operationID else { return }
-            appState.dismissTranscriptionActivity()
+            transcriptionActivity.dismiss()
         } catch {
             guard transcriptionOperationID == operationID else { return }
             guard project?.id == currentProject.id else {
-                appState.dismissTranscriptionActivity()
+                transcriptionActivity.dismiss()
                 return
             }
             let localizedError = error as? LocalizedError
             let message = localizedError?.errorDescription ?? "Transcription failed."
-            appState.finishTranscriptionActivity(success: false, message: message)
+            transcriptionActivity.finish(success: false, message: message)
             exportMessage = message
         }
     }
@@ -907,7 +905,7 @@ final class ProjectViewModel: ObservableObject {
         case .projectChanged(let project):
             applyProject(project)
         case .progress(let progress):
-            appState.updateTranscriptionActivity(
+            transcriptionActivity.update(
                 statusText: TranscriptionPipelinePresentation.status(for: progress),
                 progress: progress.fractionCompleted
             )
@@ -941,7 +939,7 @@ final class ProjectViewModel: ObservableObject {
         }
 
         do {
-            try await appState.subtitleExportService.export(
+            try await subtitleExportService.export(
                 request: SubtitleExportRequest(
                     segments: project.subtitles,
                     speakerLabels: project.speakerLabels,

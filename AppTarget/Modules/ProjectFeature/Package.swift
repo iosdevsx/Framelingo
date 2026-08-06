@@ -10,7 +10,6 @@ let package = Package(
         .library(name: "ProjectFeatureImpl", targets: ["ProjectFeatureImpl"]),
     ],
     dependencies: [
-        .package(path: "../Application"),
         .package(path: "../DesignSystem"),
         .package(path: "../ExportFeature"),
         .package(path: "../Media"),
@@ -52,7 +51,6 @@ let package = Package(
             name: "ProjectFeatureImpl",
             dependencies: [
                 "ProjectFeature",
-                .product(name: "Application", package: "Application"),
                 .product(name: "DesignSystem", package: "DesignSystem"),
                 .product(name: "ExportFeature", package: "ExportFeature"),
                 .product(name: "PlayerFeature", package: "PlayerFeature"),
@@ -77,7 +75,6 @@ let package = Package(
             dependencies: [
                 "ProjectFeature",
                 "ProjectFeatureImpl",
-                .product(name: "Application", package: "Application"),
                 .product(name: "ExportFeature", package: "ExportFeature"),
                 .product(name: "Media", package: "Media"),
                 .product(name: "PlayerFeature", package: "PlayerFeature"),

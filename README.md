@@ -122,7 +122,7 @@ AppTarget/
 └── Modules/
     ├── Subtitles, Timeline, Shorts, SpeakerAnalysis  # domain
     ├── Media, Translation, SpeechToText              # processing
-    ├── VideoRendering, Project, Settings, Application
+    ├── VideoRendering, VideoExport, Project, Settings
     ├── DesignSystem                                  # tokens + shared components
     ├── HomeFeature, ProjectFeature, SettingsFeature, ExportFeature
     ├── SubtitleEditorFeature, TimelineFeature, PlayerFeature, ShortsFeature
@@ -137,8 +137,8 @@ BundledTools/Whisper/    # ресурс macOS-приложения
 радиусы), `Components` и environment values. Feature-specific state и логика
 таймлайна туда не входят.
 
-Архитектура приложения остаётся MVVM. `AppState` владеет состоянием приложения
-и очередью экспорта, `ProjectViewModel` — рабочим состоянием редактора, а
+Архитектура приложения остаётся MVVM. Настройки, каталог проектов, processing pipelines
+и очередь экспорта принадлежат профильным модулям; `ProjectViewModel` пока владеет рабочим состоянием редактора, а
 `ProjectViewModel.project.subtitles` является единственным изменяемым источником
 текста и таймингов субтитров. Дополнительных Store/session/proxy-слоёв нет.
 
@@ -155,7 +155,8 @@ platform-neutral модели и алгоритмы монтажа/маппин�
 [`module-graph.md`](openspec/changes/modularize-codebase-with-spm/module-graph.md),
 а правила миграции — в OpenSpec change `modularize-codebase-with-spm`.
 
-Tuist и iOS/iPadOS UI намеренно отложены. Сейчас checked-in Xcode-проект
+Следующие архитектурные шаги — перенос редактируемого документа в ProjectSession,
+централизация Mac composition и добавление iOS composition. Tuist пока отложен. Сейчас checked-in Xcode-проект
 собирает macOS shell из `MacFeatureImpl`. Доменные границы уже не завязаны на
 AppKit, но адаптация существующих SwiftUI/AppKit interaction seams под iOS
 будет отдельной задачей, а не скрытой частью модуляризации.

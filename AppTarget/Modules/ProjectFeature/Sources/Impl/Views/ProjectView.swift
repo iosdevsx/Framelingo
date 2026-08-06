@@ -1,6 +1,5 @@
 import AVFoundation
 import AppKit
-import Application
 import DesignSystem
 import ExportFeature
 import PlayerFeature
@@ -16,7 +15,6 @@ import UniformTypeIdentifiers
 import VideoRendering
 
 struct ProjectView: View {
-    @EnvironmentObject private var appState: AppState
     @ObservedObject var viewModel: ProjectViewModel
     @State private var player: AVPlayer?
     @State private var timeObserver: Any?

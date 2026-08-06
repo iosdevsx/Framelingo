@@ -2,7 +2,7 @@ import ProjectPreparation
 import XCTest
 
 /// This target intentionally depends on the API product only. Compiling it
-/// proves that consumers need no Application, Settings, feature, or Impl module.
+/// proves that consumers need no umbrella, Settings, feature, or Impl module.
 final class ProjectPreparationAPIContractTests: XCTestCase {
     func testTypedContractCanBeUsedFromAPIOnlyTarget() {
         let configuration = ProjectPreparationConfiguration(ffmpegExecutablePath: "/usr/bin/ffmpeg")

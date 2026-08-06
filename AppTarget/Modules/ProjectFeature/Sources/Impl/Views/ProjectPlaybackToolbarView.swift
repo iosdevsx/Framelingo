@@ -1,4 +1,3 @@
-import Application
 import ProjectFeature
 import Subtitles
 import SwiftUI

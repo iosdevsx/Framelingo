@@ -11,7 +11,6 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../AppUpdate"),
-        .package(path: "../Application"),
         .package(path: "../DesignSystem"),
         .package(path: "../ExportFeature"),
         .package(path: "../HomeFeature"),
@@ -39,7 +38,7 @@ let package = Package(
         .target(
             name: "MacFeature",
             dependencies: [
-                .product(name: "Application", package: "Application"),
+                .product(name: "Media", package: "Media"),
                 .product(name: "Project", package: "Project"),
                 .product(name: "ProjectPreparation", package: "ProjectPreparation"),
                 .product(name: "TranscriptionPipeline", package: "TranscriptionPipeline"),
@@ -58,8 +57,6 @@ let package = Package(
                 "MacFeature",
                 .product(name: "AppUpdate", package: "AppUpdate"),
                 .product(name: "AppUpdateImpl", package: "AppUpdate"),
-                .product(name: "Application", package: "Application"),
-                .product(name: "ApplicationImpl", package: "Application"),
                 .product(name: "DesignSystem", package: "DesignSystem"),
                 .product(name: "ExportFeature", package: "ExportFeature"),
                 .product(name: "ExportFeatureImpl", package: "ExportFeature"),

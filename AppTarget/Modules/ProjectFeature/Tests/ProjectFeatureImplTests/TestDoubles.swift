@@ -1,4 +1,3 @@
-import Application
 import Combine
 import ExportFeature
 import Foundation
@@ -26,13 +25,46 @@ import VideoExport
 
 enum TestDoubles {
     @MainActor
-    private static var repositoriesByAppState: [ObjectIdentifier: Repository] = [:]
+    private static var repositoriesByContext: [ObjectIdentifier: Repository] = [:]
     @MainActor
-    private static var catalogsByAppState: [ObjectIdentifier: Catalog] = [:]
+    private static var catalogsByContext: [ObjectIdentifier: Catalog] = [:]
     @MainActor
-    private static var selectionsByAppState: [ObjectIdentifier: Selection] = [:]
+    private static var selectionsByContext: [ObjectIdentifier: Selection] = [:]
     @MainActor
-    private static var exportQueuesByAppState: [ObjectIdentifier: ExportQueue] = [:]
+    private static var exportQueuesByContext: [ObjectIdentifier: ExportQueue] = [:]
+
+    @MainActor
+    final class ActivityTracker: TranscriptionActivityTracking {
+        private let subject = CurrentValueSubject<TranscriptionActivity?, Never>(nil)
+        private(set) var activity: TranscriptionActivity? { didSet { subject.send(activity) } }
+        var activitySnapshots: AnyPublisher<TranscriptionActivity?, Never> { subject.eraseToAnyPublisher() }
+
+        func start(projectName: String) {
+            activity = TranscriptionActivity(projectName: projectName, statusText: "Extracting audio...", progress: 0, status: .running)
+        }
+        func update(statusText: String, progress: Double?) {
+            guard activity != nil else { return }
+            activity?.statusText = statusText
+            if let progress { activity?.progress = min(max(progress, 0), 1) }
+        }
+        func finish(success: Bool, message: String?) {
+            guard activity != nil else { return }
+            activity?.status = success ? .succeeded : .failed
+            if success { activity?.progress = 1 }
+            activity?.statusText = message ?? (success ? "Transcription complete" : "Transcription failed")
+        }
+        func dismiss() { activity = nil }
+    }
+
+    @MainActor
+    final class Context {
+        let activity = ActivityTracker()
+        let subtitleExportService: any SubtitleExportService
+        init(subtitleExportService: any SubtitleExportService) {
+            self.subtitleExportService = subtitleExportService
+        }
+        var transcriptionActivity: TranscriptionActivity? { activity.activity }
+    }
 
     @MainActor
     final class ExportQueue: VideoExportQueue {
@@ -435,22 +467,16 @@ enum TestDoubles {
         subtitleExportService: any SubtitleExportService = SubtitleExporter(),
         speakerDiarizationEngine: any SpeakerDiarizationEngine = DiarizationEngine(),
         audioPreparationService: any AudioPreparationService = AudioPreparation()
-    ) -> AppState {
-        let appState = AppState(
-            subtitleExportService: subtitleExportService,
-            translationService: TranslationService(),
-            speakerDiarizationEngine: speakerDiarizationEngine,
-            subtitleAlignmentEngine: AlignmentEngine(),
-            audioPreparationService: audioPreparationService
-        )
-        repositoriesByAppState[ObjectIdentifier(appState)] = repository
-        selectionsByAppState[ObjectIdentifier(appState)] = Selection(project: project)
-        return appState
+    ) -> Context {
+        let context = Context(subtitleExportService: subtitleExportService)
+        repositoriesByContext[ObjectIdentifier(context)] = repository
+        selectionsByContext[ObjectIdentifier(context)] = Selection(project: project)
+        return context
     }
 
     @MainActor
     static func projectFeatureDependencies(
-        appState: AppState,
+        appState: Context,
         editTimelineService: any EditTimelineEditing = EditTimelineService(),
         projectPreparer: (any ProjectPreparing)? = nil,
         projectPreparationConfiguration: ProjectPreparationConfigurationProvider? = nil,
@@ -459,13 +485,13 @@ enum TestDoubles {
         subtitleDocumentPicker: SubtitleDocumentPicker? = nil,
         videoExportQueue: ExportQueue? = nil
     ) -> ProjectFeatureDependencies {
-        let repository = repositoriesByAppState[ObjectIdentifier(appState)] ?? Repository()
-        let selection = selectionsByAppState[ObjectIdentifier(appState)] ?? Selection(project: nil)
+        let repository = repositoriesByContext[ObjectIdentifier(appState)] ?? Repository()
+        let selection = selectionsByContext[ObjectIdentifier(appState)] ?? Selection(project: nil)
         let catalog = Catalog(
             repository: repository,
             projects: selection.subject.value.map { [$0] } ?? []
         )
-        catalogsByAppState[ObjectIdentifier(appState)] = catalog
+        catalogsByContext[ObjectIdentifier(appState)] = catalog
         let settingsSubject = CurrentValueSubject<SettingsSnapshot, Never>(
             SettingsSnapshot(settings: .default, persistenceState: .idle)
         )
@@ -484,52 +510,60 @@ enum TestDoubles {
         let transcriber = projectTranscriber ?? Transcriber()
         let translator = projectTranslator ?? Translator()
         let exportQueue = videoExportQueue ?? ExportQueue()
-        exportQueuesByAppState[ObjectIdentifier(appState)] = exportQueue
+        exportQueuesByContext[ObjectIdentifier(appState)] = exportQueue
 
         return ProjectFeatureDependencies(
-            projectRepository: repository,
-            projectCatalog: catalog,
-            settingsAccess: settingsAccess,
-            subtitleImporter: SubtitleImporter(),
-            projectFileService: ProjectFileService(),
-            editTimelineService: editTimelineService,
-            projectPreparer: preparer,
-            projectPreparationConfiguration: projectPreparationConfiguration ?? {
-                ProjectPreparationConfiguration(
-                    ffmpegExecutablePath: settingsAccess.snapshot.settings.ffmpegPath
-                )
-            },
-            projectTranscriber: transcriber,
-            projectTranslator: translator,
-            selection: selection.access,
-            subtitleDocumentPicker: subtitleDocumentPicker ?? SubtitleDocumentPicker { _ in .cancelled },
+            data: ProjectWorkspaceDataDependencies(
+                projectRepository: repository,
+                projectCatalog: catalog,
+                settingsAccess: settingsAccess,
+                selection: selection.access
+            ),
+            editing: ProjectWorkspaceEditingDependencies(
+                subtitleImporter: SubtitleImporter(),
+                subtitleExportService: appState.subtitleExportService,
+                projectFileService: ProjectFileService(),
+                editTimelineService: editTimelineService,
+                subtitleDocumentPicker: subtitleDocumentPicker ?? SubtitleDocumentPicker { _ in .cancelled }
+            ),
+            processing: ProjectWorkspaceProcessingDependencies(
+                projectPreparer: preparer,
+                projectPreparationConfiguration: projectPreparationConfiguration ?? {
+                    ProjectPreparationConfiguration(
+                        ffmpegExecutablePath: settingsAccess.snapshot.settings.ffmpegPath
+                    )
+                },
+                projectTranscriber: transcriber,
+                transcriptionActivity: appState.activity,
+                projectTranslator: translator
+            ),
             videoExportQueue: exportQueue
         )
     }
 
     @MainActor
-    static func videoExportQueue(for appState: AppState) -> ExportQueue? {
-        exportQueuesByAppState[ObjectIdentifier(appState)]
+    static func videoExportQueue(for appState: Context) -> ExportQueue? {
+        exportQueuesByContext[ObjectIdentifier(appState)]
     }
 
     @MainActor
-    static func catalog(for appState: AppState) -> Catalog? {
-        catalogsByAppState[ObjectIdentifier(appState)]
+    static func catalog(for appState: Context) -> Catalog? {
+        catalogsByContext[ObjectIdentifier(appState)]
     }
 
     @MainActor
-    static func selectedProject(for appState: AppState) -> Project? {
-        selectionsByAppState[ObjectIdentifier(appState)]?.subject.value
+    static func selectedProject(for appState: Context) -> Project? {
+        selectionsByContext[ObjectIdentifier(appState)]?.subject.value
     }
 
     @MainActor
-    static func select(_ project: Project?, for appState: AppState) {
-        selectionsByAppState[ObjectIdentifier(appState)]?.subject.send(project)
+    static func select(_ project: Project?, for appState: Context) {
+        selectionsByContext[ObjectIdentifier(appState)]?.subject.send(project)
     }
 
     @MainActor
     static func projectViewModel(
-        appState: AppState,
+        appState: Context,
         editTimelineService: any EditTimelineEditing = EditTimelineService(),
         projectPreparer: (any ProjectPreparing)? = nil,
         projectPreparationConfiguration: ProjectPreparationConfigurationProvider? = nil,
@@ -538,7 +572,6 @@ enum TestDoubles {
         subtitleDocumentPicker: SubtitleDocumentPicker? = nil
     ) -> ProjectViewModel {
         ProjectViewModel(
-            appState: appState,
             dependencies: projectFeatureDependencies(
                 appState: appState,
                 editTimelineService: editTimelineService,

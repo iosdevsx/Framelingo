@@ -4,8 +4,8 @@
 
 ## Как устроен пакет
 
-- `TranscriptionPipeline` (`Sources/Api`) — запрос, конфигурация, фазы прогресса, результат, предупреждения, ошибки и протокол `TranscribingProject`.
-- `TranscriptionPipelineImpl` (`Sources/Impl`) — сам сценарий и assembly с явными зависимостями.
+- `TranscriptionPipeline` (`Sources/Api`) — запрос, конфигурация, фазы прогресса, результат, предупреждения, ошибки, `TranscribingProject` и контракт общей activity.
+- `TranscriptionPipelineImpl` (`Sources/Impl`) — сам сценарий, root-scoped activity tracker и assembly с явными зависимостями.
 
 Конфигурация объединяет выбранный путь к FFmpeg и `SpeechToTextProviderConfiguration`. Через события вызывающий код получает обновлённый `Project` и прогресс фаз: извлечение аудио, транскрипция, анализ спикеров и выравнивание субтитров.
 

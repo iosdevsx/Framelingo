@@ -1,29 +1,31 @@
-import Application
 import Combine
 import ExportFeature
 import Foundation
+import TranscriptionPipeline
 import VideoExport
 
 @MainActor
-final class AppStateActivitySourceAdapter {
+final class CapabilityActivitySourceAdapter {
     let source: ProductActivitySource
 
-    init(appState: AppState, videoExportQueue: any VideoExportQueue) {
-        let snapshots = appState.$transcriptionActivity
+    init(
+        transcriptionActivity: any TranscriptionActivityTracking,
+        videoExportQueue: any VideoExportQueue
+    ) {
+        let snapshots = transcriptionActivity.activitySnapshots
             .combineLatest(videoExportQueue.jobSnapshots)
             .map(Self.snapshot)
             .eraseToAnyPublisher()
 
         source = ProductActivitySource(
-            snapshot: { Self.snapshot(appState.transcriptionActivity, videoExportQueue.jobs) },
+            snapshot: { Self.snapshot(transcriptionActivity.activity, videoExportQueue.jobs) },
             snapshots: { snapshots },
             dismiss: { id in
-                if let activity = appState.transcriptionActivity,
+                if let activity = transcriptionActivity.activity,
                    id == "transcription-\(activity.id.uuidString)" {
-                    appState.dismissTranscriptionActivity()
+                    transcriptionActivity.dismiss()
                     return
                 }
-
                 guard let job = videoExportQueue.jobs.first(where: {
                     id == "video-export-\($0.id.uuidString)"
                 }) else { return }
@@ -37,21 +39,17 @@ final class AppStateActivitySourceAdapter {
         _ jobs: [VideoExportJob]
     ) -> ProductActivitySnapshot {
         var items: [ProductActivityItem] = []
-
         if let transcription {
-            items.append(
-                ProductActivityItem(
-                    id: "transcription-\(transcription.id.uuidString)",
-                    title: transcription.projectName,
-                    subtitle: transcription.statusText,
-                    progress: transcription.progress,
-                    status: transcription.status.productActivityStatus,
-                    errorMessage: transcription.status == .failed ? transcription.statusText : nil,
-                    canDismiss: transcription.isFinished
-                )
-            )
+            items.append(ProductActivityItem(
+                id: "transcription-\(transcription.id.uuidString)",
+                title: transcription.projectName,
+                subtitle: transcription.statusText,
+                progress: transcription.progress,
+                status: transcription.status.productActivityStatus,
+                errorMessage: transcription.status == .failed ? transcription.statusText : nil,
+                canDismiss: transcription.isFinished
+            ))
         }
-
         items.append(contentsOf: jobs.map { job in
             ProductActivityItem(
                 id: "video-export-\(job.id.uuidString)",
@@ -66,17 +64,13 @@ final class AppStateActivitySourceAdapter {
                 canDismiss: job.isFinished
             )
         })
-
         return ProductActivitySnapshot(items: items)
     }
 
     private static func diagnosticText(for job: VideoExportJob) -> String? {
         let value = [job.errorMessage, job.debugOutput]
-            .compactMap { text -> String? in
-                guard let text else { return nil }
-                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                return trimmed.isEmpty ? nil : trimmed
-            }
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
             .joined(separator: "\n\nDebug output:\n")
         return value.isEmpty ? nil : value
     }

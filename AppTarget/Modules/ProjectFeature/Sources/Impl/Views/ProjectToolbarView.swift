@@ -1,4 +1,3 @@
-import Application
 import DesignSystem
 import Project
 import Subtitles

@@ -22,7 +22,6 @@ public enum MacFeatureAssembly {
     ) -> AnyView {
         AnyView(
             MainNavigationView(dependencies: dependencies)
-                .environmentObject(dependencies.appState)
         )
     }
 

@@ -1,4 +1,3 @@
-import Application
 import DesignSystem
 import ExportFeatureImpl
 import ExportFeature
@@ -13,7 +12,6 @@ import SubtitleEditorFeature
 import SwiftUI
 
 struct MainNavigationView: View {
-    @EnvironmentObject private var appState: AppState
     let dependencies: MacFeatureDependencies
 
     @StateObject private var shell: MacProductShell
@@ -45,8 +43,8 @@ struct MainNavigationView: View {
         )
         subtitleDocumentPicker = AppKitSubtitleDocumentPickerAdapter().port
 
-        let activitySource = AppStateActivitySourceAdapter(
-            appState: dependencies.appState,
+        let activitySource = CapabilityActivitySourceAdapter(
+            transcriptionActivity: dependencies.transcriptionActivity,
             videoExportQueue: dependencies.videoExportQueue
         ).source
         activityOverlay = ExportFeatureAssembly.makeActivityOverlay(
@@ -106,20 +104,27 @@ struct MainNavigationView: View {
         } else if shell.hasOpenedProject && shell.selectedProject != nil {
             ZStack(alignment: .topTrailing) {
                 ProjectFeatureAssembly.makeView(
-                    appState: appState,
                     dependencies: ProjectFeatureDependencies(
-                        projectRepository: dependencies.projectRepository,
-                        projectCatalog: dependencies.projectCatalog,
-                        settingsAccess: dependencies.settingsAccess,
-                        subtitleImporter: dependencies.subtitleImporter,
-                        projectFileService: dependencies.projectFileService,
-                        editTimelineService: dependencies.editTimelineService,
-                        projectPreparer: dependencies.projectPreparer,
-                        projectPreparationConfiguration: dependencies.projectPreparationConfiguration,
-                        projectTranscriber: dependencies.projectTranscriber,
-                        projectTranslator: dependencies.projectTranslator,
-                        selection: shell.selectionAccess,
-                        subtitleDocumentPicker: subtitleDocumentPicker,
+                        data: ProjectWorkspaceDataDependencies(
+                            projectRepository: dependencies.projectRepository,
+                            projectCatalog: dependencies.projectCatalog,
+                            settingsAccess: dependencies.settingsAccess,
+                            selection: shell.selectionAccess
+                        ),
+                        editing: ProjectWorkspaceEditingDependencies(
+                            subtitleImporter: dependencies.subtitleImporter,
+                            subtitleExportService: dependencies.subtitleExportService,
+                            projectFileService: dependencies.projectFileService,
+                            editTimelineService: dependencies.editTimelineService,
+                            subtitleDocumentPicker: subtitleDocumentPicker
+                        ),
+                        processing: ProjectWorkspaceProcessingDependencies(
+                            projectPreparer: dependencies.projectPreparer,
+                            projectPreparationConfiguration: dependencies.projectPreparationConfiguration,
+                            projectTranscriber: dependencies.projectTranscriber,
+                            transcriptionActivity: dependencies.transcriptionActivity,
+                            projectTranslator: dependencies.projectTranslator
+                        ),
                         videoExportQueue: dependencies.videoExportQueue
                     ),
                     projectMode: $shell.projectMode,

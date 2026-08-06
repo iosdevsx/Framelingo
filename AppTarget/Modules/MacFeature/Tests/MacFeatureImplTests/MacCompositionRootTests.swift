@@ -31,20 +31,27 @@ final class MacCompositionRootTests: XCTestCase {
         for initialMode in ProjectWorkspaceMode.allCases {
             var mode = initialMode
             _ = ProjectFeatureAssembly.makeView(
-                appState: dependencies.appState,
                 dependencies: ProjectFeatureDependencies(
-                    projectRepository: dependencies.projectRepository,
-                    projectCatalog: dependencies.projectCatalog,
-                    settingsAccess: dependencies.settingsAccess,
-                    subtitleImporter: dependencies.subtitleImporter,
-                    projectFileService: dependencies.projectFileService,
-                    editTimelineService: dependencies.editTimelineService,
-                    projectPreparer: dependencies.projectPreparer,
-                    projectPreparationConfiguration: dependencies.projectPreparationConfiguration,
-                    projectTranscriber: dependencies.projectTranscriber,
-                    projectTranslator: dependencies.projectTranslator,
-                    selection: shell.selectionAccess,
-                    subtitleDocumentPicker: SubtitleDocumentPicker { _ in .cancelled },
+                    data: ProjectWorkspaceDataDependencies(
+                        projectRepository: dependencies.projectRepository,
+                        projectCatalog: dependencies.projectCatalog,
+                        settingsAccess: dependencies.settingsAccess,
+                        selection: shell.selectionAccess
+                    ),
+                    editing: ProjectWorkspaceEditingDependencies(
+                        subtitleImporter: dependencies.subtitleImporter,
+                        subtitleExportService: dependencies.subtitleExportService,
+                        projectFileService: dependencies.projectFileService,
+                        editTimelineService: dependencies.editTimelineService,
+                        subtitleDocumentPicker: SubtitleDocumentPicker { _ in .cancelled }
+                    ),
+                    processing: ProjectWorkspaceProcessingDependencies(
+                        projectPreparer: dependencies.projectPreparer,
+                        projectPreparationConfiguration: dependencies.projectPreparationConfiguration,
+                        projectTranscriber: dependencies.projectTranscriber,
+                        transcriptionActivity: dependencies.transcriptionActivity,
+                        projectTranslator: dependencies.projectTranslator
+                    ),
                     videoExportQueue: dependencies.videoExportQueue
                 ),
                 projectMode: Binding(get: { mode }, set: { mode = $0 }),

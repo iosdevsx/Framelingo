@@ -1,4 +1,3 @@
-import Application
 import ExportFeature
 import ProjectFeature
 import ShortsFeature
@@ -8,13 +7,11 @@ import SwiftUI
 public enum ProjectFeatureAssembly {
     @MainActor
     public static func makeView(
-        appState: AppState,
         dependencies: ProjectFeatureDependencies,
         projectMode: Binding<ProjectWorkspaceMode>,
         components: ProjectFeatureComponents
     ) -> some View {
         ProjectFeatureRootView(
-            appState: appState,
             dependencies: dependencies,
             projectMode: projectMode,
             components: components
@@ -27,21 +24,15 @@ private struct ProjectFeatureRootView: View {
     @StateObject private var viewModel: ProjectViewModel
     @Binding private var projectMode: ProjectWorkspaceMode
 
-    private let appState: AppState
     private let components: ProjectFeatureComponents
 
     init(
-        appState: AppState,
         dependencies: ProjectFeatureDependencies,
         projectMode: Binding<ProjectWorkspaceMode>,
         components: ProjectFeatureComponents
     ) {
-        self.appState = appState
         _viewModel = StateObject(
-            wrappedValue: ProjectViewModel(
-                appState: appState,
-                dependencies: dependencies
-            )
+            wrappedValue: ProjectViewModel(dependencies: dependencies)
         )
         _projectMode = projectMode
         self.components = components
@@ -124,6 +115,5 @@ private struct ProjectFeatureRootView: View {
             shortsWorkspaceActions: shortsWorkspaceActions,
             subtitleExportOptionsActions: subtitleExportOptionsActions
         )
-        .environmentObject(appState)
     }
 }

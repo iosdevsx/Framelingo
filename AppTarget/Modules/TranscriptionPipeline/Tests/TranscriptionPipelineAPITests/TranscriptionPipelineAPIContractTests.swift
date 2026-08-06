@@ -3,7 +3,7 @@ import XCTest
 
 /// This target intentionally depends on the pipeline API product only.
 final class TranscriptionPipelineAPIContractTests: XCTestCase {
-    func testTypedContractCompilesWithoutApplicationOrImplementationProducts() {
+    func testTypedContractCompilesWithoutUmbrellaOrImplementationProducts() {
         let progress = TranscriptionPipelineProgress(
             phase: .transcribing,
             fractionCompleted: 0.5,

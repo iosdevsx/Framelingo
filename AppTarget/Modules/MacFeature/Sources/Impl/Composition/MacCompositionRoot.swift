@@ -1,5 +1,3 @@
-import Application
-import ApplicationImpl
 import AppUpdate
 import AppUpdateImpl
 import Foundation
@@ -70,15 +68,7 @@ enum MacCompositionRoot {
         )
         projectCatalog.register(MacMockData.project)
 
-        let appState = ApplicationAssembly.makeAppState(
-            dependencies: AppStateDependencies(
-                subtitleExportService: subtitleExporter,
-                translationService: translationService,
-                speakerDiarizationEngine: speakerDiarizationEngine,
-                subtitleAlignmentEngine: subtitleAlignmentEngine,
-                audioPreparationService: audioPreparationService
-            )
-        )
+        let transcriptionActivity = TranscriptionPipelineAssembly.makeActivityTracker()
         let videoExportQueue = VideoExportAssembly.makeQueue(
             makeFFmpegService: { makeFFmpegService(settingsAccess.snapshot.settings) },
             subtitleScriptGenerator: subtitleScriptGenerator,
@@ -127,13 +117,14 @@ enum MacCompositionRoot {
         )
 
         return MacFeatureDependencies(
-            appState: appState,
+            transcriptionActivity: transcriptionActivity,
             videoExportQueue: videoExportQueue,
             settingsAccess: settingsAccess,
             projectCatalog: projectCatalog,
             projectRepository: projectRepository,
             preparedMediaCleanup: preparedMediaCleanup,
             subtitleImporter: SubtitlesAssembly.makeImporter(),
+            subtitleExportService: subtitleExporter,
             editTimelineService: TimelineAssembly.makeEditService(),
             projectPreparer: projectPreparer,
             projectPreparationConfiguration: {

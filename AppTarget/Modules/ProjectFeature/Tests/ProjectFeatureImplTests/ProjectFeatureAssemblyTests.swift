@@ -1,5 +1,4 @@
 import AppKit
-import Application
 import ExportFeature
 import PlayerFeature
 import ProjectFeature
@@ -40,7 +39,6 @@ final class ProjectFeatureAssemblyTests: XCTestCase {
             var requestedSurfaces: Set<String> = []
             var selectedMode = mode
             let view = ProjectFeatureAssembly.makeView(
-                appState: appState,
                 dependencies: TestDoubles.projectFeatureDependencies(appState: appState),
                 projectMode: Binding(
                     get: { selectedMode },
@@ -64,7 +62,6 @@ final class ProjectFeatureAssemblyTests: XCTestCase {
         var mode = ProjectWorkspaceMode.subtitles
 
         _ = ProjectFeatureAssembly.makeView(
-            appState: appState,
             dependencies: TestDoubles.projectFeatureDependencies(appState: appState),
             projectMode: Binding(get: { mode }, set: { mode = $0 }),
             components: TestDoubles.projectFeatureComponents()
@@ -203,7 +200,7 @@ private final class ShortsWorkspaceProbe {
 
 @MainActor
 private struct AssemblyRerenderHost: View {
-    let appState: AppState
+    let appState: TestDoubles.Context
     let dependencies: ProjectFeatureDependencies
     let components: ProjectFeatureComponents
     @ObservedObject var trigger: AssemblyRenderTrigger
@@ -212,7 +209,6 @@ private struct AssemblyRerenderHost: View {
     var body: some View {
         let _ = trigger.revision
         ProjectFeatureAssembly.makeView(
-            appState: appState,
             dependencies: dependencies,
             projectMode: $mode,
             components: components

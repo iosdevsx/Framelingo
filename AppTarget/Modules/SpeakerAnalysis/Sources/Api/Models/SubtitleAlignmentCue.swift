@@ -1,6 +1,6 @@
 import Foundation
 
-/// A transient alignment projection. Application maps it to the single
+/// A transient alignment projection. The consuming pipeline maps it to the single
 /// session-owned SubtitleSegment array; it is never persisted separately.
 public struct SubtitleAlignmentCue: Identifiable, Equatable {
     public let id: UUID

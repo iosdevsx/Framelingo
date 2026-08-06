@@ -29,6 +29,11 @@ public struct TranscriptionPipelineFileSystem {
 }
 
 public enum TranscriptionPipelineAssembly {
+    @MainActor
+    public static func makeActivityTracker() -> any TranscriptionActivityTracking {
+        DefaultTranscriptionActivityTracker()
+    }
+
     public static func makeTranscriber(
         projectRepository: any ProjectRepository,
         speechToTextProviderResolver: any SpeechToTextProviderResolving,

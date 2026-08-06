@@ -11,6 +11,10 @@ Framelingo modules separate public contracts from implementation selection.
 
 `ProjectFeature` therefore receives `ProjectFeatureComponents` containing Player, Timeline, Subtitle Editor, Shorts, and Export factories. It never imports those implementations. Concrete macOS factories are selected in `MacCompositionRoot`.
 
+There is no Application umbrella or global AppState. Settings, project catalog, preparation, transcription, translation, and video export expose focused owners. The product root injects them directly; TranscriptionPipeline and VideoExport remain the canonical activity sources. ProjectFeature groups its inputs by data, editing, and processing responsibility instead of exposing one all-capability service bag.
+
+The next planned layers build on this baseline: ProjectSession takes canonical editable-document ownership, then Mac composition is tightened before the same capability graph is reused by the iOS product.
+
 Run the checks locally with:
 
 ```sh

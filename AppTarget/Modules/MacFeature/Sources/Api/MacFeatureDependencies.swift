@@ -1,4 +1,3 @@
-import Application
 import Foundation
 import Media
 import Project
@@ -16,13 +15,14 @@ import VideoExport
 public typealias FFmpegServiceBuilder = (AppSettings) -> any FFmpegService
 
 public struct MacFeatureDependencies {
-    public var appState: AppState
+    public var transcriptionActivity: any TranscriptionActivityTracking
     public var videoExportQueue: any VideoExportQueue
     public var settingsAccess: SettingsAccess
     public var projectCatalog: any ProjectCatalogManaging
     public var projectRepository: any ProjectRepository
     public var preparedMediaCleanup: PreparedMediaCleanup
     public var subtitleImporter: any SubtitleImporting
+    public var subtitleExportService: any SubtitleExportService
     public var editTimelineService: any EditTimelineEditing
     public var projectPreparer: any ProjectPreparing
     public var projectPreparationConfiguration: ProjectPreparationConfigurationProvider
@@ -41,13 +41,14 @@ public struct MacFeatureDependencies {
     public var mockSubtitles: [SubtitleSegment]
 
     public init(
-        appState: AppState,
+        transcriptionActivity: any TranscriptionActivityTracking,
         videoExportQueue: any VideoExportQueue,
         settingsAccess: SettingsAccess,
         projectCatalog: any ProjectCatalogManaging,
         projectRepository: any ProjectRepository,
         preparedMediaCleanup: PreparedMediaCleanup,
         subtitleImporter: any SubtitleImporting,
+        subtitleExportService: any SubtitleExportService,
         editTimelineService: any EditTimelineEditing,
         projectPreparer: any ProjectPreparing,
         projectPreparationConfiguration: @escaping ProjectPreparationConfigurationProvider,
@@ -65,13 +66,14 @@ public struct MacFeatureDependencies {
         mockProject: Project,
         mockSubtitles: [SubtitleSegment]
     ) {
-        self.appState = appState
+        self.transcriptionActivity = transcriptionActivity
         self.videoExportQueue = videoExportQueue
         self.settingsAccess = settingsAccess
         self.projectCatalog = projectCatalog
         self.projectRepository = projectRepository
         self.preparedMediaCleanup = preparedMediaCleanup
         self.subtitleImporter = subtitleImporter
+        self.subtitleExportService = subtitleExportService
         self.editTimelineService = editTimelineService
         self.projectPreparer = projectPreparer
         self.projectPreparationConfiguration = projectPreparationConfiguration
