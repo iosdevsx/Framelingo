@@ -1,20 +1,18 @@
-import Application
 import Foundation
 import Project
-import Settings
 import SpeakerAnalysis
 import SpeechToText
 import Subtitles
-import Timeline
+import TranscriptionPipeline
 import VideoRendering
 
-final class DefaultProjectTranscriptionWorkflow: ProjectTranscriptionWorkflow {
+final class DefaultTranscriptionPipeline: TranscribingProject {
     private let projectRepository: any ProjectRepository
     private let speechToTextProviderResolver: any SpeechToTextProviderResolving
     private let speakerDiarizationEngine: any SpeakerDiarizationEngine
     private let subtitleAlignmentEngine: any SubtitleAlignmentEngine
-    private let makeFFmpegService: FFmpegServiceBuilder
-    private let fileManager: FileManager
+    private let makeFFmpegService: TranscriptionPipelineFFmpegServiceBuilder
+    private let fileSystem: TranscriptionPipelineFileSystem
     private let temporaryDirectory: URL
 
     init(
@@ -22,8 +20,8 @@ final class DefaultProjectTranscriptionWorkflow: ProjectTranscriptionWorkflow {
         speechToTextProviderResolver: any SpeechToTextProviderResolving,
         speakerDiarizationEngine: any SpeakerDiarizationEngine,
         subtitleAlignmentEngine: any SubtitleAlignmentEngine,
-        makeFFmpegService: @escaping FFmpegServiceBuilder,
-        fileManager: FileManager,
+        makeFFmpegService: @escaping TranscriptionPipelineFFmpegServiceBuilder,
+        fileSystem: TranscriptionPipelineFileSystem,
         temporaryDirectory: URL
     ) {
         self.projectRepository = projectRepository
@@ -31,51 +29,83 @@ final class DefaultProjectTranscriptionWorkflow: ProjectTranscriptionWorkflow {
         self.speakerDiarizationEngine = speakerDiarizationEngine
         self.subtitleAlignmentEngine = subtitleAlignmentEngine
         self.makeFFmpegService = makeFFmpegService
-        self.fileManager = fileManager
+        self.fileSystem = fileSystem
         self.temporaryDirectory = temporaryDirectory
     }
 
     func transcribe(
-        _ request: ProjectTranscriptionRequest,
-        events: @escaping ProjectProcessingEventHandler
-    ) async throws -> ProjectTranscriptionOutput {
+        _ request: TranscriptionPipelineRequest,
+        events: @escaping TranscriptionPipelineEventHandler
+    ) async throws -> TranscriptionPipelineOutput {
         var project = request.project
         let audioURL = temporaryURL(projectID: project.id, prefix: "audio", extension: "wav")
         var extractedTemporaryURL = audioURL
         var transcriptionCompleted = false
 
         do {
+            await events(.progress(TranscriptionPipelineProgress(
+                phase: .extractingAudio,
+                fractionCompleted: 0
+            )))
             project.status = .extractingAudio
             try await publishAndSave(project, events: events)
             try Task.checkCancellation()
 
             let clips = try transcriptionClips(for: project)
-            let extractedAudioURL = try await makeFFmpegService(request.settings).extractAudio(
-                from: project.mediaFile.originalURL,
-                to: audioURL,
-                clips: clips
-            )
+            let extractedAudioURL: URL
+            do {
+                extractedAudioURL = try await makeFFmpegService(request.configuration).extractAudio(
+                    from: project.mediaFile.originalURL,
+                    to: audioURL,
+                    clips: clips
+                )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                throw renderingError(from: error)
+            }
             extractedTemporaryURL = extractedAudioURL
             try Task.checkCancellation()
-            await events(.progress(value: 0.15, status: "Transcribing audio..."))
+            await events(.progress(TranscriptionPipelineProgress(
+                phase: .transcribing,
+                fractionCompleted: 0.15
+            )))
 
             project.status = .transcribing
             project.updatedAt = Date()
             try await publishAndSave(project, events: events)
 
-            let provider = try speechToTextProviderResolver.resolve(
-                configuration: speechToTextConfiguration(from: request.settings)
-            )
-            let result = try await provider.transcribe(
-                TranscriptionInput(
-                    audioURL: extractedAudioURL,
-                    videoURL: project.mediaFile.originalURL,
-                    sourceLanguage: project.sourceLanguage,
-                    progressHandler: { progress, status in
-                        await events(.progress(value: progress, status: status))
-                    }
+            let provider: any SpeechToTextProvider
+            do {
+                provider = try speechToTextProviderResolver.resolve(
+                    configuration: request.configuration.speechToText
                 )
-            )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                throw providerError(from: error)
+            }
+            let result: TranscriptionResult
+            do {
+                result = try await provider.transcribe(
+                    TranscriptionInput(
+                        audioURL: extractedAudioURL,
+                        videoURL: project.mediaFile.originalURL,
+                        sourceLanguage: project.sourceLanguage,
+                        progressHandler: { progress, detail in
+                            await events(.progress(TranscriptionPipelineProgress(
+                                phase: .transcribing,
+                                fractionCompleted: progress,
+                                providerDetail: detail
+                            )))
+                        }
+                    )
+                )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                throw providerError(from: error)
+            }
             try Task.checkCancellation()
 
             project.subtitles = result.segments
@@ -104,57 +134,55 @@ final class DefaultProjectTranscriptionWorkflow: ProjectTranscriptionWorkflow {
             transcriptionCompleted = true
             try removeTemporaryFileIfPresent(at: extractedTemporaryURL)
 
-            return ProjectTranscriptionOutput(
+            return TranscriptionPipelineOutput(
                 project: project,
-                completionMessage: transcriptionCompletionMessage(
-                    diarizationFailureMessage: diarizationOutcome.failureMessage
-                )
+                warning: diarizationOutcome.warning
             )
         } catch is CancellationError {
             do {
                 try removeTemporaryFileIfPresent(at: extractedTemporaryURL)
             } catch {
-                throw ProjectTranscriptionError.cancellationAndCleanupFailed(
-                    localizedMessage(from: error, fallback: "Temporary file cleanup failed.")
+                throw TranscriptionPipelineError.cancellationAndCleanupFailed(
+                    message: localizedMessage(from: error, fallback: "Temporary file cleanup failed.")
                 )
             }
             throw CancellationError()
         } catch {
             if transcriptionCompleted {
-                throw ProjectTranscriptionError.temporaryFileCleanupFailed(
-                    localizedMessage(from: error, fallback: "Temporary file cleanup failed.")
+                throw TranscriptionPipelineError.temporaryAudioCleanupFailed(
+                    message: localizedMessage(from: error, fallback: "Temporary file cleanup failed.")
                 )
             }
 
             let failure = transcriptionError(from: error)
-            project.status = .failed(failure.errorDescription ?? "Transcription failed.")
+            let operation = failure.errorDescription ?? "Transcription failed."
+            project.status = .failed(operation)
             project.updatedAt = Date()
 
             do {
                 try await publishAndSave(project, events: events)
             } catch {
                 let persistence = localizedMessage(from: error, fallback: "Project save failed.")
-                let operation = failure.errorDescription ?? "Transcription failed."
-                let persistenceFailure = ProjectTranscriptionError.persistenceFailed(
-                    operation: operation,
-                    persistence: persistence
-                )
                 do {
                     try removeTemporaryFileIfPresent(at: extractedTemporaryURL)
                 } catch {
-                    throw ProjectTranscriptionError.operationAndCleanupFailed(
-                        operation: persistenceFailure.errorDescription ?? operation,
+                    throw TranscriptionPipelineError.persistenceAndCleanupFailed(
+                        operation: operation,
+                        persistence: persistence,
                         cleanup: localizedMessage(from: error, fallback: "Temporary file cleanup failed.")
                     )
                 }
-                throw persistenceFailure
+                throw TranscriptionPipelineError.persistenceFailed(
+                    operation: operation,
+                    persistence: persistence
+                )
             }
 
             do {
                 try removeTemporaryFileIfPresent(at: extractedTemporaryURL)
             } catch {
-                throw ProjectTranscriptionError.operationAndCleanupFailed(
-                    operation: failure.errorDescription ?? "Transcription failed.",
+                throw TranscriptionPipelineError.operationAndCleanupFailed(
+                    operation: operation,
                     cleanup: localizedMessage(from: error, fallback: "Temporary file cleanup failed.")
                 )
             }
@@ -164,7 +192,7 @@ final class DefaultProjectTranscriptionWorkflow: ProjectTranscriptionWorkflow {
 
     private func publishAndSave(
         _ project: Project,
-        events: @escaping ProjectProcessingEventHandler
+        events: @escaping TranscriptionPipelineEventHandler
     ) async throws {
         await events(.projectChanged(project))
         try await projectRepository.saveProject(project)
@@ -173,14 +201,20 @@ final class DefaultProjectTranscriptionWorkflow: ProjectTranscriptionWorkflow {
     private func performDiarizationAndAlignment(
         for project: Project,
         audioURL: URL,
-        events: @escaping ProjectProcessingEventHandler
-    ) async throws -> (project: Project, failureMessage: String?) {
+        events: @escaping TranscriptionPipelineEventHandler
+    ) async throws -> (project: Project, warning: TranscriptionPipelineWarning?) {
         do {
-            await events(.progress(value: 0.95, status: "Analyzing speakers..."))
+            await events(.progress(TranscriptionPipelineProgress(
+                phase: .analyzingSpeakers,
+                fractionCompleted: 0.95
+            )))
             let speakerSegments = try await speakerDiarizationEngine.diarize(audioURL: audioURL)
             try Task.checkCancellation()
 
-            await events(.progress(value: 0.99, status: "Aligning subtitles..."))
+            await events(.progress(TranscriptionPipelineProgress(
+                phase: .aligningSubtitles,
+                fractionCompleted: 0.99
+            )))
             let words = project.wordTimings.isEmpty
                 ? syntheticWordTimings(from: project.subtitles)
                 : project.wordTimings
@@ -190,6 +224,7 @@ final class DefaultProjectTranscriptionWorkflow: ProjectTranscriptionWorkflow {
                 speakerSegments: speakerSegments,
                 options: SubtitleAlignmentOptions()
             )
+            try Task.checkCancellation()
 
             var alignedProject = project
             alignedProject.speakerSegments = speakerSegments
@@ -201,10 +236,11 @@ final class DefaultProjectTranscriptionWorkflow: ProjectTranscriptionWorkflow {
                 alignedSubtitles.map(subtitleSegment(from:))
             )
             return (alignedProject, nil)
-        } catch let error as CancellationError {
-            throw error
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
-            return (project, localizedMessage(from: error, fallback: "Speaker analysis failed."))
+            let detail = localizedMessage(from: error, fallback: "Speaker analysis failed.")
+            return (project, .speakerAnalysisUnavailable(detail: detail))
         }
     }
 
@@ -212,25 +248,26 @@ final class DefaultProjectTranscriptionWorkflow: ProjectTranscriptionWorkflow {
         do {
             return try ExportClipPlanResolver.clips(for: project)
         } catch ExportClipPlanError.emptyPlan {
-            throw ProjectTranscriptionError.emptyEditTimeline
+            throw TranscriptionPipelineError.emptyEditTimeline
         }
     }
 
-    private func transcriptionError(from error: Error) -> ProjectTranscriptionError {
-        if let error = error as? ProjectTranscriptionError {
+    private func renderingError(from error: Error) -> TranscriptionPipelineError {
+        if case FFmpegServiceError.notFound = error {
+            return .renderingServiceUnavailable
+        }
+        return .renderingFailed(message: localizedMessage(from: error, fallback: "Transcription failed."))
+    }
+
+    private func providerError(from error: Error) -> TranscriptionPipelineError {
+        .providerFailed(message: localizedMessage(from: error, fallback: "Transcription failed."))
+    }
+
+    private func transcriptionError(from error: Error) -> TranscriptionPipelineError {
+        if let error = error as? TranscriptionPipelineError {
             return error
         }
-        if case FFmpegServiceError.notFound = error {
-            return .ffmpegNotFound
-        }
-        return .failed(localizedMessage(from: error, fallback: "Transcription failed."))
-    }
-
-    private func transcriptionCompletionMessage(diarizationFailureMessage: String?) -> String? {
-        guard let diarizationFailureMessage else { return nil }
-        let warning = "Transcription complete. Speaker analysis failed; subtitle timings were not refined."
-        let detail = diarizationFailureMessage.trimmingCharacters(in: .whitespacesAndNewlines)
-        return detail.isEmpty ? warning : "\(warning) \(detail)"
+        return .operationFailed(message: localizedMessage(from: error, fallback: "Transcription failed."))
     }
 
     private func projectByConstrainingTranscription(_ project: Project, to durationMs: Int) -> Project {
@@ -327,22 +364,6 @@ final class DefaultProjectTranscriptionWorkflow: ProjectTranscriptionWorkflow {
         }
     }
 
-    private func speechToTextConfiguration(from settings: AppSettings) -> SpeechToTextProviderConfiguration {
-        SpeechToTextProviderConfiguration(
-            providerName: settings.speechToTextProviderName,
-            whisperExecutableURL: fileURL(from: settings.whisperExecutablePath),
-            whisperModelURL: fileURL(from: settings.whisperModelPath),
-            whisperModelName: settings.whisperModelName,
-            whisperVADEnabled: settings.whisperVADEnabled,
-            whisperVADModelURL: fileURL(from: settings.whisperVADModelPath)
-        )
-    }
-
-    private func fileURL(from path: String) -> URL? {
-        let path = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        return path.isEmpty ? nil : URL(fileURLWithPath: path)
-    }
-
     private func temporaryURL(projectID: UUID, prefix: String, extension: String) -> URL {
         temporaryDirectory
             .appendingPathComponent("Framelingo", isDirectory: true)
@@ -352,8 +373,8 @@ final class DefaultProjectTranscriptionWorkflow: ProjectTranscriptionWorkflow {
     }
 
     private func removeTemporaryFileIfPresent(at url: URL) throws {
-        guard fileManager.fileExists(atPath: url.path) else { return }
-        try fileManager.removeItem(at: url)
+        guard fileSystem.fileExists(url) else { return }
+        try fileSystem.removeItem(url)
     }
 
     private func localizedMessage(from error: Error, fallback: String) -> String {

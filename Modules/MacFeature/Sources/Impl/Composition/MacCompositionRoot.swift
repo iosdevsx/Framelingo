@@ -11,6 +11,8 @@ import ProjectImpl
 import ProjectFeature
 import ProjectPreparation
 import ProjectPreparationImpl
+import TranscriptionPipeline
+import TranscriptionPipelineImpl
 import SettingsImpl
 import ShortsFeatureImpl
 import SpeakerAnalysisImpl
@@ -89,14 +91,18 @@ enum MacCompositionRoot {
             },
             fileSystem: .live(fileManager: fileManager)
         )
-        let projectTranscriptionWorkflow = ApplicationWorkflowAssembly.makeProjectTranscriptionWorkflow(
-                projectRepository: projectRepository,
-                speechToTextProviderResolver: speechToTextProviderResolver,
-                speakerDiarizationEngine: speakerDiarizationEngine,
-                subtitleAlignmentEngine: subtitleAlignmentEngine,
-                makeFFmpegService: makeFFmpegService,
-                fileManager: fileManager
-            )
+        let projectTranscriber = TranscriptionPipelineAssembly.makeTranscriber(
+            projectRepository: projectRepository,
+            speechToTextProviderResolver: speechToTextProviderResolver,
+            speakerDiarizationEngine: speakerDiarizationEngine,
+            subtitleAlignmentEngine: subtitleAlignmentEngine,
+            makeFFmpegService: { configuration in
+                VideoRenderingAssembly.makeDefaultService(
+                    preferredExecutableURL: URL(fileURLWithPath: configuration.ffmpegExecutablePath)
+                )
+            },
+            fileSystem: .live(fileManager: fileManager)
+        )
         let projectTranslationWorkflow = ApplicationWorkflowAssembly.makeProjectTranslationWorkflow(
                 projectRepository: projectRepository,
                 translationService: translationService
@@ -130,7 +136,7 @@ enum MacCompositionRoot {
                     ffmpegExecutablePath: settingsAccess.snapshot.settings.ffmpegPath
                 )
             },
-            projectTranscriptionWorkflow: projectTranscriptionWorkflow,
+            projectTranscriber: projectTranscriber,
             projectTranslationWorkflow: projectTranslationWorkflow,
             mediaMetadataProvider: mediaMetadataProvider,
             subtitleScriptGenerator: subtitleScriptGenerator,

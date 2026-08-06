@@ -113,7 +113,7 @@ struct MainNavigationView: View {
                         editTimelineService: dependencies.editTimelineService,
                         projectPreparer: dependencies.projectPreparer,
                         projectPreparationConfiguration: dependencies.projectPreparationConfiguration,
-                        projectTranscriptionWorkflow: dependencies.projectTranscriptionWorkflow,
+                        projectTranscriber: dependencies.projectTranscriber,
                         projectTranslationWorkflow: dependencies.projectTranslationWorkflow,
                         selection: shell.selectionAccess,
                         subtitleDocumentPicker: subtitleDocumentPicker

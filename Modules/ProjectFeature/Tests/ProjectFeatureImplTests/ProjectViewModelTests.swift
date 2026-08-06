@@ -5,12 +5,14 @@ import Foundation
 import Media
 import Project
 import ProjectPreparation
+import Settings
 import Shorts
 import SpeakerAnalysis
 import SpeechToText
 import Subtitles
 import SubtitleEditorFeature
 import Timeline
+import TranscriptionPipeline
 import VideoRendering
 import XCTest
 
@@ -277,156 +279,90 @@ final class ProjectViewModelTests: XCTestCase {
         )
     }
 
-    func testRetranscriptionUsesEditedTimelineAudioForSpeechAndDiarization() async throws {
-        var project = TestDoubles.project()
-        project.editTimeline = EditTimeline(
-            clips: [
-                TimelineClip(
-                    id: UUID(),
-                    sourceStartMs: 1_000,
-                    sourceEndMs: 3_000,
-                    timelineStartMs: 0,
-                    timelineEndMs: 2_000
-                ),
-                TimelineClip(
-                    id: UUID(),
-                    sourceStartMs: 7_000,
-                    sourceEndMs: 9_000,
-                    timelineStartMs: 2_000,
-                    timelineEndMs: 4_000
-                ),
-            ],
-            totalDurationMs: 4_000
-        )
-
-        let ffmpegService = RecordingFFmpegService()
-        let speechProvider = RecordingSpeechProvider()
-        let diarizationEngine = RecordingDiarizationEngine()
-        let audioPreparationService = RecordingAudioPreparationService()
-        let makeFFmpegService: FFmpegServiceBuilder = { _ in ffmpegService }
-        let appState = TestDoubles.appState(
-            project: project,
-            speakerDiarizationEngine: diarizationEngine,
-            audioPreparationService: audioPreparationService,
-            makeFFmpegService: makeFFmpegService
-        )
-        let viewModel = TestDoubles.projectViewModel(
-            appState: appState,
-            speechToTextProviderResolver: FixedSpeechProviderResolver(provider: speechProvider),
-            makeFFmpegService: makeFFmpegService
-        )
-
-        await viewModel.transcribe()
-
-        XCTAssertEqual(
-            ffmpegService.receivedClips,
-            [
-                ExportClipRange(sourceStartMs: 1_000, sourceEndMs: 3_000),
-                ExportClipRange(sourceStartMs: 7_000, sourceEndMs: 9_000),
-            ]
-        )
-        let extractedAudioURL = try XCTUnwrap(ffmpegService.outputURL)
-        XCTAssertEqual(speechProvider.receivedInput?.audioURL, extractedAudioURL)
-        XCTAssertEqual(diarizationEngine.receivedAudioURL, extractedAudioURL)
-        XCTAssertFalse(audioPreparationService.wasCalled)
-        XCTAssertEqual(viewModel.project?.mediaFile.durationMs, 10_000)
-        XCTAssertEqual(viewModel.project?.subtitles, speechProvider.result.segments)
-    }
-
-    func testTranscriptionWithoutEditTimelineStillUsesFullAudio() async throws {
+    func testTranscriptionMapsFocusedSettingsAndTypedProgress() async throws {
         let project = TestDoubles.project()
-        let ffmpegService = RecordingFFmpegService()
-        let speechProvider = RecordingSpeechProvider()
-        let diarizationEngine = RecordingDiarizationEngine()
-        let makeFFmpegService: FFmpegServiceBuilder = { _ in ffmpegService }
-        let appState = TestDoubles.appState(
-            project: project,
-            speakerDiarizationEngine: diarizationEngine,
-            makeFFmpegService: makeFFmpegService
+        var completedProject = project
+        completedProject.status = .ready
+        let transcriber = TestDoubles.Transcriber(events: [
+            .progress(TranscriptionPipelineProgress(
+                phase: .analyzingSpeakers,
+                fractionCompleted: 0.95
+            )),
+        ])
+        transcriber.output = TranscriptionPipelineOutput(
+            project: completedProject,
+            warning: .speakerAnalysisUnavailable(detail: "Speaker engine unavailable.")
         )
+        let appState = TestDoubles.appState(project: project)
         let viewModel = TestDoubles.projectViewModel(
             appState: appState,
-            speechToTextProviderResolver: FixedSpeechProviderResolver(provider: speechProvider),
-            makeFFmpegService: makeFFmpegService
+            projectTranscriber: transcriber
         )
 
         await viewModel.transcribe()
 
-        XCTAssertNil(ffmpegService.receivedClips)
-        let extractedAudioURL = try XCTUnwrap(ffmpegService.outputURL)
-        XCTAssertEqual(speechProvider.receivedInput?.audioURL, extractedAudioURL)
-        XCTAssertEqual(diarizationEngine.receivedAudioURL, extractedAudioURL)
-        XCTAssertEqual(viewModel.project?.mediaFile.durationMs, speechProvider.result.durationMs)
+        let request = try XCTUnwrap(transcriber.requests.first)
+        XCTAssertEqual(request.project.id, project.id)
+        XCTAssertEqual(request.configuration.ffmpegExecutablePath, AppSettings.default.ffmpegPath)
+        XCTAssertEqual(request.configuration.speechToText.providerName, AppSettings.default.speechToTextProviderName)
+        XCTAssertEqual(request.configuration.speechToText.whisperModelName, AppSettings.default.whisperModelName)
+        XCTAssertEqual(request.configuration.speechToText.whisperVADEnabled, AppSettings.default.whisperVADEnabled)
+        XCTAssertEqual(appState.transcriptionActivity?.status, .succeeded)
+        XCTAssertEqual(
+            appState.transcriptionActivity?.statusText,
+            "Transcription complete. Speaker analysis failed; subtitle timings were not refined. Speaker engine unavailable."
+        )
     }
 
-    func testEditedTimelineConstrainsGeneratedTimingToItsDuration() async throws {
-        var project = TestDoubles.project()
-        project.editTimeline = EditTimeline(
-            clips: [
-                TimelineClip(
-                    id: UUID(),
-                    sourceStartMs: 0,
-                    sourceEndMs: 4_000,
-                    timelineStartMs: 0,
-                    timelineEndMs: 4_000
-                ),
-            ],
-            totalDurationMs: 4_000
-        )
+    func testTranscriptionPresentationMapsPathsAndWarning() {
+        var settings = AppSettings.default
+        settings.whisperExecutablePath = " /tmp/whisper "
+        settings.whisperModelPath = "/tmp/model.bin"
+        settings.whisperVADModelPath = "/tmp/vad.bin"
+        settings.whisperVADEnabled = false
+        let configuration = TranscriptionPipelinePresentation.configuration(from: settings)
 
-        let speechProvider = OverflowingSpeechProvider()
-        let diarizationEngine = RecordingDiarizationEngine(
-            result: [
-                SpeakerSegment(speakerId: 1, start: 3.8, end: 4.3),
-                SpeakerSegment(speakerId: 2, start: 4.1, end: 4.4),
-            ]
+        XCTAssertEqual(configuration.speechToText.whisperExecutableURL?.path, "/tmp/whisper")
+        XCTAssertEqual(configuration.speechToText.whisperModelURL?.path, "/tmp/model.bin")
+        XCTAssertEqual(configuration.speechToText.whisperVADModelURL?.path, "/tmp/vad.bin")
+        XCTAssertFalse(configuration.speechToText.whisperVADEnabled)
+        settings.whisperExecutablePath = " "
+        settings.whisperModelPath = ""
+        settings.whisperVADModelPath = "  "
+        let emptyPaths = TranscriptionPipelinePresentation.configuration(from: settings)
+        XCTAssertNil(emptyPaths.speechToText.whisperExecutableURL)
+        XCTAssertNil(emptyPaths.speechToText.whisperModelURL)
+        XCTAssertNil(emptyPaths.speechToText.whisperVADModelURL)
+        XCTAssertEqual(
+            TranscriptionPipelinePresentation.completionMessage(
+                for: .speakerAnalysisUnavailable(detail: "Speaker engine unavailable.")
+            ),
+            "Transcription complete. Speaker analysis failed; subtitle timings were not refined. Speaker engine unavailable."
         )
-        let ffmpegService = RecordingFFmpegService()
-        let makeFFmpegService: FFmpegServiceBuilder = { _ in ffmpegService }
-        let appState = TestDoubles.appState(
-            project: project,
-            speakerDiarizationEngine: diarizationEngine,
-            makeFFmpegService: makeFFmpegService
-        )
-        let viewModel = TestDoubles.projectViewModel(
-            appState: appState,
-            speechToTextProviderResolver: FixedSpeechProviderResolver(provider: speechProvider),
-            makeFFmpegService: makeFFmpegService
-        )
-
-        await viewModel.transcribe()
-
-        XCTAssertEqual(viewModel.project?.subtitles.count, 1)
-        XCTAssertEqual(viewModel.project?.subtitles.first?.startMs, 3_500)
-        XCTAssertEqual(viewModel.project?.subtitles.first?.endMs, 4_000)
-        XCTAssertEqual(viewModel.project?.wordTimings.count, 1)
-        XCTAssertEqual(viewModel.project?.wordTimings.first?.start, 3.9)
-        XCTAssertEqual(viewModel.project?.wordTimings.first?.end, 4.0)
-        XCTAssertEqual(viewModel.project?.speakerSegments.count, 1)
-        XCTAssertEqual(viewModel.project?.speakerSegments.first?.start, 3.8)
-        XCTAssertEqual(viewModel.project?.speakerSegments.first?.end, 4.0)
     }
 
-    func testRetranscriptionRejectsTimelineWithoutRemainingClips() async {
-        var project = TestDoubles.project()
-        project.editTimeline = EditTimeline(clips: [], totalDurationMs: 0)
-        let ffmpegService = RecordingFFmpegService()
-        let makeFFmpegService: FFmpegServiceBuilder = { _ in ffmpegService }
-        let appState = TestDoubles.appState(
-            project: project,
-            makeFFmpegService: makeFFmpegService
+    func testTranscriptionFailureAndCancellationMapToActivity() async {
+        let project = TestDoubles.project()
+        let failure = TestDoubles.Transcriber(
+            error: TranscriptionPipelineError.emptyEditTimeline
         )
+        let appState = TestDoubles.appState(project: project)
         let viewModel = TestDoubles.projectViewModel(
             appState: appState,
-            makeFFmpegService: makeFFmpegService
+            projectTranscriber: failure
         )
 
         await viewModel.transcribe()
+        XCTAssertEqual(viewModel.exportMessage, TranscriptionPipelineError.emptyEditTimeline.errorDescription)
+        XCTAssertEqual(appState.transcriptionActivity?.status, .failed)
 
-        let message = "The edit timeline has no video to transcribe. Review your cuts in Edit mode."
-        XCTAssertEqual(viewModel.project?.status, .failed(message))
-        XCTAssertEqual(viewModel.exportMessage, message)
-        XCTAssertNil(ffmpegService.outputURL)
+        let cancellation = TestDoubles.Transcriber(error: CancellationError())
+        let cancelledViewModel = TestDoubles.projectViewModel(
+            appState: appState,
+            projectTranscriber: cancellation
+        )
+        await cancelledViewModel.transcribe()
+        XCTAssertNil(appState.transcriptionActivity)
     }
 
     func testPreparationResultDoesNotOverwriteNewlySelectedProject() async throws {
@@ -446,6 +382,27 @@ final class ProjectViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.project?.id, replacement.id)
         XCTAssertEqual(viewModel.project?.name, "Replacement")
+    }
+
+    func testTranscriptionEventsAndResultDoNotOverwriteNewlySelectedProject() async {
+        let original = TestDoubles.project()
+        var replacement = TestDoubles.project()
+        replacement.name = "Replacement"
+        let appState = TestDoubles.appState(project: original)
+        let viewModel = TestDoubles.projectViewModel(
+            appState: appState,
+            projectTranscriber: DelayedTranscriber()
+        )
+
+        let transcriptionTask = Task { await viewModel.transcribe() }
+        await Task.yield()
+        TestDoubles.select(replacement, for: appState)
+        viewModel.loadSelectedProject()
+        await transcriptionTask.value
+
+        XCTAssertEqual(viewModel.project?.id, replacement.id)
+        XCTAssertEqual(viewModel.project?.name, "Replacement")
+        XCTAssertNil(appState.transcriptionActivity)
     }
 
     func testTranslationResultDoesNotOverwriteNewlySelectedProject() async throws {
@@ -489,128 +446,6 @@ private final class RecordingSubtitleExporter: SubtitleExportService {
     }
 }
 
-private final class RecordingFFmpegService: FFmpegService {
-    var receivedClips: [ExportClipRange]?
-    var outputURL: URL?
-
-    func checkAvailability() async throws -> FFmpegInfo {
-        FFmpegInfo(executableURL: URL(fileURLWithPath: "/usr/bin/true"), version: "test")
-    }
-
-    func extractAudio(
-        from videoURL: URL,
-        to outputURL: URL,
-        clips: [ExportClipRange]?
-    ) async throws -> URL {
-        receivedClips = clips
-        self.outputURL = outputURL
-        return outputURL
-    }
-
-    func burnSubtitles(
-        videoURL: URL,
-        subtitlesURL: URL,
-        outputURL: URL,
-        settings: VideoExportSettings,
-        sourceInfo: VideoSourceInfo?,
-        clips: [ExportClipRange]?,
-        verticalReframe: VerticalReframePlan?,
-        progressHandler: FFmpegProgressHandler?
-    ) async throws -> URL {
-        outputURL
-    }
-}
-
-private final class RecordingSpeechProvider: SpeechToTextProvider {
-    var receivedInput: TranscriptionInput?
-    let result = TranscriptionResult(
-        segments: [
-            SubtitleSegment(
-                id: UUID(),
-                index: 1,
-                startMs: 0,
-                endMs: 1_000,
-                originalText: "Edited timeline",
-                translatedText: ""
-            ),
-        ],
-        words: [],
-        detectedLanguage: nil,
-        durationMs: 4_000
-    )
-
-    func transcribe(_ input: TranscriptionInput) async throws -> TranscriptionResult {
-        receivedInput = input
-        return result
-    }
-}
-
-private final class OverflowingSpeechProvider: SpeechToTextProvider {
-    func transcribe(_ input: TranscriptionInput) async throws -> TranscriptionResult {
-        TranscriptionResult(
-            segments: [
-                SubtitleSegment(
-                    id: UUID(),
-                    index: 1,
-                    startMs: 3_500,
-                    endMs: 4_300,
-                    originalText: "Inside",
-                    translatedText: ""
-                ),
-                SubtitleSegment(
-                    id: UUID(),
-                    index: 2,
-                    startMs: 4_100,
-                    endMs: 4_500,
-                    originalText: "Outside",
-                    translatedText: ""
-                ),
-            ],
-            words: [
-                WordTiming(text: "Inside", start: 3.9, end: 4.2),
-                WordTiming(text: "Outside", start: 4.1, end: 4.3),
-            ],
-            detectedLanguage: nil,
-            durationMs: 4_300
-        )
-    }
-}
-
-private struct FixedSpeechProviderResolver: SpeechToTextProviderResolving {
-    let provider: any SpeechToTextProvider
-
-    func resolve(
-        configuration: SpeechToTextProviderConfiguration
-    ) throws -> any SpeechToTextProvider {
-        provider
-    }
-}
-
-private final class RecordingDiarizationEngine: SpeakerDiarizationEngine {
-    var receivedAudioURL: URL?
-    let result: [SpeakerSegment]
-
-    init(result: [SpeakerSegment] = []) {
-        self.result = result
-    }
-
-    func diarize(audioURL: URL) async throws -> [SpeakerSegment] {
-        receivedAudioURL = audioURL
-        return result
-    }
-}
-
-private final class RecordingAudioPreparationService: AudioPreparationService {
-    var wasCalled = false
-
-    func preparedAudioURL(for sourceVideoURL: URL) async throws -> URL {
-        wasCalled = true
-        return sourceVideoURL
-    }
-
-    func removePreparedAudio(for sourceVideoURL: URL) throws {}
-}
-
 private struct DelayedPreparer: ProjectPreparing {
     func prepare(
         _ request: ProjectPreparationRequest,
@@ -624,6 +459,19 @@ private struct DelayedPreparer: ProjectPreparing {
             videoSourceInfo: nil,
             outcome: .ready
         )
+    }
+}
+
+private struct DelayedTranscriber: TranscribingProject {
+    func transcribe(
+        _ request: TranscriptionPipelineRequest,
+        events: @escaping TranscriptionPipelineEventHandler
+    ) async throws -> TranscriptionPipelineOutput {
+        try await Task.sleep(for: .milliseconds(40))
+        var completed = request.project
+        completed.name = "Stale transcription"
+        await events(.projectChanged(completed))
+        return TranscriptionPipelineOutput(project: completed, warning: nil)
     }
 }
 

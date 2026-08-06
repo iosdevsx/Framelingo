@@ -3,6 +3,7 @@ import Foundation
 import Project
 import ProjectFeature
 import ProjectPreparation
+import TranscriptionPipeline
 import Settings
 import Subtitles
 import Timeline
@@ -19,7 +20,7 @@ public struct ProjectFeatureDependencies {
     let editTimelineService: any EditTimelineEditing
     let projectPreparer: any ProjectPreparing
     let projectPreparationConfiguration: ProjectPreparationConfigurationProvider
-    let projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow
+    let projectTranscriber: any TranscribingProject
     let projectTranslationWorkflow: any ProjectTranslationWorkflow
     let selection: ProjectSelectionAccess
     let subtitleDocumentPicker: SubtitleDocumentPicker
@@ -33,7 +34,7 @@ public struct ProjectFeatureDependencies {
         editTimelineService: any EditTimelineEditing,
         projectPreparer: any ProjectPreparing,
         projectPreparationConfiguration: @escaping ProjectPreparationConfigurationProvider,
-        projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow,
+        projectTranscriber: any TranscribingProject,
         projectTranslationWorkflow: any ProjectTranslationWorkflow,
         selection: ProjectSelectionAccess,
         subtitleDocumentPicker: SubtitleDocumentPicker
@@ -46,7 +47,7 @@ public struct ProjectFeatureDependencies {
         self.editTimelineService = editTimelineService
         self.projectPreparer = projectPreparer
         self.projectPreparationConfiguration = projectPreparationConfiguration
-        self.projectTranscriptionWorkflow = projectTranscriptionWorkflow
+        self.projectTranscriber = projectTranscriber
         self.projectTranslationWorkflow = projectTranslationWorkflow
         self.selection = selection
         self.subtitleDocumentPicker = subtitleDocumentPicker

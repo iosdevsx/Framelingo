@@ -8,6 +8,7 @@ import PlayerFeature
 import Project
 import ProjectFeature
 import ProjectPreparation
+import TranscriptionPipeline
 import Settings
 import SpeakerAnalysis
 import SpeechToText
@@ -81,6 +82,39 @@ enum TestDoubles {
 
         func deleteProject(id: UUID) async throws {
             projects[id] = nil
+        }
+    }
+
+    final class Transcriber: TranscribingProject {
+        var requests: [TranscriptionPipelineRequest] = []
+        var events: [TranscriptionPipelineEvent] = []
+        var output: TranscriptionPipelineOutput?
+        var error: Error?
+
+        init(
+            output: TranscriptionPipelineOutput? = nil,
+            error: Error? = nil,
+            events: [TranscriptionPipelineEvent] = []
+        ) {
+            self.output = output
+            self.error = error
+            self.events = events
+        }
+
+        func transcribe(
+            _ request: TranscriptionPipelineRequest,
+            events handler: @escaping TranscriptionPipelineEventHandler
+        ) async throws -> TranscriptionPipelineOutput {
+            requests.append(request)
+            for event in events {
+                await handler(event)
+            }
+            if let error { throw error }
+            if let output { return output }
+            var project = request.project
+            project.status = .ready
+            await handler(.projectChanged(project))
+            return TranscriptionPipelineOutput(project: project, warning: nil)
         }
     }
 
@@ -352,11 +386,9 @@ enum TestDoubles {
     static func projectFeatureDependencies(
         appState: AppState,
         editTimelineService: any EditTimelineEditing = EditTimelineService(),
-        speechToTextProviderResolver: any SpeechToTextProviderResolving = SpeechProviderResolver(),
-        makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() },
         projectPreparer: (any ProjectPreparing)? = nil,
         projectPreparationConfiguration: ProjectPreparationConfigurationProvider? = nil,
-        projectTranscriptionWorkflow: (any ProjectTranscriptionWorkflow)? = nil,
+        projectTranscriber: (any TranscribingProject)? = nil,
         projectTranslationWorkflow: (any ProjectTranslationWorkflow)? = nil,
         subtitleDocumentPicker: SubtitleDocumentPicker? = nil
     ) -> ProjectFeatureDependencies {
@@ -382,14 +414,7 @@ enum TestDoubles {
             }
         )
         let preparer = projectPreparer ?? Preparer()
-        let transcriptionWorkflow = projectTranscriptionWorkflow
-            ?? ApplicationWorkflowAssembly.makeProjectTranscriptionWorkflow(
-                projectRepository: repository,
-                speechToTextProviderResolver: speechToTextProviderResolver,
-                speakerDiarizationEngine: appState.speakerDiarizationEngine,
-                subtitleAlignmentEngine: appState.subtitleAlignmentEngine,
-                makeFFmpegService: makeFFmpegService
-            )
+        let transcriber = projectTranscriber ?? Transcriber()
         let translationWorkflow = projectTranslationWorkflow
             ?? ApplicationWorkflowAssembly.makeProjectTranslationWorkflow(
                 projectRepository: repository,
@@ -409,7 +434,7 @@ enum TestDoubles {
                     ffmpegExecutablePath: settingsAccess.snapshot.settings.ffmpegPath
                 )
             },
-            projectTranscriptionWorkflow: transcriptionWorkflow,
+            projectTranscriber: transcriber,
             projectTranslationWorkflow: translationWorkflow,
             selection: selection.access,
             subtitleDocumentPicker: subtitleDocumentPicker ?? SubtitleDocumentPicker { _ in .cancelled }
@@ -435,11 +460,9 @@ enum TestDoubles {
     static func projectViewModel(
         appState: AppState,
         editTimelineService: any EditTimelineEditing = EditTimelineService(),
-        speechToTextProviderResolver: any SpeechToTextProviderResolving = SpeechProviderResolver(),
-        makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() },
         projectPreparer: (any ProjectPreparing)? = nil,
         projectPreparationConfiguration: ProjectPreparationConfigurationProvider? = nil,
-        projectTranscriptionWorkflow: (any ProjectTranscriptionWorkflow)? = nil,
+        projectTranscriber: (any TranscribingProject)? = nil,
         projectTranslationWorkflow: (any ProjectTranslationWorkflow)? = nil,
         subtitleDocumentPicker: SubtitleDocumentPicker? = nil
     ) -> ProjectViewModel {
@@ -448,11 +471,9 @@ enum TestDoubles {
             dependencies: projectFeatureDependencies(
                 appState: appState,
                 editTimelineService: editTimelineService,
-                speechToTextProviderResolver: speechToTextProviderResolver,
-                makeFFmpegService: makeFFmpegService,
                 projectPreparer: projectPreparer,
                 projectPreparationConfiguration: projectPreparationConfiguration,
-                projectTranscriptionWorkflow: projectTranscriptionWorkflow,
+                projectTranscriber: projectTranscriber,
                 projectTranslationWorkflow: projectTranslationWorkflow,
                 subtitleDocumentPicker: subtitleDocumentPicker
             )

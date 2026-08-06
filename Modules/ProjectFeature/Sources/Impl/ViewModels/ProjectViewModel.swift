@@ -5,6 +5,7 @@ import Foundation
 import Project
 import ProjectFeature
 import ProjectPreparation
+import TranscriptionPipeline
 import Settings
 import Shorts
 import Subtitles
@@ -69,7 +70,7 @@ final class ProjectViewModel: ObservableObject {
     private let shortsEditingPolicy = ShortsEditingPolicy()
     private let projectPreparer: any ProjectPreparing
     private let projectPreparationConfiguration: ProjectPreparationConfigurationProvider
-    private let projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow
+    private let projectTranscriber: any TranscribingProject
     private let projectTranslationWorkflow: any ProjectTranslationWorkflow
     private let selection: ProjectSelectionAccess
     private let subtitleDocumentPicker: SubtitleDocumentPicker
@@ -77,6 +78,7 @@ final class ProjectViewModel: ObservableObject {
     private var autosaveTask: Task<Void, Never>?
     private var waveformTask: Task<Void, Never>?
     private var preparationOperationID: UUID?
+    private var transcriptionOperationID: UUID?
     private var preparedWaveformProjectID: UUID?
     private var undoStack: [ProjectUndoSnapshot] = []
     private var redoStack: [ProjectUndoSnapshot] = []
@@ -100,7 +102,7 @@ final class ProjectViewModel: ObservableObject {
         editTimelineService = dependencies.editTimelineService
         projectPreparer = dependencies.projectPreparer
         projectPreparationConfiguration = dependencies.projectPreparationConfiguration
-        projectTranscriptionWorkflow = dependencies.projectTranscriptionWorkflow
+        projectTranscriber = dependencies.projectTranscriber
         projectTranslationWorkflow = dependencies.projectTranslationWorkflow
         selection = dependencies.selection
         subtitleDocumentPicker = dependencies.subtitleDocumentPicker
@@ -774,10 +776,15 @@ final class ProjectViewModel: ObservableObject {
             return
         }
 
+        let operationID = UUID()
+        transcriptionOperationID = operationID
         isTranscribing = true
         appState.startTranscriptionActivity(projectName: currentProject.displayName)
         defer {
-            isTranscribing = false
+            if transcriptionOperationID == operationID {
+                transcriptionOperationID = nil
+                isTranscribing = false
+            }
         }
 
         autosaveTask?.cancel()
@@ -785,21 +792,38 @@ final class ProjectViewModel: ObservableObject {
 
         do {
             let projectID = currentProject.id
-            let output = try await projectTranscriptionWorkflow.transcribe(
-                ProjectTranscriptionRequest(project: currentProject, settings: settings),
+            let output = try await projectTranscriber.transcribe(
+                TranscriptionPipelineRequest(
+                    project: currentProject,
+                    configuration: TranscriptionPipelinePresentation.configuration(from: settings)
+                ),
                 events: { [weak self] event in
-                    self?.handleTranscriptionEvent(event, projectID: projectID)
+                    self?.handleTranscriptionEvent(
+                        event,
+                        projectID: projectID,
+                        operationID: operationID
+                    )
                 }
             )
-            guard project?.id == projectID else { return }
+            guard transcriptionOperationID == operationID else { return }
+            guard project?.id == projectID else {
+                appState.dismissTranscriptionActivity()
+                return
+            }
             applyProject(output.project)
             appState.finishTranscriptionActivity(
                 success: true,
-                message: output.completionMessage
+                message: TranscriptionPipelinePresentation.completionMessage(for: output.warning)
             )
         } catch is CancellationError {
+            guard transcriptionOperationID == operationID else { return }
             appState.dismissTranscriptionActivity()
         } catch {
+            guard transcriptionOperationID == operationID else { return }
+            guard project?.id == currentProject.id else {
+                appState.dismissTranscriptionActivity()
+                return
+            }
             let localizedError = error as? LocalizedError
             let message = localizedError?.errorDescription ?? "Transcription failed."
             appState.finishTranscriptionActivity(success: false, message: message)
@@ -861,13 +885,21 @@ final class ProjectViewModel: ObservableObject {
         }
     }
 
-    private func handleTranscriptionEvent(_ event: ProjectProcessingEvent, projectID: UUID) {
-        guard project?.id == projectID else { return }
+    private func handleTranscriptionEvent(
+        _ event: TranscriptionPipelineEvent,
+        projectID: UUID,
+        operationID: UUID
+    ) {
+        guard project?.id == projectID,
+              transcriptionOperationID == operationID else { return }
         switch event {
         case .projectChanged(let project):
             applyProject(project)
-        case .progress(let progress, let status):
-            appState.updateTranscriptionActivity(statusText: status, progress: progress)
+        case .progress(let progress):
+            appState.updateTranscriptionActivity(
+                statusText: TranscriptionPipelinePresentation.status(for: progress),
+                progress: progress.fractionCompleted
+            )
         }
     }
 
