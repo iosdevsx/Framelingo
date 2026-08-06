@@ -5,6 +5,7 @@ import ExportFeature
 import PlayerFeature
 import Project
 import ProjectFeature
+import ProjectSession
 import ShortsFeature
 import SubtitleEditorFeature
 import Subtitles
@@ -303,7 +304,8 @@ struct ProjectView: View {
         geometry: GeometryProxy,
         timelineHeight: Double
     ) -> some View {
-        VStack(spacing: 0) {
+        let shortsEditing = viewModel.shortsEditingPort
+        return VStack(spacing: 0) {
             components.shorts.makeWorkspace(
                 ShortsWorkspaceRequest(
                     state: shortsWorkspaceState(project),
@@ -326,9 +328,13 @@ struct ProjectView: View {
                     shorts: project.shorts,
                     selectedShortID: viewModel.shortsSelectedShortID,
                     snapToCues: project.shortsExportSettings.snapToCues,
-                    onSelect: { viewModel.shortsSelectedShortID = $0 },
-                    onCommitRange: { viewModel.updateShortRange(id: $0, startMs: $1, endMs: $2) },
-                    onCreate: { _ = viewModel.addShort(startMs: $0, endMs: $1) }
+                    onSelect: { shortsEditing.selectShort(id: $0) },
+                    onCommitRange: {
+                        present(shortsEditing.updateShortRange(id: $0, startMs: $1, endMs: $2))
+                    },
+                    onCreate: {
+                        present(shortsEditing.addShort(startMs: $0, endMs: $1, title: nil))
+                    }
                     )
                 )
             )
@@ -342,7 +348,8 @@ struct ProjectView: View {
         geometry: GeometryProxy,
         timelineHeight: Double
     ) -> some View {
-        VStack(spacing: 0) {
+        let timelineEditing = viewModel.timelineEditingPort
+        return VStack(spacing: 0) {
             videoPreview(project, showsControls: false)
                 .frame(maxWidth: .infinity, minHeight: 260)
                 .frame(height: max(260, geometry.size.height - timelineHeight - 43))
@@ -364,13 +371,13 @@ struct ProjectView: View {
                         bindings: EditTimelineBindings(
                             selectedClipID: Binding(
                                 get: { viewModel.editModeSelectedClipID },
-                                set: { viewModel.editModeSelectedClipID = $0 }
+                                set: { timelineEditing.setTimelineClipSelection($0) }
                             ),
                             zoomFactor: $editTimelineZoom
                         ),
                         actions: EditTimelineActions(
                             seek: { seekEdit(to: $0) },
-                            selectClip: { viewModel.editModeSelectedClipID = $0 }
+                            selectClip: { timelineEditing.setTimelineClipSelection($0) }
                         ),
                         keyboardActions: TimelineKeyboardActions(onStep: stepTimeline)
                     )
@@ -388,6 +395,8 @@ struct ProjectView: View {
     }
 
     private func unifiedTimelineToolbar(_ project: Project) -> some View {
+        let timelineEditing = viewModel.timelineEditingPort
+        let shortsEditing = viewModel.shortsEditingPort
         let timelineDurationMs = viewModel.timelineDurationMs(for: project)
         let durationMs: Int? = timelineDurationMs > 0 ? timelineDurationMs : nil
         return ProjectPlaybackToolbarView(
@@ -395,7 +404,11 @@ struct ProjectView: View {
             currentTimeMs: viewModel.currentTimeMs,
             durationMs: durationMs,
             isPlaying: isPlaying,
-            viewModel: viewModel,
+            editRangeStartMs: viewModel.editRangeStartMs,
+            editRangeEndMs: viewModel.editRangeEndMs,
+            hasSelectedEditClip: viewModel.editModeSelectedClipID != nil,
+            pendingShortStartMs: viewModel.pendingShortStartMs,
+            selectedShortDurationMs: viewModel.selectedShort?.durationMs,
             onSeekToStart: {
                 seekEdit(to: 0)
             },
@@ -407,17 +420,27 @@ struct ProjectView: View {
             },
             onRippleDelete: {
                 pauseEditPlayback()
-                viewModel.rippleDeleteSelectedRange()
+                present(timelineEditing.rippleDeleteSelectedRange())
                 seekEdit(to: viewModel.currentTimeMs)
             },
             onCut: {
-                viewModel.splitAtCurrentTime()
+                present(timelineEditing.splitAtPlayhead())
             },
             onDeleteClip: {
                 pauseEditPlayback()
-                viewModel.deleteSelectedClip()
+                present(timelineEditing.deleteSelectedClip())
                 seekEdit(to: viewModel.currentTimeMs)
             },
+            onSetEditRangeStart: timelineEditing.setEditRangeStartFromPlayhead,
+            onSetEditRangeEnd: timelineEditing.setEditRangeEndFromPlayhead,
+            onClearEditRange: timelineEditing.clearEditRange,
+            onSetShortStart: {
+                present(shortsEditing.setShortStartFromPlayhead())
+            },
+            onSetShortEnd: {
+                present(shortsEditing.setShortEndFromPlayhead())
+            },
+            onClearPendingShortRange: shortsEditing.clearPendingShortRange,
             onZoomOut: {
                 if projectMode == .edit {
                     editTimelineZoom = max(0.35, editTimelineZoom / 1.35)
@@ -440,7 +463,8 @@ struct ProjectView: View {
     }
 
     private func videoPreview(_ project: Project, showsControls: Bool = true) -> some View {
-        components.player.makeProjectVideoPreview(
+        let subtitleEditing = viewModel.subtitleEditingPort
+        return components.player.makeProjectVideoPreview(
             ProjectVideoPreviewRequest(
                 state: ProjectVideoPreviewState(
                     project: project,
@@ -452,7 +476,9 @@ struct ProjectView: View {
                 ),
                 actions: ProjectVideoPreviewActions(
                     togglePlayback: togglePlayback,
-                    updateSettings: viewModel.updateVideoExportSettings
+                    updateSettings: {
+                        present(subtitleEditing.updateVideoExportSettings($0, undoable: $1))
+                    }
                 )
             )
         )
@@ -795,16 +821,18 @@ struct ProjectView: View {
     }
 
     private func subtitlesBinding(_ project: Project) -> Binding<[SubtitleSegment]> {
-        Binding(
+        let subtitleEditing = viewModel.subtitleEditingPort
+        return Binding(
             get: { viewModel.project?.subtitles ?? project.subtitles },
-            set: { viewModel.updateSubtitlesFromTimeline($0) }
+            set: { present(subtitleEditing.replaceSubtitlesFromTimeline($0)) }
         )
     }
 
     private var selectedSegmentBinding: Binding<UUID?> {
-        Binding(
+        let selectionEditing = viewModel.selectionPlaybackPort
+        return Binding(
             get: { viewModel.selectedSegmentID },
-            set: { viewModel.selectSegment(id: $0) }
+            set: { selectionEditing.selectCue(id: $0, extending: false, toggling: false) }
         )
     }
 
@@ -812,9 +840,15 @@ struct ProjectView: View {
         project: Project,
         shortsOverlay: TimelineShortsOverlay? = nil
     ) -> SubtitleTimelineRequest {
+        let subtitleEditing = viewModel.subtitleEditingPort
+        let history = viewModel.historyPort
+        let shortsEditing = viewModel.shortsEditingPort
         let deleteAction: (() -> Void)? = shortsOverlay == nil
             ? nil
-            : { viewModel.deleteSelectedShort() }
+            : {
+                guard let id = viewModel.shortsSelectedShortID else { return }
+                present(shortsEditing.deleteShort(id: id))
+            }
         let keyboardActions = TimelineKeyboardActions(
             onStep: { stepTimeline(by: $0) },
             onDelete: deleteAction
@@ -837,11 +871,11 @@ struct ProjectView: View {
             ),
             actions: SubtitleTimelineActions(
                 seek: { seek(to: $0) },
-                beginTextEditing: { viewModel.beginSubtitleTextEdit(id: $0) },
+                beginTextEditing: { _ in history.beginInteraction(named: "subtitle-text") },
                 translatedTextChange: {
-                    viewModel.updateTimelineTranslatedText(segmentID: $0, text: $1)
+                    present(subtitleEditing.updateTranslatedText(segmentID: $0, text: $1))
                 },
-                endTextEditing: viewModel.endSubtitleTextEdit
+                endTextEditing: { history.endInteraction(named: "subtitle-text") }
             ),
             keyboardActions: keyboardActions
         )
@@ -870,6 +904,12 @@ struct ProjectView: View {
             suggestionMessage: viewModel.shortsSuggestionMessage,
             videoSourceInfo: viewModel.videoSourceInfo
         )
+    }
+
+    private func present(_ result: ProjectSessionEditResult) {
+        if let message = result.message {
+            alertMessage = message
+        }
     }
 }
 

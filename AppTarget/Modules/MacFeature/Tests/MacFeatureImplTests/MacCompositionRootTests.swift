@@ -3,6 +3,8 @@ import MacFeature
 import PlayerFeature
 import ProjectFeature
 import ProjectFeatureImpl
+import ProjectSession
+import ProjectSessionImpl
 import ShortsFeature
 import Subtitles
 import SubtitleEditorFeature
@@ -52,7 +54,12 @@ final class MacCompositionRootTests: XCTestCase {
                         transcriptionActivity: dependencies.transcriptionActivity,
                         projectTranslator: dependencies.projectTranslator
                     ),
-                    videoExportQueue: dependencies.videoExportQueue
+                    videoExportQueue: dependencies.videoExportQueue,
+                    session: DefaultProjectSession(dependencies: ProjectSessionDependencies(
+                        repository: dependencies.projectRepository,
+                        historyLimit: 200,
+                        editTimelineService: dependencies.editTimelineService
+                    ))
                 ),
                 projectMode: Binding(get: { mode }, set: { mode = $0 }),
                 components: dependencies.projectFeatureComponents

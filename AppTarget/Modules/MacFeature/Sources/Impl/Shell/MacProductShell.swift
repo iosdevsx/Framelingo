@@ -50,7 +50,6 @@ final class MacProductShell: ObservableObject {
                 self?.selectionSubject.eraseToAnyPublisher()
                     ?? Empty<Project?, Never>().eraseToAnyPublisher()
             },
-            update: { [weak self] project in self?.updateSelectedProject(project) },
             close: { [weak self] in await self?.closeSelectedProject() }
         )
     }

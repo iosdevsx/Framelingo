@@ -1,3 +1,4 @@
+import Combine
 import DesignSystem
 import ExportFeatureImpl
 import ExportFeature
@@ -7,6 +8,8 @@ import MacFeature
 import Project
 import ProjectFeature
 import ProjectFeatureImpl
+import ProjectSession
+import ProjectSessionImpl
 import SettingsFeatureImpl
 import SubtitleEditorFeature
 import SwiftUI
@@ -20,6 +23,8 @@ struct MainNavigationView: View {
     private let activeProjectExportSettings: any ActiveProjectExportSettingsManaging
     private let subtitleDocumentPicker: SubtitleDocumentPicker
     private let activityOverlay: AnyView
+    private let projectSession: DefaultProjectSession
+    private let projectSessionProjection: AnyCancellable
 
     @AppStorage("Framelingo.subtitleLayout") private var subtitleLayout: SubtitleLayoutMode = .split
     @AppStorage("Framelingo.showTranslation") private var showTranslation: Bool = false
@@ -42,6 +47,19 @@ struct MainNavigationView: View {
             projectCatalog: dependencies.projectCatalog
         )
         subtitleDocumentPicker = AppKitSubtitleDocumentPickerAdapter().port
+        let projectSession = DefaultProjectSession(dependencies: ProjectSessionDependencies(
+            repository: dependencies.projectRepository,
+            historyLimit: 200,
+            editTimelineService: dependencies.editTimelineService
+        ))
+        self.projectSession = projectSession
+        projectSessionProjection = projectSession.snapshots
+            .compactMap(\.project)
+            .sink { [weak shell] project in
+                // ProjectSession is the document authority. The product shell only
+                // receives a read-model projection for navigation and global UI.
+                shell?.updateSelectedProject(project)
+            }
 
         let activitySource = CapabilityActivitySourceAdapter(
             transcriptionActivity: dependencies.transcriptionActivity,
@@ -125,7 +143,8 @@ struct MainNavigationView: View {
                             transcriptionActivity: dependencies.transcriptionActivity,
                             projectTranslator: dependencies.projectTranslator
                         ),
-                        videoExportQueue: dependencies.videoExportQueue
+                        videoExportQueue: dependencies.videoExportQueue,
+                        session: projectSession
                     ),
                     projectMode: $shell.projectMode,
                     components: dependencies.projectFeatureComponents

@@ -1,5 +1,6 @@
 import Foundation
 import Project
+import Timeline
 
 public struct ProjectSessionDocumentChangeSink: Sendable {
     private let sendAction: @MainActor @Sendable (ProjectSessionDocumentChangeEvent) -> Void
@@ -40,6 +41,7 @@ public struct ProjectSessionDependencies {
     public let autosaveDelay: Duration
     public let sleeper: ProjectSessionSleeper
     public let now: @MainActor () -> Date
+    public let editTimelineService: (any EditTimelineEditing)?
 
     public init(
         repository: any ProjectRepository,
@@ -47,7 +49,8 @@ public struct ProjectSessionDependencies {
         historyLimit: Int = 50,
         autosaveDelay: Duration = .milliseconds(500),
         sleeper: ProjectSessionSleeper = .continuous,
-        now: @escaping @MainActor () -> Date = Date.init
+        now: @escaping @MainActor () -> Date = Date.init,
+        editTimelineService: (any EditTimelineEditing)? = nil
     ) {
         self.repository = repository
         self.documentChangeSink = documentChangeSink
@@ -55,5 +58,6 @@ public struct ProjectSessionDependencies {
         self.autosaveDelay = autosaveDelay
         self.sleeper = sleeper
         self.now = now
+        self.editTimelineService = editTimelineService
     }
 }

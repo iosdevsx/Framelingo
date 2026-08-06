@@ -49,15 +49,18 @@ public struct ProjectSessionSnapshot: Equatable {
     public let project: Project?
     public let history: ProjectSessionHistoryState
     public let persistence: ProjectSessionPersistenceState
+    public let interaction: ProjectSessionInteractionState
 
     public init(
         project: Project?,
         history: ProjectSessionHistoryState,
-        persistence: ProjectSessionPersistenceState
+        persistence: ProjectSessionPersistenceState,
+        interaction: ProjectSessionInteractionState = .empty
     ) {
         self.project = project
         self.history = history
         self.persistence = persistence
+        self.interaction = interaction
     }
 }
 

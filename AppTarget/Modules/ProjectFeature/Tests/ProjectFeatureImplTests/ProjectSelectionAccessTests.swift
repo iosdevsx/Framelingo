@@ -5,12 +5,11 @@ import XCTest
 
 @MainActor
 final class ProjectSelectionAccessTests: XCTestCase {
-    func testAccessForwardsCurrentUpdatesUpdateAndClose() async {
+    func testAccessForwardsCurrentUpdatesAndCloseWithoutExposingMutation() async {
         let subject = CurrentValueSubject<Project?, Never>(TestDoubles.project())
         let access = ProjectSelectionAccess(
             current: { subject.value },
             updates: { subject.eraseToAnyPublisher() },
-            update: { subject.send($0) },
             close: { subject.send(nil) }
         )
         var received: Project?
@@ -18,7 +17,7 @@ final class ProjectSelectionAccessTests: XCTestCase {
         var updated = TestDoubles.project()
         updated.name = "Updated"
 
-        access.update(updated)
+        subject.send(updated)
         XCTAssertEqual(access.current?.name, "Updated")
         XCTAssertEqual(received?.name, "Updated")
 

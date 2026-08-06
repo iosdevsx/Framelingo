@@ -2,10 +2,37 @@ import Combine
 import Foundation
 import Project
 import ProjectSession
+import Subtitles
 import XCTest
 
 @MainActor
 final class ProjectSessionAPIContractTests: XCTestCase {
+    func testEditingProjectionsAreImmutableValuesFromOneSnapshot() {
+        var project = makeProject(name: "Projection")
+        let cue = SubtitleSegment(
+            id: UUID(), index: 1, startMs: 0, endMs: 1_000,
+            originalText: "one", translatedText: ""
+        )
+        project.subtitles = [cue]
+        let selection = ProjectSessionCueSelectionState(
+            primaryCueID: cue.id,
+            selectedCueIDs: [cue.id],
+            anchorCueID: cue.id
+        )
+        let snapshot = ProjectSessionSnapshot(
+            project: project,
+            history: .empty,
+            persistence: .idle,
+            interaction: .init(cueSelection: selection, playback: .init(playheadMs: 250))
+        )
+
+        XCTAssertEqual(snapshot.subtitleEditorProjection?.subtitles, project.subtitles)
+        XCTAssertEqual(snapshot.timelineProjection?.subtitles, project.subtitles)
+        XCTAssertEqual(snapshot.playerProjection?.selectedCueID, cue.id)
+        XCTAssertEqual(snapshot.shortsProjection?.shorts, project.shorts)
+        XCTAssertEqual(snapshot.exportOptionsProjection?.subtitleOptions, project.speakerExportOptions)
+    }
+
     func testSnapshotIsAValueAndCallerMutationCannotWriteBack() throws {
         let original = makeProject(name: "Original")
         let snapshot = ProjectSessionSnapshot(

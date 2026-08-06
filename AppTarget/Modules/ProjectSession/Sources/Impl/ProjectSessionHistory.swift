@@ -1,69 +1,78 @@
 import Project
+import ProjectSession
 
 struct ProjectSessionHistory {
+    struct DocumentState {
+        let project: Project
+        let interaction: ProjectSessionInteractionState
+    }
+
     struct Interaction {
         let name: String
-        let initialProject: Project
+        let initialState: DocumentState
         var changed = false
     }
 
     private let limit: Int
-    private(set) var undoProjects: [Project] = []
-    private(set) var redoProjects: [Project] = []
+    private(set) var undoStates: [DocumentState] = []
+    private(set) var redoStates: [DocumentState] = []
     private(set) var interaction: Interaction?
 
     init(limit: Int) {
         self.limit = max(limit, 0)
     }
 
-    var canUndo: Bool { !undoProjects.isEmpty }
-    var canRedo: Bool { !redoProjects.isEmpty }
+    var canUndo: Bool { !undoStates.isEmpty }
+    var canRedo: Bool { !redoStates.isEmpty }
 
-    mutating func record(previous: Project) {
+    mutating func record(previous: DocumentState) {
         if interaction != nil {
             interaction?.changed = true
-            redoProjects.removeAll()
+            redoStates.removeAll()
             return
         }
 
         appendUndo(previous)
-        redoProjects.removeAll()
+        redoStates.removeAll()
     }
 
-    mutating func beginInteraction(named name: String, project: Project) {
+    mutating func beginInteraction(named name: String, state: DocumentState) {
         guard interaction == nil else { return }
-        interaction = Interaction(name: name, initialProject: project)
+        interaction = Interaction(name: name, initialState: state)
     }
 
-    mutating func endInteraction(named name: String, currentProject: Project) -> Bool {
+    mutating func endInteraction(named name: String, currentState: DocumentState) -> Bool {
         guard let interaction, interaction.name == name else { return false }
         self.interaction = nil
 
         guard interaction.changed,
-              !projectsMatchIgnoringUpdateDate(interaction.initialProject, currentProject) else {
+              !projectsMatchIgnoringUpdateDate(
+                interaction.initialState.project,
+                currentState.project
+              ) else {
             return false
         }
 
-        appendUndo(interaction.initialProject)
-        redoProjects.removeAll()
+        appendUndo(interaction.initialState)
+        redoStates.removeAll()
         return true
     }
 
-    mutating func undo(current: Project) -> Project? {
-        guard let previous = undoProjects.popLast() else { return nil }
-        redoProjects.append(current)
+    mutating func undo(current: DocumentState) -> DocumentState? {
+        guard let previous = undoStates.popLast() else { return nil }
+        redoStates.append(current)
         return previous
     }
 
-    mutating func redo(current: Project) -> Project? {
-        guard let next = redoProjects.popLast() else { return nil }
+    mutating func redo(current: DocumentState) -> DocumentState? {
+        guard let next = redoStates.popLast() else { return nil }
         appendUndo(current)
         return next
     }
 
     mutating func reset() {
-        undoProjects.removeAll()
-        redoProjects.removeAll()
+        undoStates.removeAll()
+        redoStates.removeAll()
         interaction = nil
     }
 
@@ -71,11 +80,11 @@ struct ProjectSessionHistory {
         interaction = nil
     }
 
-    private mutating func appendUndo(_ project: Project) {
+    private mutating func appendUndo(_ state: DocumentState) {
         guard limit > 0 else { return }
-        undoProjects.append(project)
-        if undoProjects.count > limit {
-            undoProjects.removeFirst(undoProjects.count - limit)
+        undoStates.append(state)
+        if undoStates.count > limit {
+            undoStates.removeFirst(undoStates.count - limit)
         }
     }
 

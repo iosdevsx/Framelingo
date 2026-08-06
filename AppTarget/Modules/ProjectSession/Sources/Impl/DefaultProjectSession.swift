@@ -2,6 +2,7 @@ import Combine
 import Foundation
 import Project
 import ProjectSession
+import Timeline
 
 enum ProjectSessionHistoryPolicy: Sendable {
     case none
@@ -26,7 +27,7 @@ struct ProjectSessionTransactionMetadata: Sendable {
 }
 
 @MainActor
-public final class DefaultProjectSession: ProjectSession {
+public final class DefaultProjectSession: ProjectSessionWorkspace {
     public private(set) var snapshot: ProjectSessionSnapshot {
         didSet { snapshotSubject.send(snapshot) }
     }
@@ -37,7 +38,8 @@ public final class DefaultProjectSession: ProjectSession {
 
     public var activeProjectID: UUID? { project?.id }
 
-    private var project: Project?
+    private(set) var project: Project?
+    private(set) var interactionState: ProjectSessionInteractionState = .empty
     private var history: ProjectSessionHistory
     private var persistenceState: ProjectSessionPersistenceState = .idle
     private var generation: UInt = 0
@@ -45,6 +47,7 @@ public final class DefaultProjectSession: ProjectSession {
     private let now: @MainActor () -> Date
     private let autosave: ProjectAutosaveCoordinator
     private let snapshotSubject: CurrentValueSubject<ProjectSessionSnapshot, Never>
+    let editTimelineService: (any EditTimelineEditing)?
 
     public init(dependencies: ProjectSessionDependencies) {
         let initialSnapshot = ProjectSessionSnapshot(
@@ -62,6 +65,7 @@ public final class DefaultProjectSession: ProjectSession {
             delay: dependencies.autosaveDelay,
             sleeper: dependencies.sleeper
         )
+        editTimelineService = dependencies.editTimelineService
     }
 
     public func open(_ project: Project) {
@@ -69,6 +73,7 @@ public final class DefaultProjectSession: ProjectSession {
         history.reset()
         generation &+= 1
         self.project = project
+        interactionState = .empty
         persistenceState = .idle
         publishSnapshot()
         sendDocumentEvent(kind: .opened)
@@ -80,17 +85,19 @@ public final class DefaultProjectSession: ProjectSession {
         history.reset()
         generation &+= 1
         project = nil
+        interactionState = .empty
         persistenceState = .idle
         publishSnapshot()
         sendDocumentEvent(kind: .closed)
     }
 
     public func undo() {
-        guard let current = project,
+        guard let current = currentDocumentState,
               let previous = history.undo(current: current) else { return }
 
         _ = install(
-            candidate: previous,
+            candidate: previous.project,
+            interaction: previous.interaction,
             metadata: ProjectSessionTransactionMetadata(
                 history: .none,
                 persistence: .autosave,
@@ -100,11 +107,12 @@ public final class DefaultProjectSession: ProjectSession {
     }
 
     public func redo() {
-        guard let current = project,
+        guard let current = currentDocumentState,
               let next = history.redo(current: current) else { return }
 
         _ = install(
-            candidate: next,
+            candidate: next.project,
+            interaction: next.interaction,
             metadata: ProjectSessionTransactionMetadata(
                 history: .none,
                 persistence: .autosave,
@@ -115,12 +123,24 @@ public final class DefaultProjectSession: ProjectSession {
 
     public func beginInteraction(named name: String) {
         guard let project else { return }
-        history.beginInteraction(named: name, project: project)
+        history.beginInteraction(
+            named: name,
+            state: ProjectSessionHistory.DocumentState(
+                project: project,
+                interaction: interactionState
+            )
+        )
     }
 
     public func endInteraction(named name: String) {
         guard let project,
-              history.endInteraction(named: name, currentProject: project) else { return }
+              history.endInteraction(
+                named: name,
+                currentState: ProjectSessionHistory.DocumentState(
+                    project: project,
+                    interaction: interactionState
+                )
+              ) else { return }
         publishSnapshot()
     }
 
@@ -136,6 +156,7 @@ public final class DefaultProjectSession: ProjectSession {
     @discardableResult
     func install(
         candidate: Project,
+        interaction proposedInteraction: ProjectSessionInteractionState? = nil,
         metadata: ProjectSessionTransactionMetadata = .undoable,
         validate: (Project) -> Bool = { _ in true }
     ) -> Bool {
@@ -150,11 +171,18 @@ public final class DefaultProjectSession: ProjectSession {
         guard installed != previous else { return false }
 
         if case .undoable = metadata.history {
-            history.record(previous: previous)
+            history.record(previous: ProjectSessionHistory.DocumentState(
+                project: previous,
+                interaction: interactionState
+            ))
         }
 
         installed.updatedAt = now()
         project = installed
+        interactionState = reconciledInteraction(
+            proposedInteraction ?? interactionState,
+            for: installed
+        )
         persistenceState = .idle
         publishSnapshot()
         sendDocumentEvent(kind: metadata.eventKind)
@@ -166,6 +194,16 @@ public final class DefaultProjectSession: ProjectSession {
                 stateHandler: persistenceStateHandler
             )
         }
+        return true
+    }
+
+    @discardableResult
+    func updateInteraction(_ candidate: ProjectSessionInteractionState) -> Bool {
+        guard let project else { return false }
+        let reconciled = reconciledInteraction(candidate, for: project)
+        guard reconciled != interactionState else { return false }
+        interactionState = reconciled
+        publishSnapshot()
         return true
     }
 
@@ -186,7 +224,79 @@ public final class DefaultProjectSession: ProjectSession {
                 canUndo: history.canUndo,
                 canRedo: history.canRedo
             ),
-            persistence: persistenceState
+            persistence: persistenceState,
+            interaction: interactionState
+        )
+    }
+
+    private var currentDocumentState: ProjectSessionHistory.DocumentState? {
+        guard let project else { return nil }
+        return ProjectSessionHistory.DocumentState(
+            project: project,
+            interaction: interactionState
+        )
+    }
+
+    private func reconciledInteraction(
+        _ state: ProjectSessionInteractionState,
+        for project: Project
+    ) -> ProjectSessionInteractionState {
+        let cueIDs = Set(project.subtitles.map(\.id))
+        var selectedCueIDs = state.cueSelection.selectedCueIDs.intersection(cueIDs)
+        var primaryCueID = state.cueSelection.primaryCueID.flatMap {
+            cueIDs.contains($0) ? $0 : nil
+        }
+        if let primaryCueID {
+            selectedCueIDs.insert(primaryCueID)
+        } else {
+            primaryCueID = project.subtitles.first(where: { selectedCueIDs.contains($0.id) })?.id
+        }
+        let anchorCueID = state.cueSelection.anchorCueID.flatMap {
+            cueIDs.contains($0) ? $0 : nil
+        } ?? primaryCueID
+
+        let playheadMs = max(state.playback.playheadMs, 0)
+        let activeCueID = project.subtitles.first(where: {
+            $0.startMs <= playheadMs && playheadMs < $0.endMs
+        })?.id
+
+        let clipIDs = Set(project.editTimeline?.clips.map(\.id) ?? [])
+        let selectedClipID = state.timeline.selectedClipID.flatMap {
+            clipIDs.contains($0) ? $0 : nil
+        }
+
+        let shortIDs = Set(project.shorts.map(\.id))
+        let selectedShortID: UUID?
+        if let requested = state.shorts.selectedShortID, shortIDs.contains(requested) {
+            selectedShortID = requested
+        } else if state.shorts.selectedShortID != nil {
+            selectedShortID = project.shorts.first?.id
+        } else {
+            selectedShortID = nil
+        }
+
+        return ProjectSessionInteractionState(
+            cueSelection: ProjectSessionCueSelectionState(
+                primaryCueID: primaryCueID,
+                selectedCueIDs: selectedCueIDs,
+                anchorCueID: anchorCueID
+            ),
+            playback: ProjectSessionPlaybackState(
+                playheadMs: playheadMs,
+                activeCueID: activeCueID
+            ),
+            timeline: ProjectSessionTimelineInteractionState(
+                selectedClipID: selectedClipID,
+                rangeStartMs: state.timeline.rangeStartMs,
+                rangeEndMs: state.timeline.rangeEndMs,
+                isPlaybackEnabled: state.timeline.isPlaybackEnabled
+            ),
+            shorts: ProjectSessionShortsInteractionState(
+                selectedShortID: selectedShortID,
+                pendingRangeStartMs: state.shorts.pendingRangeStartMs,
+                suggestions: state.shorts.suggestions,
+                suggestionStatus: state.shorts.suggestionStatus
+            )
         )
     }
 

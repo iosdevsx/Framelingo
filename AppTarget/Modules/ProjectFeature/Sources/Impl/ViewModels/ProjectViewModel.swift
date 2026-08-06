@@ -4,6 +4,7 @@ import Foundation
 import Project
 import ProjectFeature
 import ProjectPreparation
+import ProjectSession
 import TranscriptionPipeline
 import TranslationPipeline
 import Settings
@@ -16,7 +17,14 @@ import VideoExport
 
 @MainActor
 final class ProjectViewModel: ObservableObject {
-    @Published var project: Project?
+    var sessionSnapshot: ProjectSessionSnapshot { session.snapshot }
+    var subtitleEditingPort: any ProjectSessionSubtitleEditing { session }
+    var selectionPlaybackPort: any ProjectSessionSelectionPlaybackEditing { session }
+    var timelineEditingPort: any ProjectSessionTimelineEditing { session }
+    var shortsEditingPort: any ProjectSessionShortsEditing { session }
+    var historyPort: any ProjectSessionHistoryControlling { session }
+    var sessionObservingPort: any ProjectSessionObserving { session }
+    var project: Project? { session.snapshot.project }
     @Published var autosaveErrorMessage: String?
     @Published var exportMessage: String?
     @Published var isTranscribing = false
@@ -24,26 +32,42 @@ final class ProjectViewModel: ObservableObject {
     @Published var isImportingSubtitles = false
     @Published var subtitleImportPreview: SubtitleImportPreview?
     @Published var subtitleImportErrorMessage: String?
-    @Published var selectedSegmentID: UUID? {
-        didSet {
-            let updatedSelection = selectedSegmentID.map { Set([$0]) } ?? []
-            if selectedCueIDs != updatedSelection {
-                selectedCueIDs = updatedSelection
-            }
-            cueSelectionAnchorID = selectedSegmentID
+    var selectedSegmentID: UUID? {
+        get { session.snapshot.interaction.cueSelection.primaryCueID }
+        set { session.selectCue(id: newValue, extending: false, toggling: false) }
+    }
+    var selectedCueIDs: Set<UUID> { session.snapshot.interaction.cueSelection.selectedCueIDs }
+    var currentTimeMs: Int {
+        get { session.snapshot.interaction.playback.playheadMs }
+        set { session.seek(to: newValue) }
+    }
+    var activeSegmentID: UUID? { session.snapshot.interaction.playback.activeCueID }
+    var editModeSelectedClipID: UUID? {
+        get { session.snapshot.interaction.timeline.selectedClipID }
+        set { session.setTimelineClipSelection(newValue) }
+    }
+    var editRangeStartMs: Int? {
+        get { session.snapshot.interaction.timeline.rangeStartMs }
+        set { session.setEditRange(startMs: newValue, endMs: editRangeEndMs) }
+    }
+    var editRangeEndMs: Int? {
+        get { session.snapshot.interaction.timeline.rangeEndMs }
+        set { session.setEditRange(startMs: editRangeStartMs, endMs: newValue) }
+    }
+    var isEditPlaybackEnabled: Bool { session.snapshot.interaction.timeline.isPlaybackEnabled }
+    var shortsSelectedShortID: UUID? {
+        get { session.snapshot.interaction.shorts.selectedShortID }
+        set { session.selectShort(id: newValue) }
+    }
+    var pendingShortStartMs: Int? { session.snapshot.interaction.shorts.pendingRangeStartMs }
+    var shortsSuggestions: [ShortSuggestion] { session.snapshot.interaction.shorts.suggestions }
+    var shortsSuggestionMessage: String? {
+        switch session.snapshot.interaction.shorts.suggestionStatus {
+        case .empty: "No suggestions are available for the current subtitles."
+        case .exhausted: "No more suggestions."
+        case .idle, .available: nil
         }
     }
-    @Published private(set) var selectedCueIDs: Set<UUID> = []
-    @Published var currentTimeMs = 0
-    @Published var activeSegmentID: UUID?
-    @Published var editModeSelectedClipID: UUID?
-    @Published var editRangeStartMs: Int?
-    @Published var editRangeEndMs: Int?
-    @Published var isEditPlaybackEnabled = false
-    @Published var shortsSelectedShortID: UUID?
-    @Published var pendingShortStartMs: Int?
-    @Published var shortsSuggestions: [ShortSuggestion] = []
-    @Published var shortsSuggestionMessage: String?
     /// Incremented when another workspace asks the UI to switch to Shorts mode
     /// (e.g. "Create short from cue" in the subtitle editor).
     @Published var shortsFocusRequest = 0
@@ -52,8 +76,8 @@ final class ProjectViewModel: ObservableObject {
     @Published private(set) var projectPreparationProgress = 0.0
     @Published private(set) var projectPreparationStatus = "Preparing project..."
     @Published private(set) var videoSourceInfo: VideoSourceInfo?
-    @Published private(set) var canUndo = false
-    @Published private(set) var canRedo = false
+    var canUndo: Bool { session.snapshot.history.canUndo }
+    var canRedo: Bool { session.snapshot.history.canRedo }
 
     let availableLanguages = ["English", "Russian", "Spanish", "French", "German", "Italian", "Portuguese", "Chinese", "Japanese", "Korean"]
     var settings: AppSettings { settingsAccess.snapshot.settings }
@@ -64,11 +88,7 @@ final class ProjectViewModel: ObservableObject {
     private let subtitleImportService: any SubtitleImporting
     private let subtitleExportService: any SubtitleExportService
     private let projectFileService: any ProjectFileServicing
-    private let editTimelineService: any EditTimelineEditing
-    private let subtitleTimelineMappingService = SubtitleTimelineMappingService()
-    private let subtitleStructuralEditingPolicy = SubtitleStructuralEditingPolicy()
     private let subtitleImportMergePolicy = SubtitleImportMergePolicy()
-    private let shortsEditingPolicy = ShortsEditingPolicy()
     private let projectPreparer: any ProjectPreparing
     private let projectPreparationConfiguration: ProjectPreparationConfigurationProvider
     private let projectTranscriber: any TranscribingProject
@@ -77,21 +97,14 @@ final class ProjectViewModel: ObservableObject {
     private let selection: ProjectSelectionAccess
     private let subtitleDocumentPicker: SubtitleDocumentPicker
     private let videoExportQueue: any VideoExportQueue
+    private let session: any ProjectSessionWorkspace
+    private var sessionSubscription: AnyCancellable?
     private var selectionSubscription: AnyCancellable?
-    private var autosaveTask: Task<Void, Never>?
     private var waveformTask: Task<Void, Never>?
     private var preparationOperationID: UUID?
     private var transcriptionOperationID: UUID?
     private var translationOperationID: UUID?
     private var preparedWaveformProjectID: UUID?
-    private var undoStack: [ProjectUndoSnapshot] = []
-    private var redoStack: [ProjectUndoSnapshot] = []
-    private var activeTextEditSegmentID: UUID?
-    private var activeTextEditSnapshot: ProjectUndoSnapshot?
-    private var interactiveShortEditSnapshot: ProjectUndoSnapshot?
-    private var interactiveShortsSubtitleStyleSnapshot: ProjectUndoSnapshot?
-    private var cueSelectionAnchorID: UUID?
-    private let undoLimit = 200
 
     init(dependencies: ProjectFeatureDependencies) {
         projectRepository = dependencies.data.projectRepository
@@ -100,7 +113,6 @@ final class ProjectViewModel: ObservableObject {
         subtitleImportService = dependencies.editing.subtitleImporter
         subtitleExportService = dependencies.editing.subtitleExportService
         projectFileService = dependencies.editing.projectFileService
-        editTimelineService = dependencies.editing.editTimelineService
         projectPreparer = dependencies.processing.projectPreparer
         projectPreparationConfiguration = dependencies.processing.projectPreparationConfiguration
         projectTranscriber = dependencies.processing.projectTranscriber
@@ -109,28 +121,37 @@ final class ProjectViewModel: ObservableObject {
         selection = dependencies.data.selection
         subtitleDocumentPicker = dependencies.editing.subtitleDocumentPicker
         videoExportQueue = dependencies.videoExportQueue
-        project = dependencies.data.selection.current
+        session = dependencies.session
+        if let project = dependencies.data.selection.current {
+            session.open(project)
+        }
+        sessionSubscription = session.snapshots.dropFirst().sink { [weak self] snapshot in
+            self?.objectWillChange.send()
+            if case .failed = snapshot.persistence {
+                self?.autosaveErrorMessage = "Autosave failed."
+            } else if case .saved = snapshot.persistence {
+                self?.autosaveErrorMessage = nil
+                if let project = snapshot.project { self?.projectCatalog.register(project) }
+            }
+        }
         selectionSubscription = dependencies.data.selection.updates.sink { [weak self] selectedProject in
             guard let self, self.project != selectedProject else { return }
             if self.project?.id != selectedProject?.id {
                 self.videoSourceInfo = nil
-                self.pendingShortStartMs = nil
             }
-            self.project = selectedProject
+            if let selectedProject { self.session.open(selectedProject) } else { self.session.close() }
         }
     }
 
     deinit {
-        autosaveTask?.cancel()
         waveformTask?.cancel()
     }
 
     func loadSelectedProject() {
         if project?.id != selection.current?.id {
             videoSourceInfo = nil
-            pendingShortStartMs = nil
         }
-        project = selection.current
+        if let selected = selection.current { session.open(selected) } else { session.close() }
     }
 
     func prepareProjectForEditing() {
@@ -204,192 +225,43 @@ final class ProjectViewModel: ObservableObject {
     }
 
     func undo() {
-        guard let snapshot = undoStack.popLast(),
-              let currentProject = project else {
-            refreshUndoState()
-            return
-        }
-
-        redoStack.append(ProjectUndoSnapshot(
-            project: currentProject,
-            selectedSegmentID: selectedSegmentID,
-            currentTimeMs: currentTimeMs
-        ))
-        restoreSnapshot(snapshot)
-        refreshUndoState()
+        session.undo()
     }
 
     func redo() {
-        guard let snapshot = redoStack.popLast(),
-              let currentProject = project else {
-            refreshUndoState()
-            return
-        }
-
-        undoStack.append(ProjectUndoSnapshot(
-            project: currentProject,
-            selectedSegmentID: selectedSegmentID,
-            currentTimeMs: currentTimeMs
-        ))
-        restoreSnapshot(snapshot)
-        refreshUndoState()
+        session.redo()
     }
 
     func beginSubtitleTextEdit(id: UUID) {
-        guard activeTextEditSegmentID != id else {
-            return
-        }
-
-        endSubtitleTextEdit()
-
-        guard let project else {
-            return
-        }
-
-        activeTextEditSegmentID = id
-        activeTextEditSnapshot = ProjectUndoSnapshot(
-            project: project,
-            selectedSegmentID: selectedSegmentID,
-            currentTimeMs: currentTimeMs
-        )
+        session.beginInteraction(named: "subtitle-text")
     }
 
     func endSubtitleTextEdit() {
-        activeTextEditSegmentID = nil
-        activeTextEditSnapshot = nil
+        session.endInteraction(named: "subtitle-text")
     }
 
     func updateSubtitle(_ segment: SubtitleSegment) {
-        guard var currentProject = project,
-              let index = currentProject.subtitles.firstIndex(where: { $0.id == segment.id }) else {
-            return
-        }
-
-        guard segment.startMs >= 0 else {
-            autosaveErrorMessage = "Start time must be greater than or equal to 00:00:00,000."
-            return
-        }
-
-        guard segment.endMs > segment.startMs else {
-            autosaveErrorMessage = "End time must be greater than start time."
-            return
-        }
-
-        let previousSegment = currentProject.subtitles[index]
-        let timingChanged = previousSegment.startMs != segment.startMs || previousSegment.endMs != segment.endMs
-        let textOnlyChange = !timingChanged
-            && (previousSegment.originalText != segment.originalText
-                || previousSegment.translatedText != segment.translatedText
-                || previousSegment.speaker != segment.speaker
-                || previousSegment.speakerId != segment.speakerId
-                || previousSegment.confidence != segment.confidence
-                || previousSegment.warnings != segment.warnings)
-
-        var timingAdjustmentMessage: String?
-
-        if timingChanged {
-            let timingResult = SubtitleTimingValidator.updateSegmentTimingResult(
-                segments: currentProject.subtitles,
-                id: segment.id,
-                startMs: segment.startMs,
-                endMs: segment.endMs,
-                durationMs: timelineDurationMs(for: currentProject)
-            )
-            currentProject.subtitles = timingResult.segments
-
-            if timingResult.adjustment == .adjustedToConstraints {
-                timingAdjustmentMessage = "Timing adjusted to keep a minimum \(SubtitleTimingValidator.minimumDurationMs)ms duration and \(SubtitleTimingValidator.minimumGapMs)ms gap between subtitles."
-            }
-        }
-
-        guard let updatedIndex = currentProject.subtitles.firstIndex(where: { $0.id == segment.id }) else {
-            return
-        }
-
-        currentProject.subtitles[updatedIndex].originalText = segment.originalText
-        currentProject.subtitles[updatedIndex].translatedText = segment.translatedText
-        currentProject.subtitles[updatedIndex].speaker = segment.speaker
-        currentProject.subtitles[updatedIndex].speakerId = segment.speakerId
-        currentProject.subtitles[updatedIndex].confidence = segment.confidence
-        currentProject.subtitles[updatedIndex].warnings = segment.warnings
-        currentProject.subtitles = SubtitleTimingValidator.reindexed(currentProject.subtitles)
-        autosaveErrorMessage = timingAdjustmentMessage
-
-        if textOnlyChange, activeTextEditSegmentID == segment.id {
-            pushActiveTextEditUndoSnapshot()
-            updateProject(currentProject)
-        } else {
-            updateProject(currentProject, undoActionName: timingChanged ? "Edit Timing" : "Edit Subtitle")
-        }
+        present(session.updateSubtitle(segment))
     }
 
     func updateSegmentTiming(id: UUID, startMs: Int, endMs: Int) {
-        guard var currentProject = project else {
-            return
-        }
-
-        currentProject.subtitles = SubtitleTimingValidator.updateSegmentTiming(
-            segments: currentProject.subtitles,
-            id: id,
-            startMs: startMs,
-            endMs: endMs,
-            durationMs: timelineDurationMs(for: currentProject)
-        )
-        autosaveErrorMessage = nil
-        updateProject(currentProject, undoActionName: "Edit Timing")
+        present(session.updateSegmentTiming(id: id, startMs: startMs, endMs: endMs))
     }
 
     func moveSegment(id: UUID, deltaMs: Int) {
-        guard var currentProject = project else {
-            return
-        }
-
-        currentProject.subtitles = SubtitleTimingValidator.moveSegment(
-            segments: currentProject.subtitles,
-            id: id,
-            deltaMs: deltaMs,
-            durationMs: timelineDurationMs(for: currentProject)
-        )
-        autosaveErrorMessage = nil
-        updateProject(currentProject, undoActionName: "Move Subtitle")
+        present(session.moveSegment(id: id, deltaMs: deltaMs))
     }
 
     func updateSubtitlesFromTimeline(_ subtitles: [SubtitleSegment]) {
-        guard var currentProject = project else {
-            return
-        }
-
-        currentProject.subtitles = SubtitleTimingValidator.reindexed(subtitles)
-        autosaveErrorMessage = nil
-        updateProject(currentProject, undoActionName: "Edit Timeline")
+        present(session.replaceSubtitlesFromTimeline(subtitles))
     }
 
     func updateTimelineTranslatedText(segmentID: UUID, text: String) {
-        guard var currentProject = project,
-              let index = currentProject.subtitles.firstIndex(where: { $0.id == segmentID }),
-              currentProject.subtitles[index].translatedText != text else {
-            return
-        }
-
-        currentProject.subtitles[index].translatedText = text
-        autosaveErrorMessage = nil
-
-        if activeTextEditSegmentID == segmentID {
-            pushActiveTextEditUndoSnapshot()
-            updateProject(currentProject)
-        } else {
-            updateProject(currentProject, undoActionName: "Edit Subtitle")
-        }
+        present(session.updateTranslatedText(segmentID: segmentID, text: text))
     }
 
     func updateSpeakerLabel(id: Int, displayName: String) {
-        guard var currentProject = project,
-              let index = currentProject.speakerLabels.firstIndex(where: { $0.id == id }) else {
-            return
-        }
-
-        currentProject.speakerLabels[index].displayName = displayName
-        updateProject(currentProject, undoActionName: "Rename Speaker")
+        present(session.updateSpeakerLabel(id: id, displayName: displayName))
     }
 
     func selectSegment(
@@ -397,173 +269,47 @@ final class ProjectViewModel: ObservableObject {
         extendingSelection: Bool = false,
         togglingSelection: Bool = false
     ) {
-        guard let id else {
-            selectedSegmentID = nil
-            return
-        }
-
-        if extendingSelection,
-           let project,
-           let anchorID = cueSelectionAnchorID ?? selectedSegmentID,
-           let anchorIndex = project.subtitles.firstIndex(where: { $0.id == anchorID }),
-           let targetIndex = project.subtitles.firstIndex(where: { $0.id == id }) {
-            let lowerBound = min(anchorIndex, targetIndex)
-            let upperBound = max(anchorIndex, targetIndex)
-            selectedSegmentID = id
-            selectedCueIDs = Set(project.subtitles[lowerBound...upperBound].map(\.id))
-            cueSelectionAnchorID = anchorID
-            return
-        }
-
-        if togglingSelection {
-            var updatedSelection = selectedCueIDs
-            if updatedSelection.contains(id) {
-                updatedSelection.remove(id)
-            } else {
-                updatedSelection.insert(id)
-            }
-
-            let primaryID: UUID?
-            if updatedSelection.contains(id) {
-                primaryID = id
-            } else {
-                primaryID = project?.subtitles.first(where: { updatedSelection.contains($0.id) })?.id
-            }
-            selectedSegmentID = primaryID
-            selectedCueIDs = updatedSelection
-            cueSelectionAnchorID = primaryID
-            return
-        }
-
-        selectedSegmentID = id
+        session.selectCue(id: id, extending: extendingSelection, toggling: togglingSelection)
     }
 
     func seekTo(ms: Int) {
-        let updatedTimeMs = max(0, ms)
-        let updatedActiveSegmentID = project.map {
-            TimelinePerformance.activeSegmentID(at: updatedTimeMs, in: $0.subtitles)
-        } ?? nil
-
-        if currentTimeMs != updatedTimeMs {
-            currentTimeMs = updatedTimeMs
-        }
-
-        if activeSegmentID != updatedActiveSegmentID {
-            activeSegmentID = updatedActiveSegmentID
-        }
-
-        if let updatedActiveSegmentID, selectedSegmentID != updatedActiveSegmentID {
-            selectedSegmentID = updatedActiveSegmentID
-        }
+        session.seek(to: ms)
     }
 
     func splitSegment(id: UUID) -> UUID? {
-        guard var currentProject = project else {
-            return nil
-        }
-
-        do {
-            let result = try subtitleStructuralEditingPolicy.split(
-                segments: currentProject.subtitles,
-                id: id
-            )
-            currentProject.subtitles = result.segments
-            updateProject(currentProject, undoActionName: "Split Subtitle")
-            return result.selectedSegmentID
-        } catch SubtitleStructuralEditError.segmentTooShort {
-            autosaveErrorMessage = "Segment is too short to split."
-            return nil
-        } catch {
-            return nil
-        }
+        let result = session.splitSegment(id: id)
+        present(result)
+        return result.selectedID
     }
 
     func mergeWithNextSegment(id: UUID) -> UUID? {
-        guard var currentProject = project else {
-            return nil
-        }
-
-        do {
-            let result = try subtitleStructuralEditingPolicy.mergeWithNext(
-                segments: currentProject.subtitles,
-                id: id
-            )
-            currentProject.subtitles = result.segments
-            updateProject(currentProject, undoActionName: "Merge Subtitles")
-            return result.selectedSegmentID
-        } catch {
-            autosaveErrorMessage = "No next segment to merge."
-            return nil
-        }
+        let result = session.mergeWithNextSegment(id: id)
+        present(result)
+        return result.selectedID
     }
 
     func deleteSegment(id: UUID) -> UUID? {
-        guard var currentProject = project else {
-            return nil
-        }
-
-        do {
-            let result = try subtitleStructuralEditingPolicy.delete(
-                segments: currentProject.subtitles,
-                id: id
-            )
-            currentProject.subtitles = result.segments
-            updateProject(currentProject, undoActionName: "Delete Subtitle")
-            return result.selectedSegmentID
-        } catch SubtitleStructuralEditError.segmentNotFound {
-            return nil
-        } catch {
-            assertionFailure("Unexpected subtitle delete error: \(error)")
-            return nil
-        }
+        let result = session.deleteSegment(id: id)
+        present(result)
+        return result.selectedID
     }
 
     func addSegmentAfter(id: UUID) -> UUID? {
-        guard var currentProject = project else {
-            return nil
-        }
-
-        do {
-            let result = try subtitleStructuralEditingPolicy.addAfter(
-                segments: currentProject.subtitles,
-                id: id
-            )
-            currentProject.subtitles = result.segments
-            updateProject(currentProject, undoActionName: "Add Subtitle")
-            return result.selectedSegmentID
-        } catch SubtitleStructuralEditError.segmentNotFound {
-            return nil
-        } catch {
-            assertionFailure("Unexpected subtitle add error: \(error)")
-            return nil
-        }
+        let result = session.addSegmentAfter(id: id)
+        present(result)
+        return result.selectedID
     }
 
     func updateSourceLanguage(_ language: String) {
-        guard var currentProject = project else {
-            return
-        }
-
-        currentProject.sourceLanguage = language
-        updateProject(currentProject, undoActionName: "Change Source Language")
+        present(session.updateSourceLanguage(language))
     }
 
     func updateTargetLanguage(_ language: String) {
-        guard var currentProject = project else {
-            return
-        }
-
-        currentProject.targetLanguage = language
-        updateProject(currentProject, undoActionName: "Change Target Language")
+        present(session.updateTargetLanguage(language))
     }
 
     func updateVideoExportSettings(_ settings: VideoExportSettings, registerUndo: Bool = true) {
-        guard var currentProject = project, currentProject.videoExportSettings != settings else {
-            return
-        }
-
-        currentProject.videoExportSettings = settings
-        updateProject(currentProject, undoActionName: registerUndo ? "Edit Subtitle Style" : nil)
+        present(session.updateVideoExportSettings(settings, undoable: registerUndo))
     }
 
     func submitVideoExport(_ submission: VideoExportSubmission) {
@@ -572,201 +318,63 @@ final class ProjectViewModel: ObservableObject {
     }
 
     func updateSpeakerExportOptions(_ options: SubtitleExportOptions) {
-        guard var currentProject = project, currentProject.speakerExportOptions != options else {
-            return
-        }
-
-        currentProject.speakerExportOptions = options
-        updateProject(currentProject, undoActionName: "Edit Export Options")
+        present(session.updateSpeakerExportOptions(options))
     }
 
     func ensureEditTimeline() {
-        guard var currentProject = project else {
-            return
-        }
-
-        if currentProject.editTimeline?.isEmpty == false {
-            return
-        }
-
-        guard let durationMs = sourceDurationMs(for: currentProject), durationMs > 0 else {
-            exportMessage = EditTimelineError.invalidDuration.errorDescription
-            return
-        }
-
-        currentProject.editTimeline = editTimelineService.makeInitialTimeline(durationMs: durationMs)
-        updateProject(currentProject)
+        exportMessage = session.ensureTimeline().message
     }
 
     func resolvedEditTimeline(for project: Project) -> EditTimeline? {
-        if let timeline = project.editTimeline, !timeline.isEmpty {
-            return timeline
-        }
-
-        guard let durationMs = sourceDurationMs(for: project), durationMs > 0 else {
-            return nil
-        }
-
-        return editTimelineService.makeInitialTimeline(durationMs: durationMs)
+        session.resolvedTimeline()
     }
 
     func setEditRangeStartFromCurrentTime() {
-        editRangeStartMs = currentTimeMs
+        session.setEditRangeStartFromPlayhead()
     }
 
     func setEditRangeEndFromCurrentTime() {
-        editRangeEndMs = currentTimeMs
+        session.setEditRangeEndFromPlayhead()
     }
 
     func clearEditRange() {
-        editRangeStartMs = nil
-        editRangeEndMs = nil
+        session.clearEditRange()
     }
 
     func rippleDeleteSelectedRange() {
-        guard var currentProject = project else {
-            return
-        }
-
-        guard let timeline = resolvedEditTimeline(for: currentProject) else {
-            exportMessage = EditTimelineError.invalidDuration.errorDescription
-            return
-        }
-
-        guard let editRangeStartMs, let editRangeEndMs else {
-            exportMessage = "Set In and Out points first."
-            return
-        }
-
-        let range = VideoCutRange(startMs: editRangeStartMs, endMs: editRangeEndMs).normalized
-
-        do {
-            currentProject.editTimeline = try editTimelineService.rippleDeleteRange(
-                timeline: timeline,
-                range: range
-            )
-            currentProject.subtitles = subtitleTimelineMappingService.rippleDeleteSubtitles(
-                segments: currentProject.subtitles,
-                range: range
-            )
-            currentProject.shorts = subtitleTimelineMappingService.rippleDeleteShorts(
-                shorts: currentProject.shorts,
-                range: range
-            )
-            editModeSelectedClipID = nil
-            clearEditRange()
-            seekTo(ms: min(range.startMs, currentProject.editTimeline?.totalDurationMs ?? 0))
-            updateProject(currentProject, undoActionName: "Ripple Delete")
-        } catch let error as LocalizedError {
-            exportMessage = error.errorDescription ?? "Ripple delete failed."
-        } catch {
-            exportMessage = "Ripple delete failed."
-        }
+        exportMessage = session.rippleDeleteSelectedRange().message
     }
 
     func splitAtCurrentTime() {
-        guard var currentProject = project,
-              let timeline = resolvedEditTimeline(for: currentProject) else {
-            exportMessage = EditTimelineError.invalidDuration.errorDescription
-            return
-        }
-
-        do {
-            currentProject.editTimeline = try editTimelineService.splitAt(
-                timeline: timeline,
-                timelineMs: currentTimeMs
-            )
-            editModeSelectedClipID = editTimelineService
-                .clip(atTimelineTime: currentTimeMs, in: currentProject.editTimeline ?? timeline)?
-                .id
-            updateProject(currentProject, undoActionName: "Split Video Clip")
-        } catch let error as LocalizedError {
-            exportMessage = error.errorDescription ?? "Split failed."
-        } catch {
-            exportMessage = "Split failed."
-        }
+        exportMessage = session.splitAtPlayhead().message
     }
 
     func deleteSelectedClip() {
-        guard var currentProject = project,
-              let selectedClipID = editModeSelectedClipID,
-              let timeline = resolvedEditTimeline(for: currentProject),
-              let selectedClip = timeline.clips.first(where: { $0.id == selectedClipID }) else {
-            exportMessage = "Select a clip first."
-            return
-        }
-
-        let range = VideoCutRange(
-            startMs: selectedClip.timelineStartMs,
-            endMs: selectedClip.timelineEndMs
-        )
-
-        do {
-            currentProject.editTimeline = try editTimelineService.deleteClip(
-                timeline: timeline,
-                clipID: selectedClipID
-            )
-            currentProject.subtitles = subtitleTimelineMappingService.rippleDeleteSubtitles(
-                segments: currentProject.subtitles,
-                range: range
-            )
-            currentProject.shorts = subtitleTimelineMappingService.rippleDeleteShorts(
-                shorts: currentProject.shorts,
-                range: range
-            )
-            editModeSelectedClipID = nil
-            clearEditRange()
-            seekTo(ms: min(range.startMs, currentProject.editTimeline?.totalDurationMs ?? 0))
-            updateProject(currentProject, undoActionName: "Delete Video Clip")
-        } catch let error as LocalizedError {
-            exportMessage = error.errorDescription ?? "Delete clip failed."
-        } catch {
-            exportMessage = "Delete clip failed."
-        }
+        exportMessage = session.deleteSelectedClip().message
     }
 
     func timelineTimeToSourceTime(_ timelineMs: Int) -> Int? {
-        guard let project,
-              let timeline = resolvedEditTimeline(for: project) else {
-            return nil
-        }
-
-        return editTimelineService.sourceTime(forTimelineTime: timelineMs, in: timeline)
+        session.sourceTime(forTimelineTime: timelineMs)
     }
 
     func editClip(atTimelineTime timelineMs: Int) -> TimelineClip? {
-        guard let project,
-              let timeline = resolvedEditTimeline(for: project) else {
-            return nil
-        }
-
-        return editTimelineService.clip(atTimelineTime: timelineMs, in: timeline)
+        session.clip(atTimelineTime: timelineMs)
     }
 
     func editPlaybackAdvance(sourceTimeMs: Int, currentClipID: UUID?) -> EditTimelinePlaybackAdvance? {
-        guard let project, let timeline = resolvedEditTimeline(for: project) else {
-            return nil
-        }
-
-        return editTimelineService.playbackAdvance(
-            sourceTimeMs: sourceTimeMs,
-            currentClipID: currentClipID,
-            lastKnownTimelineMs: currentTimeMs,
-            in: timeline
-        )
+        session.playbackAdvance(sourceTimeMs: sourceTimeMs, currentClipID: currentClipID)
     }
 
     func seekTimeline(to ms: Int) {
-        let durationMs = project.map(timelineDurationMs(for:)) ?? 0
-        seekTo(ms: min(max(ms, 0), max(durationMs, 0)))
+        session.seekTimeline(to: ms)
     }
 
     func playTimeline() {
-        isEditPlaybackEnabled = true
+        session.setTimelinePlaybackEnabled(true)
     }
 
     func pauseTimeline() {
-        isEditPlaybackEnabled = false
+        session.setTimelinePlaybackEnabled(false)
     }
 
     func transcribe() async {
@@ -784,9 +392,6 @@ final class ProjectViewModel: ObservableObject {
                 isTranscribing = false
             }
         }
-
-        autosaveTask?.cancel()
-        autosaveTask = nil
 
         do {
             let projectID = currentProject.id
@@ -848,8 +453,6 @@ final class ProjectViewModel: ObservableObject {
                 isTranslating = false
             }
         }
-        autosaveTask?.cancel()
-        autosaveTask = nil
         let projectID = currentProject.id
 
         do {
@@ -885,7 +488,6 @@ final class ProjectViewModel: ObservableObject {
         switch event {
         case .projectChanged(let project):
             applyProject(project)
-            scheduleAutosave(project)
         case .progress(let progress):
             if let fractionCompleted = progress.fractionCompleted {
                 projectPreparationProgress = fractionCompleted
@@ -1011,10 +613,13 @@ final class ProjectViewModel: ObservableObject {
             destination: destination
         )
 
-        selectedSegmentID = currentProject.subtitles.first?.id
+        let result = session.replaceSubtitlesFromTimeline(currentProject.subtitles)
+        if let firstID = currentProject.subtitles.first?.id {
+            session.selectCue(id: firstID, extending: false, toggling: false)
+        }
         autosaveErrorMessage = nil
         subtitleImportPreview = nil
-        updateProject(currentProject, undoActionName: "Import Subtitles")
+        present(result)
     }
 
     func saveProject() async {
@@ -1023,15 +628,12 @@ final class ProjectViewModel: ObservableObject {
             return
         }
 
-        autosaveTask?.cancel()
-        autosaveTask = nil
-
-        do {
-            try await projectRepository.saveProject(project)
+        await session.save()
+        if case .saved = session.snapshot.persistence {
             projectCatalog.register(project)
             autosaveErrorMessage = nil
             exportMessage = "Project saved."
-        } catch {
+        } else {
             autosaveErrorMessage = "Project save failed."
         }
     }
@@ -1050,110 +652,17 @@ final class ProjectViewModel: ObservableObject {
         }
     }
 
-    private func updateProject(_ project: Project, undoActionName: String? = nil) {
-        if let undoActionName, let previousProject = self.project {
-            pushUndoSnapshot(
-                ProjectUndoSnapshot(
-                    project: previousProject,
-                    selectedSegmentID: selectedSegmentID,
-                    currentTimeMs: currentTimeMs
-                ),
-                actionName: undoActionName
-            )
-        }
-
-        var updatedProject = project
-        updatedProject.updatedAt = Date()
-        applyProject(updatedProject)
-        scheduleAutosave(updatedProject)
-    }
-
-    private func restoreSnapshot(_ snapshot: ProjectUndoSnapshot) {
-        var restoredProject = snapshot.project
-        restoredProject.updatedAt = Date()
-        selectedSegmentID = snapshot.selectedSegmentID.flatMap { id in
-            restoredProject.subtitles.contains(where: { $0.id == id }) ? id : restoredProject.subtitles.first?.id
-        }
-        currentTimeMs = snapshot.currentTimeMs
-        applyProject(restoredProject)
-        scheduleAutosave(restoredProject)
-    }
-
-    private func pushUndoSnapshot(_ snapshot: ProjectUndoSnapshot, actionName _: String) {
-        undoStack.append(snapshot)
-        if undoStack.count > undoLimit {
-            undoStack.removeFirst(undoStack.count - undoLimit)
-        }
-
-        redoStack.removeAll()
-        refreshUndoState()
-    }
-
-    private func pushActiveTextEditUndoSnapshot() {
-        guard let snapshot = activeTextEditSnapshot else {
-            return
-        }
-
-        pushUndoSnapshot(snapshot, actionName: "Edit Subtitle Text")
-        activeTextEditSnapshot = nil
-    }
-
-    private func refreshUndoState() {
-        canUndo = !undoStack.isEmpty
-        canRedo = !redoStack.isEmpty
-    }
-
     private func applyProject(_ project: Project) {
-        self.project = project
-        selection.update(project)
+        guard let expectedID = self.project?.id else { return }
+        _ = session.installEffectOutput(project, expectedProjectID: expectedID)
     }
 
-    private func scheduleAutosave(_ project: Project) {
-        autosaveTask?.cancel()
-        let projectRepository = projectRepository
-        let projectCatalog = projectCatalog
-        autosaveTask = Task { [weak self] in
-            do {
-                try await Task.sleep(for: .milliseconds(500))
-                try Task.checkCancellation()
-                try await projectRepository.saveProject(project)
-                projectCatalog.register(project)
-                self?.autosaveErrorMessage = nil
-            } catch is CancellationError {
-                return
-            } catch {
-                self?.autosaveErrorMessage = "Autosave failed."
-            }
-        }
+    private func present(_ result: ProjectSessionEditResult) {
+        autosaveErrorMessage = result.message
     }
 
     func timelineDurationMs(for project: Project) -> Int {
-        if let timelineDurationMs = project.editTimeline?.totalDurationMs, timelineDurationMs > 0 {
-            return timelineDurationMs
-        }
-
-        return sourceDurationMs(for: project) ?? 0
-    }
-
-    private func sourceDurationMs(for project: Project) -> Int? {
-        if let durationMs = project.mediaFile.durationMs, durationMs > 0 {
-            return durationMs
-        }
-
-        let subtitleDurationMs = project.subtitles.map(\.endMs).max() ?? 0
-        return subtitleDurationMs > 0 ? subtitleDurationMs : nil
-    }
-
-    private func hasOverlappingSegments(_ segments: [SubtitleSegment]) -> Bool {
-        let sortedSegments = segments.sorted { $0.startMs < $1.startMs }
-
-        for index in sortedSegments.indices.dropFirst() {
-            if sortedSegments[index].startMs < sortedSegments[index - 1].endMs {
-                return true
-            }
-        }
-
-        return false
+        session.timelineDurationMs()
     }
 }
 
@@ -1175,90 +684,29 @@ extension ProjectViewModel {
         title: String? = nil,
         undoActionName: String = "Add Short"
     ) -> UUID? {
-        guard var currentProject = project else {
-            return nil
-        }
-
-        do {
-            let result = try shortsEditingPolicy.add(
-                shorts: currentProject.shorts,
-                title: title ?? defaultShortTitle(for: currentProject),
-                startMs: startMs,
-                endMs: endMs
-            )
-            currentProject.shorts = result.shorts
-            updateProject(currentProject, undoActionName: undoActionName)
-            shortsSelectedShortID = result.editedShortID
-            return result.editedShortID
-        } catch ShortsEditError.invalidRange {
-            return nil
-        } catch {
-            assertionFailure("Unexpected add short error: \(error)")
-            return nil
-        }
+        let result = session.addShort(startMs: startMs, endMs: endMs, title: title)
+        present(result)
+        return result.selectedID
     }
 
     func addShortAtPlayhead() {
-        guard let project else {
-            return
-        }
-
-        let durationMs = timelineDurationMs(for: project)
-        let defaultLengthMs = 30_000
-        let startMs = min(max(0, currentTimeMs), max(0, durationMs - 1_000))
-        let endMs = min(startMs + defaultLengthMs, max(startMs + 1_000, durationMs))
-        pendingShortStartMs = nil
-        addShort(startMs: startMs, endMs: endMs)
+        present(session.addShortAtPlayhead())
     }
 
     /// Creates a short spanning all selected cues and asks the UI to switch to
     /// Shorts mode. A normal single-row selection remains a one-cue range.
     func createShortFromSelectedCues() {
-        guard let project else {
-            return
-        }
-
-        let selectedIDs = selectedCueIDs.isEmpty
-            ? selectedSegmentID.map { Set([$0]) } ?? []
-            : selectedCueIDs
-        let selectedCues = project.subtitles.filter { selectedIDs.contains($0.id) }
-        guard let startMs = selectedCues.map(\.startMs).min(),
-              let endMs = selectedCues.map(\.endMs).max() else {
-            exportMessage = "Select one or more subtitle cues first."
-            return
-        }
-
-        addShort(
-            startMs: startMs,
-            endMs: endMs,
-            undoActionName: "Create Short from Selection"
-        )
-        shortsFocusRequest += 1
+        let result = session.createShortFromSelectedCues()
+        exportMessage = result.message
+        if result.didChange { shortsFocusRequest += 1 }
     }
 
     func beginInteractiveShortEdit() {
-        guard interactiveShortEditSnapshot == nil, let project else {
-            return
-        }
-
-        interactiveShortEditSnapshot = ProjectUndoSnapshot(
-            project: project,
-            selectedSegmentID: selectedSegmentID,
-            currentTimeMs: currentTimeMs
-        )
+        session.beginInteraction(named: "short-edit")
     }
 
     func endInteractiveShortEdit(undoActionName: String) {
-        guard let snapshot = interactiveShortEditSnapshot else {
-            return
-        }
-        interactiveShortEditSnapshot = nil
-
-        guard let project, project != snapshot.project else {
-            return
-        }
-
-        pushUndoSnapshot(snapshot, actionName: undoActionName)
+        session.endInteraction(named: "short-edit")
     }
 
     func updateShort(
@@ -1266,118 +714,36 @@ extension ProjectViewModel {
         undoActionName: String? = nil,
         mutate: (inout ShortDefinition) -> Void
     ) {
-        guard var currentProject = project else {
-            return
-        }
-
-        do {
-            let result = try shortsEditingPolicy.update(
-                shorts: currentProject.shorts,
-                id: id,
-                mutate: mutate
-            )
-            guard result.didChange else {
-                return
-            }
-            currentProject.shorts = result.shorts
-            updateProject(currentProject, undoActionName: undoActionName)
-        } catch ShortsEditError.shortNotFound {
-            return
-        } catch {
-            assertionFailure("Unexpected update short error: \(error)")
-        }
+        guard var short = project?.shorts.first(where: { $0.id == id }) else { return }
+        mutate(&short)
+        present(session.replaceShort(short))
     }
 
     func updateShortRange(id: UUID, startMs: Int, endMs: Int) {
-        guard var currentProject = project else {
-            return
-        }
-
-        do {
-            let result = try shortsEditingPolicy.updateRange(
-                shorts: currentProject.shorts,
-                id: id,
-                startMs: startMs,
-                endMs: endMs
-            )
-            guard result.didChange else {
-                return
-            }
-            currentProject.shorts = result.shorts
-            updateProject(currentProject, undoActionName: "Edit Short Range")
-        } catch ShortsEditError.invalidRange {
-            return
-        } catch ShortsEditError.shortNotFound {
-            return
-        } catch {
-            assertionFailure("Unexpected short range error: \(error)")
-        }
+        present(session.updateShortRange(id: id, startMs: startMs, endMs: endMs))
     }
 
     func setSelectedShortStartToPlayhead() {
-        guard let short = selectedShort else {
-            return
-        }
-        guard currentTimeMs >= 0, currentTimeMs <= short.endMs - 1_000 else {
-            exportMessage = "Move the playhead at least one second before the short end."
-            return
-        }
-
-        updateShortRange(id: short.id, startMs: currentTimeMs, endMs: short.endMs)
+        exportMessage = session.setSelectedShortStartToPlayhead().message
     }
 
     func setSelectedShortEndToPlayhead() {
-        guard let short = selectedShort else {
-            return
-        }
-        guard currentTimeMs >= short.startMs + 1_000 else {
-            exportMessage = "Move the playhead at least one second after the short start."
-            return
-        }
-
-        updateShortRange(id: short.id, startMs: short.startMs, endMs: currentTimeMs)
+        exportMessage = session.setSelectedShortEndToPlayhead().message
     }
 
     /// In the selected range this edits its start. Outside the selected range
     /// (or without a selection) it marks the start of a new short, completed by
     /// the matching Set End command in the Shorts timeline toolbar.
     func setShortStartFromPlayhead() {
-        if pendingShortStartMs != nil {
-            pendingShortStartMs = max(0, currentTimeMs)
-            return
-        }
-
-        if let short = selectedShort,
-           currentTimeMs >= short.startMs,
-           currentTimeMs <= short.endMs - 1_000 {
-            updateShortRange(id: short.id, startMs: currentTimeMs, endMs: short.endMs)
-            return
-        }
-
-        pendingShortStartMs = max(0, currentTimeMs)
+        exportMessage = session.setShortStartFromPlayhead().message
     }
 
     func setShortEndFromPlayhead() {
-        if let pendingShortStartMs {
-            guard currentTimeMs >= pendingShortStartMs + 1_000 else {
-                exportMessage = "Move the playhead at least one second after the new short start."
-                return
-            }
-
-            self.pendingShortStartMs = nil
-            addShort(
-                startMs: pendingShortStartMs,
-                endMs: currentTimeMs,
-                undoActionName: "Create Short from Playhead Range"
-            )
-            return
-        }
-
-        setSelectedShortEndToPlayhead()
+        exportMessage = session.setShortEndFromPlayhead().message
     }
 
     func clearPendingShortRange() {
-        pendingShortStartMs = nil
+        session.clearPendingShortRange()
     }
 
     func deleteSelectedShort() {
@@ -1388,32 +754,7 @@ extension ProjectViewModel {
     }
 
     func addCropPointAtPlayhead(shortID: UUID) {
-        guard let short = project?.shorts.first(where: { $0.id == shortID }),
-              currentTimeMs >= short.startMs,
-              currentTimeMs <= short.endMs else {
-            exportMessage = "Move the playhead inside the selected short first."
-            return
-        }
-
-        let offsetX = short.cropOffset(atTimelineTimeMs: currentTimeMs)
-        guard var currentProject = project else {
-            return
-        }
-        do {
-            let result = try shortsEditingPolicy.upsertCropKeyframe(
-                shorts: currentProject.shorts,
-                id: shortID,
-                timelineTimeMs: currentTimeMs,
-                offsetX: offsetX
-            )
-            guard result.didChange else { return }
-            currentProject.shorts = result.shorts
-            updateProject(currentProject, undoActionName: "Add Crop Point")
-        } catch ShortsEditError.shortNotFound {
-            return
-        } catch {
-            assertionFailure("Unexpected crop point error: \(error)")
-        }
+        exportMessage = session.addCropPointAtPlayhead(shortID: shortID).message
     }
 
     func updateShortCropOffset(
@@ -1421,148 +762,48 @@ extension ProjectViewModel {
         timelineTimeMs: Int,
         offsetX: Double
     ) {
-        guard var currentProject = project else {
-            return
-        }
-        do {
-            let result = try shortsEditingPolicy.upsertCropKeyframe(
-                shorts: currentProject.shorts,
-                id: id,
-                timelineTimeMs: timelineTimeMs,
-                offsetX: offsetX
-            )
-            guard result.didChange else { return }
-            currentProject.shorts = result.shorts
-            updateProject(currentProject)
-        } catch ShortsEditError.shortNotFound {
-            return
-        } catch {
-            assertionFailure("Unexpected crop offset error: \(error)")
-        }
+        present(session.updateShortCropOffset(id: id, timelineTimeMs: timelineTimeMs, offsetX: offsetX))
     }
 
     func deleteShortCropKeyframe(shortID: UUID, keyframeID: UUID) {
-        guard var currentProject = project else {
-            return
-        }
-        do {
-            let result = try shortsEditingPolicy.deleteCropKeyframe(
-                shorts: currentProject.shorts,
-                shortID: shortID,
-                keyframeID: keyframeID
-            )
-            guard result.didChange else { return }
-            currentProject.shorts = result.shorts
-            updateProject(currentProject, undoActionName: "Delete Crop Point")
-        } catch ShortsEditError.shortNotFound {
-            return
-        } catch {
-            assertionFailure("Unexpected crop point deletion error: \(error)")
-        }
+        present(session.deleteShortCropKeyframe(shortID: shortID, keyframeID: keyframeID))
     }
 
     func deleteShort(id: UUID) {
-        guard var currentProject = project else {
-            return
-        }
-
-        do {
-            let result = try shortsEditingPolicy.delete(shorts: currentProject.shorts, id: id)
-            currentProject.shorts = result.shorts
-            updateProject(currentProject, undoActionName: "Delete Short")
-            if shortsSelectedShortID == id {
-                shortsSelectedShortID = result.shorts.first?.id
-            }
-        } catch ShortsEditError.shortNotFound {
-            return
-        } catch {
-            assertionFailure("Unexpected delete short error: \(error)")
-        }
+        present(session.deleteShort(id: id))
     }
 
     func updateShortsExportSettings(_ settings: ShortsExportSettings) {
-        guard var currentProject = project,
-              currentProject.shortsExportSettings != settings else {
-            return
-        }
-
-        currentProject.shortsExportSettings = settings
-        updateProject(currentProject)
+        present(session.updateShortsExportSettings(settings))
     }
 
     func updateShortsSubtitleStyle(
         _ style: VideoExportSettings,
         registerUndo: Bool = true
     ) {
-        guard var currentProject = project,
-              currentProject.shortsExportSettings.subtitleStyle != style else {
-            return
-        }
-
-        currentProject.shortsExportSettings.subtitleStyle = style
-        updateProject(
-            currentProject,
-            undoActionName: registerUndo ? "Edit Shorts Subtitle Style" : nil
-        )
+        present(session.updateShortsSubtitleStyle(style, undoable: registerUndo))
     }
 
     func beginInteractiveShortsSubtitleStyleEdit() {
-        guard interactiveShortsSubtitleStyleSnapshot == nil, let project else {
-            return
-        }
-
-        interactiveShortsSubtitleStyleSnapshot = ProjectUndoSnapshot(
-            project: project,
-            selectedSegmentID: selectedSegmentID,
-            currentTimeMs: currentTimeMs
-        )
+        session.beginInteraction(named: "shorts-subtitle-style")
     }
 
     func endInteractiveShortsSubtitleStyleEdit(
         undoActionName: String = "Edit Shorts Subtitle Style"
     ) {
-        guard let snapshot = interactiveShortsSubtitleStyleSnapshot else {
-            return
-        }
-        interactiveShortsSubtitleStyleSnapshot = nil
-
-        guard let project, project != snapshot.project else {
-            return
-        }
-
-        pushUndoSnapshot(snapshot, actionName: undoActionName)
+        session.endInteraction(named: "shorts-subtitle-style")
     }
 
     func generateShortsSuggestions() {
-        guard let project else {
-            return
-        }
-
-        shortsSuggestions = ShortsSuggestionService().suggestions(
-            cues: project.subtitles,
-            platform: project.shortsExportSettings.platform,
-            existingShorts: project.shorts
-        )
-        shortsSuggestionMessage = shortsSuggestions.isEmpty
-            ? "No suggestions are available for the current subtitles."
-            : nil
+        session.generateShortsSuggestions()
     }
 
     func acceptShortSuggestion(_ suggestion: ShortSuggestion) {
-        addShort(
-            startMs: suggestion.startMs,
-            endMs: suggestion.endMs,
-            undoActionName: "Add Suggested Short"
-        )
-        shortsSuggestions.removeAll { $0.id == suggestion.id }
-        shortsSuggestionMessage = nil
+        present(session.acceptShortSuggestion(id: suggestion.id))
     }
 
     func dismissShortSuggestion(_ suggestion: ShortSuggestion) {
-        shortsSuggestions.removeAll { $0.id == suggestion.id }
-        if shortsSuggestions.isEmpty {
-            shortsSuggestionMessage = "No more suggestions."
-        }
+        session.dismissShortSuggestion(id: suggestion.id)
     }
 
     func exportShorts(_ shorts: [ShortDefinition], to destinationDirectory: URL) {
@@ -1589,13 +830,4 @@ extension ProjectViewModel {
         ))
     }
 
-    private func defaultShortTitle(for project: Project) -> String {
-        "Short \(project.shorts.count + 1)"
-    }
-}
-
-private struct ProjectUndoSnapshot {
-    let project: Project
-    let selectedSegmentID: UUID?
-    let currentTimeMs: Int
 }

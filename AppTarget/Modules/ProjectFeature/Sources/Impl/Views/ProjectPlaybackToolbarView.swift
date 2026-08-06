@@ -7,13 +7,23 @@ struct ProjectPlaybackToolbarView: View {
     let currentTimeMs: Int
     let durationMs: Int?
     let isPlaying: Bool
-    @ObservedObject var viewModel: ProjectViewModel
+    let editRangeStartMs: Int?
+    let editRangeEndMs: Int?
+    let hasSelectedEditClip: Bool
+    let pendingShortStartMs: Int?
+    let selectedShortDurationMs: Int?
     let onSeekToStart: () -> Void
     let onTogglePlayback: () -> Void
     let onScrollToPlayhead: () -> Void
     let onRippleDelete: () -> Void
     let onCut: () -> Void
     let onDeleteClip: () -> Void
+    let onSetEditRangeStart: () -> Void
+    let onSetEditRangeEnd: () -> Void
+    let onClearEditRange: () -> Void
+    let onSetShortStart: () -> Void
+    let onSetShortEnd: () -> Void
+    let onClearPendingShortRange: () -> Void
     let onZoomOut: () -> Void
     let onZoomIn: () -> Void
     let onFitZoom: () -> Void
@@ -78,17 +88,17 @@ struct ProjectPlaybackToolbarView: View {
 
     @ViewBuilder
     private var editClipControls: some View {
-        Button("Set In") { viewModel.setEditRangeStartFromCurrentTime() }
-        Button("Set Out") { viewModel.setEditRangeEndFromCurrentTime() }
-        Button("Clear Range") { viewModel.clearEditRange() }
-            .disabled(viewModel.editRangeStartMs == nil && viewModel.editRangeEndMs == nil)
+        Button("Set In", action: onSetEditRangeStart)
+        Button("Set Out", action: onSetEditRangeEnd)
+        Button("Clear Range", action: onClearEditRange)
+            .disabled(editRangeStartMs == nil && editRangeEndMs == nil)
         Button("Ripple Delete", role: .destructive, action: onRippleDelete)
             .disabled(editRangeDurationMs < 500)
         Divider()
         Button("Cut", action: onCut)
         Button("Delete Clip", role: .destructive, action: onDeleteClip)
-            .disabled(viewModel.editModeSelectedClipID == nil)
-        if let start = viewModel.editRangeStartMs, let end = viewModel.editRangeEndMs {
+            .disabled(!hasSelectedEditClip)
+        if let start = editRangeStartMs, let end = editRangeEndMs {
             Text("Range \(SubtitleTimeFormatter.format(milliseconds: min(start, end))) - \(SubtitleTimeFormatter.format(milliseconds: max(start, end)))")
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
@@ -96,8 +106,8 @@ struct ProjectPlaybackToolbarView: View {
     }
 
     private var editRangeDurationMs: Int {
-        guard let start = viewModel.editRangeStartMs,
-              let end = viewModel.editRangeEndMs else {
+        guard let start = editRangeStartMs,
+              let end = editRangeEndMs else {
             return 0
         }
 
@@ -106,27 +116,21 @@ struct ProjectPlaybackToolbarView: View {
 
     @ViewBuilder
     private var shortsRangeControls: some View {
-        Button("Set Start") {
-            viewModel.setShortStartFromPlayhead()
-        }
+        Button("Set Start", action: onSetShortStart)
         .help("Edit the selected short when the playhead is inside it; otherwise begin a new short")
 
-        Button("Set End") {
-            viewModel.setShortEndFromPlayhead()
-        }
-        .disabled(viewModel.pendingShortStartMs == nil && viewModel.selectedShort == nil)
+        Button("Set End", action: onSetShortEnd)
+        .disabled(pendingShortStartMs == nil && selectedShortDurationMs == nil)
         .help("Finish the new short or set the selected short end")
 
-        if let pendingStartMs = viewModel.pendingShortStartMs {
+        if let pendingStartMs = pendingShortStartMs {
             Text("New start \(SubtitleTimeFormatter.format(milliseconds: pendingStartMs))")
                 .foregroundStyle(.orange)
                 .monospacedDigit()
 
-            Button("Clear") {
-                viewModel.clearPendingShortRange()
-            }
-        } else if let short = viewModel.selectedShort {
-            Text("Duration \(SubtitleTimeFormatter.format(milliseconds: short.durationMs))")
+            Button("Clear", action: onClearPendingShortRange)
+        } else if let selectedShortDurationMs {
+            Text("Duration \(SubtitleTimeFormatter.format(milliseconds: selectedShortDurationMs))")
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
         }

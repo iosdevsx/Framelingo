@@ -173,9 +173,20 @@ end
 
 def audit_project_session_production_wiring(source, label)
   return [] unless label.start_with?("#{MODULES_RELATIVE_ROOT}/ProjectFeature/")
-  return [] unless source.match?(/\bProjectSession(?:Impl|Assembly|Dependencies)?\b|\.package\s*\(\s*path:\s*"\.\.\/ProjectSession"/)
-
-  ["#{label}: ProjectFeature must not construct or depend on ProjectSession before the editing migration"]
+  failures = []
+  if source.match?(/^\s*import\s+ProjectSessionImpl\s*$/)
+    failures << "#{label}: ProjectFeature must receive ProjectSession API ports from the product composer"
+  end
+  if source.match?(/@Published\s+(?:private\(set\)\s+)?var\s+(?:project|selectedCueIDs|currentTimeMs|editModeSelectedClipID|shortsSelectedShortID)\b/)
+    failures << "#{label}: ProjectFeature adapter must not own mutable session document or interaction state"
+  end
+  if source.match?(/\b(?:undoStack|redoStack|autosaveTask|subtitleStructuralEditingPolicy|shortsEditingPolicy|subtitleTimelineMappingService)\b/)
+    failures << "#{label}: ProjectFeature adapter retains migrated editing/history/autosave authority"
+  end
+  if source.match?(/selection\.update\s*\(/)
+    failures << "#{label}: ProjectFeature must not write through the product-shell selection projection"
+  end
+  failures
 end
 
 def run_self_test
@@ -294,7 +305,10 @@ def run_self_test
 
   production_wiring_cases = [
     ["existing production owner", "import Project\n", 0],
-    ["shadow session", "import ProjectSessionImpl\nlet session = ProjectSessionAssembly.makeSession\n", 1]
+    ["concrete session construction", "import ProjectSessionImpl\nlet session = ProjectSessionAssembly.makeSession\n", 1],
+    ["mutable project adapter", "@Published var project: Project?\n", 1],
+    ["legacy history", "private var undoStack: [Project] = []\n", 1],
+    ["product-shell write", "selection.update(project)\n", 1]
   ]
   production_wiring_cases.each do |name, source, expected_count|
     actual_count = audit_project_session_production_wiring(

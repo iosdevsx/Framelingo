@@ -6,6 +6,8 @@ import PlayerFeature
 import Project
 import ProjectFeature
 import ProjectPreparation
+import ProjectSession
+import ProjectSessionImpl
 import TranscriptionPipeline
 import TranslationPipeline
 import Settings
@@ -32,6 +34,8 @@ enum TestDoubles {
     private static var selectionsByContext: [ObjectIdentifier: Selection] = [:]
     @MainActor
     private static var exportQueuesByContext: [ObjectIdentifier: ExportQueue] = [:]
+    @MainActor
+    private static var sessionProjectionsByContext: [ObjectIdentifier: AnyCancellable] = [:]
 
     @MainActor
     final class ActivityTracker: TranscriptionActivityTracking {
@@ -134,7 +138,6 @@ enum TestDoubles {
                     self?.subject.eraseToAnyPublisher()
                         ?? Empty<Project?, Never>().eraseToAnyPublisher()
                 },
-                update: { [weak self] in self?.subject.send($0) },
                 close: { [weak self] in self?.subject.send(nil) }
             )
         }
@@ -512,6 +515,19 @@ enum TestDoubles {
         let exportQueue = videoExportQueue ?? ExportQueue()
         exportQueuesByContext[ObjectIdentifier(appState)] = exportQueue
 
+        let session = DefaultProjectSession(dependencies: ProjectSessionDependencies(
+            repository: repository,
+            historyLimit: 200,
+            editTimelineService: editTimelineService
+        ))
+        sessionProjectionsByContext[ObjectIdentifier(appState)] = session.snapshots
+            .compactMap(\.project)
+            .sink { [weak selection] project in
+                // Mirrors the product composition root: the session projects
+                // outward, while ProjectFeature receives read-only selection.
+                selection?.subject.send(project)
+            }
+
         return ProjectFeatureDependencies(
             data: ProjectWorkspaceDataDependencies(
                 projectRepository: repository,
@@ -537,7 +553,8 @@ enum TestDoubles {
                 transcriptionActivity: appState.activity,
                 projectTranslator: translator
             ),
-            videoExportQueue: exportQueue
+            videoExportQueue: exportQueue,
+            session: session
         )
     }
 

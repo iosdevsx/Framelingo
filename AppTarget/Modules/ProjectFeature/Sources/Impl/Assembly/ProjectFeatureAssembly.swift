@@ -1,5 +1,6 @@
 import ExportFeature
 import ProjectFeature
+import ProjectSession
 import ShortsFeature
 import SubtitleEditorFeature
 import SwiftUI
@@ -39,70 +40,76 @@ private struct ProjectFeatureRootView: View {
     }
 
     private var subtitleEditorActions: SubtitleEditorActions {
-        SubtitleEditorActions(
-            selectSegment: viewModel.selectSegment,
+        let editing = viewModel.subtitleEditingPort
+        let observing = viewModel.sessionObservingPort
+        let selection = viewModel.selectionPlaybackPort
+        let history = viewModel.historyPort
+        let shortsEditing = viewModel.shortsEditingPort
+        return SubtitleEditorActions(
+            selectSegment: { id, extending, toggling in
+                selection.selectCue(id: id, extending: extending, toggling: toggling)
+            },
             updateSubtitle: { segment in
-                viewModel.updateSubtitle(segment)
+                let result = editing.updateSubtitle(segment)
                 return SubtitleEditorUpdateResult(
-                    segment: viewModel.project?.subtitles.first(where: { $0.id == segment.id }),
-                    errorMessage: viewModel.autosaveErrorMessage
+                    segment: observing.snapshot.project?.subtitles.first(where: { $0.id == segment.id }),
+                    errorMessage: result.message
                 )
             },
-            addSegmentAfter: viewModel.addSegmentAfter,
-            splitSegment: viewModel.splitSegment,
-            mergeWithNextSegment: viewModel.mergeWithNextSegment,
-            deleteSegment: viewModel.deleteSegment,
-            createShortFromSelectedCues: viewModel.createShortFromSelectedCues,
-            beginTextEdit: viewModel.beginSubtitleTextEdit,
-            endTextEdit: viewModel.endSubtitleTextEdit,
+            addSegmentAfter: { editing.addSegmentAfter(id: $0).selectedID },
+            splitSegment: { editing.splitSegment(id: $0).selectedID },
+            mergeWithNextSegment: { editing.mergeWithNextSegment(id: $0).selectedID },
+            deleteSegment: { editing.deleteSegment(id: $0).selectedID },
+            createShortFromSelectedCues: {
+                if shortsEditing.createShortFromSelectedCues().didChange {
+                    projectMode = .shorts
+                }
+            },
+            beginTextEdit: { _ in history.beginInteraction(named: "subtitle-text") },
+            endTextEdit: { history.endInteraction(named: "subtitle-text") },
             currentErrorMessage: { viewModel.autosaveErrorMessage }
         )
     }
 
     private var shortsWorkspaceActions: ShortsWorkspaceActions {
-        ShortsWorkspaceActions(
-            selectShort: { viewModel.shortsSelectedShortID = $0 },
-            addShortAtPlayhead: viewModel.addShortAtPlayhead,
-            deleteShort: viewModel.deleteShort,
+        let editing = viewModel.shortsEditingPort
+        let observing = viewModel.sessionObservingPort
+        let history = viewModel.historyPort
+        return ShortsWorkspaceActions(
+            selectShort: { editing.selectShort(id: $0) },
+            addShortAtPlayhead: { _ = editing.addShortAtPlayhead() },
+            deleteShort: { _ = editing.deleteShort(id: $0) },
             updateShort: { id, undoActionName, mutate in
-                viewModel.updateShort(
-                    id: id,
-                    undoActionName: undoActionName,
-                    mutate: mutate
-                )
+                guard var short = observing.snapshot.project?.shorts.first(where: { $0.id == id }) else { return }
+                mutate(&short)
+                _ = editing.replaceShort(short)
             },
-            beginInteractiveShortEdit: viewModel.beginInteractiveShortEdit,
-            endInteractiveShortEdit: viewModel.endInteractiveShortEdit,
-            addCropPointAtPlayhead: viewModel.addCropPointAtPlayhead,
+            beginInteractiveShortEdit: { history.beginInteraction(named: "short-edit") },
+            endInteractiveShortEdit: { _ in history.endInteraction(named: "short-edit") },
+            addCropPointAtPlayhead: { _ = editing.addCropPointAtPlayhead(shortID: $0) },
             updateShortCropOffset: { id, timelineTimeMs, offsetX in
-                viewModel.updateShortCropOffset(
-                    id: id,
-                    timelineTimeMs: timelineTimeMs,
-                    offsetX: offsetX
-                )
+                _ = editing.updateShortCropOffset(id: id, timelineTimeMs: timelineTimeMs, offsetX: offsetX)
             },
             deleteShortCropKeyframe: { shortID, keyframeID in
-                viewModel.deleteShortCropKeyframe(
-                    shortID: shortID,
-                    keyframeID: keyframeID
-                )
+                _ = editing.deleteShortCropKeyframe(shortID: shortID, keyframeID: keyframeID)
             },
-            updateExportSettings: viewModel.updateShortsExportSettings,
+            updateExportSettings: { _ = editing.updateShortsExportSettings($0) },
             updateSubtitleStyle: { style, registerUndo in
-                viewModel.updateShortsSubtitleStyle(style, registerUndo: registerUndo)
+                _ = editing.updateShortsSubtitleStyle(style, undoable: registerUndo)
             },
-            beginInteractiveSubtitleStyleEdit: viewModel.beginInteractiveShortsSubtitleStyleEdit,
-            endInteractiveSubtitleStyleEdit: viewModel.endInteractiveShortsSubtitleStyleEdit,
-            generateSuggestions: viewModel.generateShortsSuggestions,
-            acceptSuggestion: viewModel.acceptShortSuggestion,
-            dismissSuggestion: viewModel.dismissShortSuggestion,
+            beginInteractiveSubtitleStyleEdit: { history.beginInteraction(named: "shorts-subtitle-style") },
+            endInteractiveSubtitleStyleEdit: { _ in history.endInteraction(named: "shorts-subtitle-style") },
+            generateSuggestions: editing.generateShortsSuggestions,
+            acceptSuggestion: { _ = editing.acceptShortSuggestion(id: $0.id) },
+            dismissSuggestion: { editing.dismissShortSuggestion(id: $0.id) },
             exportShorts: viewModel.exportShorts
         )
     }
 
     private var subtitleExportOptionsActions: SubtitleExportOptionsActions {
-        SubtitleExportOptionsActions(
-            update: viewModel.updateSpeakerExportOptions
+        let editing = viewModel.subtitleEditingPort
+        return SubtitleExportOptionsActions(
+            update: { _ = editing.updateSpeakerExportOptions($0) }
         )
     }
 

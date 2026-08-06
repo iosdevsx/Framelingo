@@ -2,6 +2,7 @@ import Foundation
 import Project
 import ProjectSession
 import ProjectSessionImpl
+import Timeline
 import XCTest
 
 @MainActor
@@ -73,7 +74,8 @@ func makeSessionFixture(
     historyLimit: Int = 50,
     repository: RecordingProjectRepository = RecordingProjectRepository(),
     sleeper providedSleeper: ManualSleeper? = nil,
-    events: @escaping @MainActor @Sendable (ProjectSessionDocumentChangeEvent) -> Void = { _ in }
+    events: @escaping @MainActor @Sendable (ProjectSessionDocumentChangeEvent) -> Void = { _ in },
+    editTimelineService: (any EditTimelineEditing)? = nil
 ) -> (DefaultProjectSession, RecordingProjectRepository, ManualSleeper) {
     let sleeper = providedSleeper ?? ManualSleeper()
     let session = DefaultProjectSession(dependencies: ProjectSessionDependencies(
@@ -83,7 +85,8 @@ func makeSessionFixture(
         sleeper: ProjectSessionSleeper { duration in
             try await sleeper.sleep(for: duration)
         },
-        now: { Date(timeIntervalSince1970: 10) }
+        now: { Date(timeIntervalSince1970: 10) },
+        editTimelineService: editTimelineService
     ))
     return (session, repository, sleeper)
 }
