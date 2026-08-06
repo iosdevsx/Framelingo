@@ -10,6 +10,7 @@
 		A00000000000000000000050 /* BundledTools/Whisper in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000051 /* BundledTools/Whisper */; };
 		D10000000000000000000001 /* MacApp in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000002 /* MacApp */; };
 		D10000000000000000000004 /* Framelingo/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000003 /* Framelingo/Assets.xcassets */; };
+		F40000000000000000000002 /* FramelingoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40000000000000000000001 /* FramelingoApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -27,52 +28,14 @@
 		8CBA44502F9FB00100693B6B /* FramelingoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FramelingoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000051 /* BundledTools/Whisper */ = {isa = PBXFileReference; lastKnownFileType = folder; path = BundledTools/Whisper; sourceTree = SOURCE_ROOT; };
 		D10000000000000000000003 /* Framelingo/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Framelingo/Assets.xcassets; sourceTree = SOURCE_ROOT; };
-		E10000000000000000000001 /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
+		F30000000000000000000001 /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
+		F40000000000000000000001 /* FramelingoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FramelingoApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		D30000000000000000000000 /* Exceptions for "AppTarget" folder in "Framelingo" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Modules/AppUpdate,
-				Modules/DesignSystem,
-				Modules/ExportFeature,
-				Modules/FFmpeg,
-				Modules/HomeFeature,
-				Modules/MacApp,
-				Modules/Media,
-				Modules/PlayerFeature,
-				Modules/Project,
-				Modules/ProjectFeature,
-				Modules/ProjectPreparation,
-				Modules/ProjectSession,
-				Modules/Settings,
-				Modules/SettingsFeature,
-				Modules/Shorts,
-				Modules/ShortsFeature,
-				Modules/SpeakerAnalysis,
-				Modules/SpeechToText,
-				Modules/SubtitleEditorFeature,
-				Modules/Subtitles,
-				Modules/Timeline,
-				Modules/TimelineFeature,
-				Modules/TranscriptionPipeline,
-				Modules/Translation,
-				Modules/TranslationPipeline,
-				Modules/VideoExport,
-				Modules/VideoRendering,
-			);
-			target = 8CBA44342F9FAE3A00693B6B /* Framelingo */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		8CBA44372F9FAE3A00693B6B /* AppTarget */ = {
+		F40000000000000000000003 /* Modules */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				D30000000000000000000000 /* Exceptions for "AppTarget" folder in "Framelingo" target */,
-			);
-			path = AppTarget;
+			path = Modules;
 			sourceTree = "<group>";
 		};
 		8CBA44512F9FB00100693B6B /* AppTargetTests */ = {
@@ -101,10 +64,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		8CBA44372F9FAE3A00693B6B /* AppTarget */ = {
+			isa = PBXGroup;
+			children = (
+				F40000000000000000000001 /* FramelingoApp.swift */,
+				F40000000000000000000003 /* Modules */,
+			);
+			path = AppTarget;
+			sourceTree = "<group>";
+		};
 		8CBA442C2F9FAE3A00693B6B = {
 			isa = PBXGroup;
 			children = (
-				E10000000000000000000001 /* TestPlan.xctestplan */,
+				F30000000000000000000001 /* TestPlan.xctestplan */,
 				8CBA44372F9FAE3A00693B6B /* AppTarget */,
 				8CBA44512F9FB00100693B6B /* AppTargetTests */,
 				D10000000000000000000003 /* Framelingo/Assets.xcassets */,
@@ -137,9 +109,6 @@
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				8CBA44372F9FAE3A00693B6B /* AppTarget */,
 			);
 			name = Framelingo;
 			packageProductDependencies = (
@@ -201,7 +170,33 @@
 			mainGroup = 8CBA442C2F9FAE3A00693B6B;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/MacApp" */,
+				D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/Composition/MacApp" */,
+				E10000000000000000000001 /* XCLocalSwiftPackageReference "AppTarget/Modules/Core/Media" */,
+				E10000000000000000000002 /* XCLocalSwiftPackageReference "AppTarget/Modules/Core/Project" */,
+				E10000000000000000000003 /* XCLocalSwiftPackageReference "AppTarget/Modules/Core/Settings" */,
+				E10000000000000000000004 /* XCLocalSwiftPackageReference "AppTarget/Modules/Core/Shorts" */,
+				E10000000000000000000005 /* XCLocalSwiftPackageReference "AppTarget/Modules/Core/SpeakerAnalysis" */,
+				E10000000000000000000006 /* XCLocalSwiftPackageReference "AppTarget/Modules/Core/Subtitles" */,
+				E10000000000000000000007 /* XCLocalSwiftPackageReference "AppTarget/Modules/Core/Timeline" */,
+				E10000000000000000000008 /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/ExportFeature" */,
+				E10000000000000000000009 /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/HomeFeature" */,
+				E1000000000000000000000A /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/PlayerFeature" */,
+				E1000000000000000000000B /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/ProjectFeature" */,
+				E1000000000000000000000C /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/SettingsFeature" */,
+				E1000000000000000000000D /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/ShortsFeature" */,
+				E1000000000000000000000E /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/SubtitleEditorFeature" */,
+				E1000000000000000000000F /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/TimelineFeature" */,
+				E10000000000000000000010 /* XCLocalSwiftPackageReference "AppTarget/Modules/Infrastructure/AppUpdate" */,
+				E10000000000000000000011 /* XCLocalSwiftPackageReference "AppTarget/Modules/Infrastructure/FFmpeg" */,
+				E10000000000000000000012 /* XCLocalSwiftPackageReference "AppTarget/Modules/Infrastructure/SpeechToText" */,
+				E10000000000000000000013 /* XCLocalSwiftPackageReference "AppTarget/Modules/Infrastructure/Translation" */,
+				E10000000000000000000014 /* XCLocalSwiftPackageReference "AppTarget/Modules/Infrastructure/VideoExport" */,
+				E10000000000000000000015 /* XCLocalSwiftPackageReference "AppTarget/Modules/Infrastructure/VideoRendering" */,
+				E10000000000000000000016 /* XCLocalSwiftPackageReference "AppTarget/Modules/UI/DesignSystem" */,
+				E10000000000000000000017 /* XCLocalSwiftPackageReference "AppTarget/Modules/Workflows/ProjectPreparation" */,
+				E10000000000000000000018 /* XCLocalSwiftPackageReference "AppTarget/Modules/Workflows/ProjectSession" */,
+				E10000000000000000000019 /* XCLocalSwiftPackageReference "AppTarget/Modules/Workflows/TranscriptionPipeline" */,
+				E1000000000000000000001A /* XCLocalSwiftPackageReference "AppTarget/Modules/Workflows/TranslationPipeline" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 8CBA44362F9FAE3A00693B6B /* Products */;
@@ -263,6 +258,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F40000000000000000000002 /* FramelingoApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -557,16 +553,42 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/MacApp" */ = {
+		D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/Composition/MacApp" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = AppTarget/Modules/MacApp;
+			relativePath = AppTarget/Modules/Composition/MacApp;
 		};
+		E10000000000000000000001 /* XCLocalSwiftPackageReference "AppTarget/Modules/Core/Media" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Core/Media; };
+		E10000000000000000000002 /* XCLocalSwiftPackageReference "AppTarget/Modules/Core/Project" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Core/Project; };
+		E10000000000000000000003 /* XCLocalSwiftPackageReference "AppTarget/Modules/Core/Settings" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Core/Settings; };
+		E10000000000000000000004 /* XCLocalSwiftPackageReference "AppTarget/Modules/Core/Shorts" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Core/Shorts; };
+		E10000000000000000000005 /* XCLocalSwiftPackageReference "AppTarget/Modules/Core/SpeakerAnalysis" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Core/SpeakerAnalysis; };
+		E10000000000000000000006 /* XCLocalSwiftPackageReference "AppTarget/Modules/Core/Subtitles" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Core/Subtitles; };
+		E10000000000000000000007 /* XCLocalSwiftPackageReference "AppTarget/Modules/Core/Timeline" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Core/Timeline; };
+		E10000000000000000000008 /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/ExportFeature" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Features/ExportFeature; };
+		E10000000000000000000009 /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/HomeFeature" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Features/HomeFeature; };
+		E1000000000000000000000A /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/PlayerFeature" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Features/PlayerFeature; };
+		E1000000000000000000000B /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/ProjectFeature" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Features/ProjectFeature; };
+		E1000000000000000000000C /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/SettingsFeature" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Features/SettingsFeature; };
+		E1000000000000000000000D /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/ShortsFeature" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Features/ShortsFeature; };
+		E1000000000000000000000E /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/SubtitleEditorFeature" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Features/SubtitleEditorFeature; };
+		E1000000000000000000000F /* XCLocalSwiftPackageReference "AppTarget/Modules/Features/TimelineFeature" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Features/TimelineFeature; };
+		E10000000000000000000010 /* XCLocalSwiftPackageReference "AppTarget/Modules/Infrastructure/AppUpdate" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Infrastructure/AppUpdate; };
+		E10000000000000000000011 /* XCLocalSwiftPackageReference "AppTarget/Modules/Infrastructure/FFmpeg" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Infrastructure/FFmpeg; };
+		E10000000000000000000012 /* XCLocalSwiftPackageReference "AppTarget/Modules/Infrastructure/SpeechToText" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Infrastructure/SpeechToText; };
+		E10000000000000000000013 /* XCLocalSwiftPackageReference "AppTarget/Modules/Infrastructure/Translation" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Infrastructure/Translation; };
+		E10000000000000000000014 /* XCLocalSwiftPackageReference "AppTarget/Modules/Infrastructure/VideoExport" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Infrastructure/VideoExport; };
+		E10000000000000000000015 /* XCLocalSwiftPackageReference "AppTarget/Modules/Infrastructure/VideoRendering" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Infrastructure/VideoRendering; };
+		E10000000000000000000016 /* XCLocalSwiftPackageReference "AppTarget/Modules/UI/DesignSystem" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/UI/DesignSystem; };
+		E10000000000000000000017 /* XCLocalSwiftPackageReference "AppTarget/Modules/Workflows/ProjectPreparation" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Workflows/ProjectPreparation; };
+		E10000000000000000000018 /* XCLocalSwiftPackageReference "AppTarget/Modules/Workflows/ProjectSession" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Workflows/ProjectSession; };
+		E10000000000000000000019 /* XCLocalSwiftPackageReference "AppTarget/Modules/Workflows/TranscriptionPipeline" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Workflows/TranscriptionPipeline; };
+		E1000000000000000000001A /* XCLocalSwiftPackageReference "AppTarget/Modules/Workflows/TranslationPipeline" */ = {isa = XCLocalSwiftPackageReference; relativePath = AppTarget/Modules/Workflows/TranslationPipeline; };
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		D10000000000000000000002 /* MacApp */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/MacApp" */;
+			package = D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/Composition/MacApp" */;
 			productName = MacApp;
 		};
 /* End XCSwiftPackageProductDependency section */

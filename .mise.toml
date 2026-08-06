@@ -1,0 +1,82 @@
+[tools]
+tuist = "4.203.3"
+
+[tasks.setup]
+description = "Install the pinned toolchain and prepare the project"
+run = "./Scripts/tuist/setup.sh"
+
+[tasks.install]
+description = "Resolve Tuist-managed dependencies"
+run = "./Scripts/tuist/install.sh"
+
+[tasks.doctor]
+description = "Check Xcode, SDKs, Tuist, packages, and test inventory"
+run = "./Scripts/tuist/doctor.sh"
+
+[tasks."doctor:test"]
+description = "Verify common command failures stay actionable"
+run = "./Scripts/tuist/test-command-errors.sh"
+
+[tasks.generate]
+description = "Generate Framelingo-Tuist without opening Xcode"
+run = "./Scripts/tuist/project.sh generate"
+
+[tasks."generate:open"]
+description = "Generate Framelingo-Tuist and open it in Xcode"
+run = "./Scripts/tuist/project.sh generate-open"
+
+[tasks.edit]
+description = "Open the Tuist manifests for editing"
+run = "./Scripts/tuist/project.sh edit"
+
+[tasks.graph]
+description = "Export the project dependency graph"
+run = "./Scripts/tuist/project.sh graph"
+
+[tasks.clean]
+description = "Remove only repository-local generated output"
+run = "./Scripts/tuist/project.sh clean"
+
+[tasks."build:macos"]
+description = "Build the generated macOS app"
+run = "./Scripts/tuist/project.sh build macos"
+
+[tasks."build:ios"]
+description = "Build the universal app for an iPhone simulator"
+run = "./Scripts/tuist/project.sh build ios"
+
+[tasks."build:ipados"]
+description = "Build the same universal app for an iPad simulator"
+run = "./Scripts/tuist/project.sh build ipados"
+
+[tasks.test]
+description = "Run the complete generated macOS test plan"
+run = "./Scripts/tuist/project.sh test macos"
+
+[tasks."test:macos"]
+description = "Run the complete generated macOS test plan"
+run = "./Scripts/tuist/project.sh test macos"
+
+[tasks."test:ios"]
+description = "Run the mobile tests on an iPhone simulator"
+run = "./Scripts/tuist/project.sh test ios"
+
+[tasks."test:ipados"]
+description = "Run the mobile tests on an iPad simulator"
+run = "./Scripts/tuist/project.sh test ipados"
+
+[tasks."test:focused"]
+description = "Run one scheme or test identifier; pass arguments after --"
+run = "./Scripts/tuist/project.sh focused"
+
+[tasks."archive:macos"]
+description = "Create a credential-free macOS archive"
+run = "./Scripts/tuist/project.sh archive macos"
+
+[tasks."archive:validate:macos"]
+description = "Validate the credential-free macOS archive contents"
+run = "./Scripts/tuist/validate-macos-archive.sh"
+
+[tasks."archive:ios"]
+description = "Create one universal iPhone/iPad archive"
+run = "./Scripts/tuist/project.sh archive ios"

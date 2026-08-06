@@ -14,8 +14,8 @@
   "testTargets" : [
     {
       "target" : {
-        "containerPath" : "container:Framelingo.xcodeproj",
-        "identifier" : "8CBA44552F9FB00100693B6B",
+        "containerPath" : "container:Framelingo-Tuist.xcodeproj",
+        "identifier" : "590FE301EF9DD3C38EB06A00",
         "name" : "FramelingoTests"
       }
     },

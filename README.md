@@ -49,7 +49,7 @@
 
 - Mac с процессором Apple Silicon (`arm64`)
 - macOS 15.6 или новее
-- Xcode 26.3 или совместимая более новая версия — только для сборки из исходников
+- Xcode 26.3 — точная версия закреплена для воспроизводимой сборки из исходников
 - Свободное место для моделей: комплект Parakeet занимает примерно 1 ГБ; размер Whisper зависит от выбранной модели
 
 ## Установка
@@ -65,20 +65,25 @@
 ```bash
 git clone https://github.com/iosdevsx/Framelingo.git
 cd Framelingo
-open Framelingo.xcodeproj
+mise trust
+mise run setup
 ```
 
-В Xcode выберите схему **Framelingo** и запустите проект клавишами `⌘R`. Зависимости FluidAudio и Sparkle загрузятся через Swift Package Manager автоматически. FFmpegKit и arm64‑сборка `whisper-cli` уже находятся в репозитории.
+После этого откройте `Framelingo-Tuist.xcworkspace`, выберите схему **Framelingo-Tuist** и запустите проект клавишами `⌘R`. Зависимости FluidAudio и Sparkle загрузятся через Swift Package Manager автоматически. FFmpegKit и arm64‑сборка `whisper-cli` уже находятся в репозитории.
 
-Собрать проект из терминала можно так:
+Собрать и проверить проект из терминала можно так:
 
 ```bash
-xcodebuild \
-  -project Framelingo.xcodeproj \
-  -scheme Framelingo \
-  -destination 'platform=macOS,arch=arm64' \
-  build
+mise run doctor
+mise run generate
+mise run build:macos
+mise run test
 ```
+
+Подробный список команд, устройство generated-файлов и разбор проблем есть в [`docs/tuist.md`](docs/tuist.md).
+
+> [!NOTE]
+> Пока идёт проверка parity, старый `Framelingo.xcodeproj` остаётся в репозитории как контрольная сборка. Новая разработка проекта ведётся через Tuist; сгенерированные `Framelingo-Tuist.*` коммитить не нужно.
 
 ## Локальные модели
 
@@ -104,7 +109,7 @@ Framelingo поддерживает два движка распознавани
 - **SwiftUI + AppKit + AVFoundation** — интерфейс и воспроизведение видео
 - **whisper.cpp** — локальное мультиязычное распознавание речи
 - **FluidAudio / Parakeet** — ASR и диаризация спикеров
-- **FFmpegKit** — локальный SPM-пакет `AppTarget/Modules/FFmpeg`; подготовка аудио и рендеринг скрыты за API `VideoRendering`
+- **FFmpegKit** — локальный SPM-пакет `AppTarget/Modules/Infrastructure/FFmpeg`; подготовка аудио и рендеринг скрыты за API `VideoRendering`
 - **Sparkle** — безопасные автоматические обновления
 - **XCTest** — модульные тесты таймлайна, импорта, распознавания и экспорта
 
@@ -120,18 +125,23 @@ macOS composition root.
 AppTarget/
 ├── FramelingoApp.swift                           # тонкий @main target
 └── Modules/
-    ├── Subtitles, Timeline, Shorts, SpeakerAnalysis  # domain
-    ├── Media, Translation, SpeechToText              # processing
-    ├── VideoRendering, VideoExport, Project, ProjectSession, Settings
-    ├── DesignSystem                                  # tokens + shared components
-    ├── HomeFeature, ProjectFeature, SettingsFeature, ExportFeature
-    ├── SubtitleEditorFeature, TimelineFeature, PlayerFeature, ShortsFeature
-    ├── MacApp                                        # macOS composition root
-    └── FFmpeg                                        # vendor binary integration
+    ├── Composition/    MacApp
+    ├── Core/           Media, Project, Settings, Shorts, SpeakerAnalysis,
+    │                   Subtitles, Timeline
+    ├── Workflows/      ProjectPreparation, ProjectSession,
+    │                   TranscriptionPipeline, TranslationPipeline
+    ├── Features/       Home, Project, Settings, Export, SubtitleEditor,
+    │                   Timeline, Player и Shorts feature-пакеты
+    ├── Infrastructure/AppUpdate, FFmpeg, SpeechToText, Translation,
+    │                   VideoExport, VideoRendering
+    └── UI/             DesignSystem
 
 Framelingo/              # неизменённый behavioral baseline миграции
 BundledTools/Whisper/    # ресурс macOS-приложения
 ```
+
+Папки внутри `Modules` нужны только для навигации и отражают ответственность
+пакета. Имена SwiftPM packages/products от этого не меняются.
 
 `DesignSystem` содержит отдельные `Tokens` (цвета, типографика, отступы,
 радиусы), `Components` и environment values. Feature-specific state и логика
@@ -155,8 +165,8 @@ platform-neutral модели и алгоритмы монтажа/маппин�
 а правила миграции — в OpenSpec change `modularize-codebase-with-spm`.
 
 Следующие архитектурные шаги — переключение редактирования и эффектов на готовый ProjectSession,
-централизация Mac composition и добавление iOS composition. Tuist пока отложен. Сейчас checked-in Xcode-проект
-собирает macOS shell из `MacApp`. Доменные границы уже не завязаны на
+централизация Mac composition и добавление iOS composition. Tuist уже генерирует временный macOS workspace
+из `MacApp`; checked-in Xcode-проект остаётся только parity-эталоном до cutover. Доменные границы уже не завязаны на
 AppKit, но адаптация существующих SwiftUI/AppKit interaction seams под iOS
 будет отдельной задачей, а не скрытой частью модуляризации.
 
@@ -165,22 +175,16 @@ AppKit, но адаптация существующих SwiftUI/AppKit interact
 Проверить отдельный пакет независимо:
 
 ```bash
-swift build --package-path AppTarget/Modules/TimelineFeature
-swift test --package-path AppTarget/Modules/TimelineFeature
+swift build --package-path AppTarget/Modules/Features/TimelineFeature
+swift test --package-path AppTarget/Modules/Features/TimelineFeature
 ```
 
 Проверить macOS application target:
 
 ```bash
-xcodebuild build \
-  -project Framelingo.xcodeproj \
-  -scheme Framelingo \
-  -destination 'platform=macOS,arch=arm64'
-
-xcodebuild test \
-  -project Framelingo.xcodeproj \
-  -scheme Framelingo \
-  -destination 'platform=macOS,arch=arm64'
+mise run generate
+mise run build:macos
+mise run test:macos
 ```
 
 ## Текущее состояние

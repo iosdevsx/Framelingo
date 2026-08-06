@@ -3,6 +3,15 @@
 
 PRODUCT_COMPOSERS = ["MacApp"].freeze
 MODULES_RELATIVE_ROOT = "AppTarget/Modules".freeze
+MODULE_GROUPS = {
+  "MacApp" => "Composition",
+  "ProjectFeature" => "Features",
+  "SubtitleEditorFeature" => "Features",
+  "ProjectPreparation" => "Workflows",
+  "ProjectSession" => "Workflows",
+  "TranscriptionPipeline" => "Workflows",
+  "TranslationPipeline" => "Workflows"
+}.freeze
 APPLICATION_RETIREMENT_PATTERNS = {
   /^\s*(?:@testable\s+)?import\s+Application(?:Impl)?\s*$/ => "removed Application module import",
   /\.package\s*\(\s*path:\s*"\.\.\/Application"/ => "removed Application package dependency",
@@ -16,8 +25,8 @@ APPLICATION_RETIREMENT_PATTERNS = {
 
 MAC_PRODUCT_PLATFORM_SYMBOLS = %w[NSWorkspace NSPasteboard].freeze
 SUBTITLE_PICKER_CONSUMER_ROOTS = [
-  "#{MODULES_RELATIVE_ROOT}/ProjectFeature/",
-  "#{MODULES_RELATIVE_ROOT}/SubtitleEditorFeature/"
+  "#{MODULES_RELATIVE_ROOT}/Features/ProjectFeature/",
+  "#{MODULES_RELATIVE_ROOT}/Features/SubtitleEditorFeature/"
 ].freeze
 APPLICATION_PROCESSING_SYMBOLS = %w[
   ProjectProcessingEvent
@@ -127,7 +136,7 @@ def audit_import(source, label, role, target_name)
   source.scan(/^\s*(?:@testable\s+)?import\s+([A-Za-z0-9_]*Impl)\s*$/).each_with_object([]) do |match, failures|
     imported = match.first
     if role == :product && PRODUCT_COMPOSERS.include?(target_name)
-      next if label.start_with?("#{MODULES_RELATIVE_ROOT}/MacApp/Sources/Composition/")
+      next if label.start_with?("#{MODULES_RELATIVE_ROOT}/Composition/MacApp/Sources/Composition/")
     elsif role == :impl && PRODUCT_COMPOSERS.include?(target_name)
       next
     end
@@ -150,7 +159,7 @@ def audit_mac_feature_retirement(source, label)
 end
 
 def audit_broad_dependency_bag(source, label)
-  return [] if label.start_with?("#{MODULES_RELATIVE_ROOT}/MacApp/")
+  return [] if label.start_with?("#{MODULES_RELATIVE_ROOT}/Composition/MacApp/")
 
   groups = [
     source.match?(/\bSettingsAccess\b/),
@@ -199,7 +208,7 @@ def audit_project_session_source(source, label, role)
 end
 
 def audit_project_session_production_wiring(source, label)
-  return [] unless label.start_with?("#{MODULES_RELATIVE_ROOT}/ProjectFeature/")
+  return [] unless label.start_with?("#{MODULES_RELATIVE_ROOT}/Features/ProjectFeature/")
   failures = []
   if source.match?(/\bProjectViewModel\b/)
     failures << "#{label}: retired ProjectViewModel returned"
@@ -280,9 +289,9 @@ def run_self_test
   ]
   import_cases.each do |name, source, role, target, expected_count|
     label = if name == "composer import"
-      "#{MODULES_RELATIVE_ROOT}/MacApp/Sources/Composition/Test.swift"
+      "#{MODULES_RELATIVE_ROOT}/Composition/MacApp/Sources/Composition/Test.swift"
     elsif name == "navigation concrete import"
-      "#{MODULES_RELATIVE_ROOT}/MacApp/Sources/Navigation/Test.swift"
+      "#{MODULES_RELATIVE_ROOT}/Composition/MacApp/Sources/Navigation/Test.swift"
     else
       name
     end
@@ -375,7 +384,7 @@ def run_self_test
   production_wiring_cases.each do |name, source, expected_count|
     actual_count = audit_project_session_production_wiring(
       source,
-      "#{MODULES_RELATIVE_ROOT}/ProjectFeature/#{name}.swift"
+      "#{MODULES_RELATIVE_ROOT}/Features/ProjectFeature/#{name}.swift"
     ).count
     failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
   end
@@ -387,7 +396,7 @@ def run_self_test
   shell_cases.each do |name, source, expected_count|
     actual_count = audit_mac_shell_document_ownership(
       source,
-      "#{MODULES_RELATIVE_ROOT}/MacApp/Sources/Shell/#{name}.swift"
+      "#{MODULES_RELATIVE_ROOT}/Composition/MacApp/Sources/Shell/#{name}.swift"
     ).count
     failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
   end
@@ -401,19 +410,19 @@ modules_root = File.join(repository_root, MODULES_RELATIVE_ROOT)
 run_self_test if ARGV.delete("--self-test")
 
 failures = []
-Dir.glob(File.join(modules_root, "*", "Package.swift")).sort.each do |manifest_path|
+Dir.glob(File.join(modules_root, "*", "*", "Package.swift")).sort.each do |manifest_path|
   failures.concat(audit_manifest(read_utf8(manifest_path), manifest_path.delete_prefix("#{repository_root}/")))
 end
 
-Dir.glob(File.join(modules_root, "*", "Sources", "**", "*.swift")).sort.each do |source_path|
+Dir.glob(File.join(modules_root, "*", "*", "Sources", "**", "*.swift")).sort.each do |source_path|
   relative = source_path.delete_prefix("#{repository_root}/")
   module_relative = source_path.delete_prefix("#{modules_root}/")
   parts = module_relative.split(File::SEPARATOR)
-  package_name = parts[0]
+  package_name = parts[1]
   role = if package_name == "MacApp"
     :product
   else
-    parts[2] == "Api" ? :api : :impl
+    parts[3] == "Api" ? :api : :impl
   end
   target_name = role == :api ? package_name : (role == :product ? package_name : "#{package_name}Impl")
   source = read_utf8(source_path)
@@ -428,7 +437,7 @@ Dir.glob(File.join(modules_root, "*", "Sources", "**", "*.swift")).sort.each do 
 
   MAC_PRODUCT_PLATFORM_SYMBOLS.each do |symbol|
     next unless source.match?(/\b#{Regexp.escape(symbol)}\b/)
-    next if relative.start_with?("#{MODULES_RELATIVE_ROOT}/MacApp/Sources/")
+    next if relative.start_with?("#{MODULES_RELATIVE_ROOT}/Composition/MacApp/Sources/")
 
     failures << "#{relative}: #{symbol} platform implementation must live in MacApp"
   end
@@ -440,7 +449,7 @@ Dir.glob(File.join(modules_root, "*", "Sources", "**", "*.swift")).sort.each do 
   end
 end
 
-project_feature_manifest = File.join(modules_root, "ProjectFeature", "Package.swift")
+project_feature_manifest = File.join(modules_root, "Features", "ProjectFeature", "Package.swift")
 failures.concat(
   audit_project_session_production_wiring(
     read_utf8(project_feature_manifest),
@@ -450,7 +459,7 @@ failures.concat(
 
 
 retirement_scan_paths = Dir.glob(File.join(modules_root, "**", "*.swift"))
-retirement_scan_paths.concat(Dir.glob(File.join(modules_root, "*", "Package.swift")))
+retirement_scan_paths.concat(Dir.glob(File.join(modules_root, "*", "*", "Package.swift")))
 retirement_scan_paths << File.join(repository_root, "Framelingo.xcodeproj", "project.pbxproj")
 retirement_scan_paths.sort.each do |path|
   relative = path.delete_prefix("#{repository_root}/")
@@ -459,7 +468,7 @@ retirement_scan_paths.sort.each do |path|
 end
 
 anonymous_picker_paths = [
-  "#{MODULES_RELATIVE_ROOT}/ProjectFeature/Sources/Impl/Assembly/ProjectFeatureDependencies.swift"
+  "#{MODULES_RELATIVE_ROOT}/Features/ProjectFeature/Sources/Impl/Assembly/ProjectFeatureDependencies.swift"
 ]
 anonymous_picker_paths.each do |relative|
   path = File.join(repository_root, relative)
@@ -468,13 +477,13 @@ anonymous_picker_paths.each do |relative|
   failures << "#{relative}: anonymous subtitle picker authority returned"
 end
 
-Dir.glob(File.join(modules_root, "Application", "Sources", "**", "*.swift")).sort.each do |path|
+Dir.glob(File.join(modules_root, "*", "Application", "Sources", "**", "*.swift")).sort.each do |path|
   relative = path.delete_prefix("#{repository_root}/")
   failures.concat(audit_application_processing_surface(read_utf8(path), relative))
 end
 
 EXTRACTED_PIPELINES.each do |pipeline|
-  package_root = File.join(modules_root, pipeline)
+  package_root = File.join(modules_root, MODULE_GROUPS.fetch(pipeline), pipeline)
   manifest_path = File.join(package_root, "Package.swift")
   failures.concat(
     audit_pipeline_independence(

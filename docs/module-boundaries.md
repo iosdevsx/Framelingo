@@ -2,6 +2,11 @@
 
 Framelingo modules separate public contracts from implementation selection.
 
+Packages are grouped under `AppTarget/Modules` by responsibility: `Composition`,
+`Core`, `Workflows`, `Features`, `Infrastructure`, and `UI`. The folders make the
+repository and Xcode navigator readable; they do not introduce dependency access
+or change package/product names.
+
 - An API target (`Sources/Api`) may depend only on API products. It owns public domain values, requests, actions, and type-erased UI factories.
 - An ordinary implementation target (`Sources/Impl`) may depend on its own API and other packages' API products. It must not import or depend on another package's `Impl` product.
 - A product composition target chooses concrete implementations and injects API-typed dependencies. `MacApp` is the macOS product composer.

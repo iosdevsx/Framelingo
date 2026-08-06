@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   build-and-test:
+    name: Legacy Xcode project (parity reference)
     runs-on: macos-26
     timeout-minutes: 45
 
@@ -18,11 +19,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode 26
+      - name: Select exact Xcode 26.3
+        shell: bash
         run: |
-          XCODE_APP="$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+          set -euo pipefail
+          XCODE_APP=""
+          for candidate in /Applications/Xcode_26.3.app /Applications/Xcode-26.3.app; do
+            if [[ -d "$candidate" ]]; then
+              XCODE_APP="$candidate"
+              break
+            fi
+          done
+          if [[ -z "$XCODE_APP" ]]; then
+            echo "Xcode 26.3 is not installed on this runner." >&2
+            ls -1d /Applications/Xcode*.app 2>/dev/null || true
+            exit 1
+          fi
           echo "Using $XCODE_APP"
           sudo xcode-select -s "$XCODE_APP"
+          [[ "$(xcodebuild -version | sed -n '1s/^Xcode //p')" == "26.3" ]]
           xcodebuild -version
 
       - name: Cache SPM packages

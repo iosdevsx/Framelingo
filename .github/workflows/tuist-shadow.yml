@@ -1,0 +1,128 @@
+name: Tuist Shadow CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tuist-shadow-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  generated-macos:
+    name: Generated macOS (shadow)
+    runs-on: macos-26
+    timeout-minutes: 75
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select exact Xcode 26.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          XCODE_APP=""
+          for candidate in /Applications/Xcode_26.3.app /Applications/Xcode-26.3.app; do
+            if [[ -d "$candidate" ]]; then
+              XCODE_APP="$candidate"
+              break
+            fi
+          done
+          if [[ -z "$XCODE_APP" ]]; then
+            echo "Xcode 26.3 is not installed on this runner." >&2
+            ls -1d /Applications/Xcode*.app 2>/dev/null || true
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_APP"
+          [[ "$(xcodebuild -version | sed -n '1s/^Xcode //p')" == "26.3" ]]
+          xcodebuild -version
+
+      - name: Install pinned Mise tools
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+
+      - name: Restore generated build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            DerivedData/Tuist/SourcePackages
+            DerivedData/Tuist/Build-Debug/Build
+            DerivedData/Tuist/Build-Release/Build
+            DerivedData/Tuist/Test/Build
+          key: tuist-${{ runner.os }}-${{ runner.arch }}-xcode-26.3-${{ hashFiles('.mise.toml', '.xcode-version', '.package.resolved', 'Tuist.swift', 'Project.swift', 'Workspace.swift', 'Tuist/**/*.swift', 'Tuist/Config/*.xcconfig', 'AppTarget/Modules/**/Package.swift', 'AppTarget/Modules/**/Package.resolved') }}
+          restore-keys: |
+            tuist-${{ runner.os }}-${{ runner.arch }}-xcode-26.3-
+
+      - name: Prepare logs
+        run: mkdir -p DerivedData/Tuist/Logs
+
+      - name: Install project dependencies
+        shell: bash
+        run: |
+          set -o pipefail
+          mise run install 2>&1 | tee DerivedData/Tuist/Logs/install.log
+
+      - name: Doctor and generate
+        shell: bash
+        run: |
+          set -o pipefail
+          mise run doctor 2>&1 | tee DerivedData/Tuist/Logs/doctor.log
+          mise run doctor:test 2>&1 | tee DerivedData/Tuist/Logs/doctor-test.log
+          mise run generate 2>&1 | tee DerivedData/Tuist/Logs/generate.log
+
+      - name: Audit generated project
+        shell: bash
+        run: |
+          set -o pipefail
+          ruby Scripts/audit-module-boundaries.rb --self-test 2>&1 | tee DerivedData/Tuist/Logs/module-audit-self-test.log
+          ruby Scripts/audit-module-boundaries.rb 2>&1 | tee DerivedData/Tuist/Logs/module-audit.log
+          ./Scripts/tuist/audit-manifests.sh 2>&1 | tee DerivedData/Tuist/Logs/manifest-audit.log
+          ruby Scripts/tuist/audit-test-inventory.rb 2>&1 | tee DerivedData/Tuist/Logs/test-inventory-before.log
+
+      - name: Build generated macOS Debug
+        shell: bash
+        run: |
+          set -o pipefail
+          mise run build:macos 2>&1 | tee DerivedData/Tuist/Logs/build-debug.log
+
+      - name: Build generated macOS Release
+        shell: bash
+        env:
+          CONFIGURATION: Release
+        run: |
+          set -o pipefail
+          mise run build:macos 2>&1 | tee DerivedData/Tuist/Logs/build-release.log
+
+      - name: Run complete generated test plan
+        shell: bash
+        run: |
+          set -o pipefail
+          mise run test:macos 2>&1 | tee DerivedData/Tuist/Logs/test-macos.log
+          ruby Scripts/tuist/audit-test-inventory.rb DerivedData/Tuist/Test/Results/Framelingo.xcresult 2>&1 | tee DerivedData/Tuist/Logs/test-inventory-after.log
+
+      - name: Validate credential-free macOS archive
+        shell: bash
+        run: |
+          set -o pipefail
+          mise run archive:macos 2>&1 | tee DerivedData/Tuist/Logs/archive-macos.log
+          mise run archive:validate:macos 2>&1 | tee DerivedData/Tuist/Logs/archive-validation.log
+
+      - name: Upload Tuist diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tuist-shadow-diagnostics-${{ github.run_attempt }}
+          path: |
+            DerivedData/Tuist/Logs
+            DerivedData/Tuist/Test/Results/Framelingo.xcresult
+          if-no-files-found: warn
+          retention-days: 7
