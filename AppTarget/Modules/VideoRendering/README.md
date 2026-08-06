@@ -43,5 +43,5 @@
 Покрыты аргументы извлечения и рендера, монтаж нескольких клипов, вертикальные crop/blur-pad фильтры, геометрия и FPS, обратная совместимость настроек, ASS-разметка, safe area и совпадение раскладки с превью. Есть smoke-тесты встроенного FFmpeg для извлечения аудио и видео с впечёнными субтитрами.
 
 ```sh
-swift test --package-path Modules/VideoRendering
+swift test --package-path AppTarget/Modules/VideoRendering
 ```

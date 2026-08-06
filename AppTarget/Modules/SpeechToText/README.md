@@ -38,5 +38,5 @@
 Запуск из корня репозитория:
 
 ```sh
-swift test --package-path Modules/SpeechToText
+swift test --package-path AppTarget/Modules/SpeechToText
 ```

@@ -29,5 +29,5 @@
 API-тест проверяет, что контракт можно использовать без импорта реализации. Impl-тесты покрывают порядок фаз, кэш waveform, восстановление после ошибок метаданных, degraded-результаты, очистку файлов, отмену и уникальность временных URL.
 
 ```sh
-swift test --package-path Modules/ProjectPreparation
+swift test --package-path AppTarget/Modules/ProjectPreparation
 ```

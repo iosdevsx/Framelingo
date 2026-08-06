@@ -29,5 +29,5 @@
 API-тест подтверждает независимость контракта от приложения и реализации. Impl-тесты покрывают пустой ввод, успешное сохранение порядка и полей, несовпадение числа сегментов, ошибки провайдера и репозитория, понятные fallback-сообщения и отмену.
 
 ```sh
-swift test --package-path Modules/TranslationPipeline
+swift test --package-path AppTarget/Modules/TranslationPipeline
 ```

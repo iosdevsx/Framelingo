@@ -104,7 +104,7 @@ Framelingo поддерживает два движка распознавани
 - **SwiftUI + AppKit + AVFoundation** — интерфейс и воспроизведение видео
 - **whisper.cpp** — локальное мультиязычное распознавание речи
 - **FluidAudio / Parakeet** — ASR и диаризация спикеров
-- **FFmpegKit** — локальный SPM-пакет `Modules/FFmpeg`; подготовка аудио и рендеринг скрыты за API `VideoRendering`
+- **FFmpegKit** — локальный SPM-пакет `AppTarget/Modules/FFmpeg`; подготовка аудио и рендеринг скрыты за API `VideoRendering`
 - **Sparkle** — безопасные автоматические обновления
 - **XCTest** — модульные тесты таймлайна, импорта, распознавания и экспорта
 
@@ -117,17 +117,18 @@ Framelingo поддерживает два движка распознавани
 macOS composition root.
 
 ```text
-Modules/
-├── Subtitles, Timeline, Shorts, SpeakerAnalysis  # domain
-├── Media, Translation, SpeechToText              # processing
-├── VideoRendering, Project, Settings, Application
-├── DesignSystem                                  # tokens + shared components
-├── HomeFeature, ProjectFeature, SettingsFeature, ExportFeature
-├── SubtitleEditorFeature, TimelineFeature, PlayerFeature, ShortsFeature
-├── MacFeature                                    # macOS composition
-└── FFmpeg                                        # vendor binary integration
+AppTarget/
+├── FramelingoApp.swift                           # тонкий @main target
+└── Modules/
+    ├── Subtitles, Timeline, Shorts, SpeakerAnalysis  # domain
+    ├── Media, Translation, SpeechToText              # processing
+    ├── VideoRendering, Project, Settings, Application
+    ├── DesignSystem                                  # tokens + shared components
+    ├── HomeFeature, ProjectFeature, SettingsFeature, ExportFeature
+    ├── SubtitleEditorFeature, TimelineFeature, PlayerFeature, ShortsFeature
+    ├── MacFeature                                    # macOS composition
+    └── FFmpeg                                        # vendor binary integration
 
-AppTarget/               # тонкий @main target
 Framelingo/              # неизменённый behavioral baseline миграции
 BundledTools/Whisper/    # ресурс macOS-приложения
 ```
@@ -164,8 +165,8 @@ AppKit, но адаптация существующих SwiftUI/AppKit interact
 Проверить отдельный пакет независимо:
 
 ```bash
-swift build --package-path Modules/TimelineFeature
-swift test --package-path Modules/TimelineFeature
+swift build --package-path AppTarget/Modules/TimelineFeature
+swift test --package-path AppTarget/Modules/TimelineFeature
 ```
 
 Проверить macOS application target:

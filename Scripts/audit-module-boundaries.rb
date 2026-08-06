@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 PRODUCT_COMPOSERS = ["MacFeatureImpl"].freeze
+MODULES_RELATIVE_ROOT = "AppTarget/Modules".freeze
 APP_STATE_FORBIDDEN_SURFACE = {
   /@Published\s+public\s+var\s+settings\b/ => "AppState owns global settings",
   /@Published\s+public\s+var\s+recentProjects\b/ => "AppState owns recent projects",
@@ -15,8 +16,8 @@ APP_STATE_FORBIDDEN_SURFACE = {
 
 MAC_PRODUCT_PLATFORM_SYMBOLS = %w[NSWorkspace NSPasteboard].freeze
 SUBTITLE_PICKER_CONSUMER_ROOTS = [
-  "Modules/ProjectFeature/",
-  "Modules/SubtitleEditorFeature/"
+  "#{MODULES_RELATIVE_ROOT}/ProjectFeature/",
+  "#{MODULES_RELATIVE_ROOT}/SubtitleEditorFeature/"
 ].freeze
 APPLICATION_PROCESSING_SYMBOLS = %w[
   ProjectProcessingEvent
@@ -230,25 +231,27 @@ def run_self_test
 end
 
 repository_root = File.expand_path("..", __dir__)
+modules_root = File.join(repository_root, MODULES_RELATIVE_ROOT)
 run_self_test if ARGV.delete("--self-test")
 
 failures = []
-Dir.glob(File.join(repository_root, "Modules", "*", "Package.swift")).sort.each do |manifest_path|
+Dir.glob(File.join(modules_root, "*", "Package.swift")).sort.each do |manifest_path|
   failures.concat(audit_manifest(read_utf8(manifest_path), manifest_path.delete_prefix("#{repository_root}/")))
 end
 
-Dir.glob(File.join(repository_root, "Modules", "*", "Sources", "{Api,Impl}", "**", "*.swift")).sort.each do |source_path|
+Dir.glob(File.join(modules_root, "*", "Sources", "{Api,Impl}", "**", "*.swift")).sort.each do |source_path|
   relative = source_path.delete_prefix("#{repository_root}/")
-  parts = relative.split(File::SEPARATOR)
-  package_name = parts[1]
-  role = parts[3] == "Api" ? :api : :impl
+  module_relative = source_path.delete_prefix("#{modules_root}/")
+  parts = module_relative.split(File::SEPARATOR)
+  package_name = parts[0]
+  role = parts[2] == "Api" ? :api : :impl
   target_name = role == :api ? package_name : "#{package_name}Impl"
   source = read_utf8(source_path)
   failures.concat(audit_import(source, relative, role, target_name))
 
   MAC_PRODUCT_PLATFORM_SYMBOLS.each do |symbol|
     next unless source.match?(/\b#{Regexp.escape(symbol)}\b/)
-    next if relative.start_with?("Modules/MacFeature/Sources/Impl/")
+    next if relative.start_with?("#{MODULES_RELATIVE_ROOT}/MacFeature/Sources/Impl/")
 
     failures << "#{relative}: #{symbol} platform implementation must live in MacFeatureImpl"
   end
@@ -262,9 +265,9 @@ end
 
 
 app_state_surface_paths = [
-  "Modules/Application/Sources/Api/State/AppState.swift",
-  "Modules/Application/Sources/Api/Dependencies/ApplicationDependencies.swift",
-  "Modules/Application/Sources/Impl/Assembly/ApplicationAssembly.swift"
+  "#{MODULES_RELATIVE_ROOT}/Application/Sources/Api/State/AppState.swift",
+  "#{MODULES_RELATIVE_ROOT}/Application/Sources/Api/Dependencies/ApplicationDependencies.swift",
+  "#{MODULES_RELATIVE_ROOT}/Application/Sources/Impl/Assembly/ApplicationAssembly.swift"
 ]
 app_state_surface_paths.each do |relative|
   path = File.join(repository_root, relative)
@@ -272,8 +275,8 @@ app_state_surface_paths.each do |relative|
 end
 
 anonymous_picker_paths = [
-  "Modules/MacFeature/Sources/Api/MacFeatureDependencies.swift",
-  "Modules/ProjectFeature/Sources/Impl/Assembly/ProjectFeatureDependencies.swift"
+  "#{MODULES_RELATIVE_ROOT}/MacFeature/Sources/Api/MacFeatureDependencies.swift",
+  "#{MODULES_RELATIVE_ROOT}/ProjectFeature/Sources/Impl/Assembly/ProjectFeatureDependencies.swift"
 ]
 anonymous_picker_paths.each do |relative|
   path = File.join(repository_root, relative)
@@ -282,13 +285,13 @@ anonymous_picker_paths.each do |relative|
   failures << "#{relative}: anonymous subtitle picker authority returned"
 end
 
-Dir.glob(File.join(repository_root, "Modules", "Application", "Sources", "**", "*.swift")).sort.each do |path|
+Dir.glob(File.join(modules_root, "Application", "Sources", "**", "*.swift")).sort.each do |path|
   relative = path.delete_prefix("#{repository_root}/")
   failures.concat(audit_application_processing_surface(read_utf8(path), relative))
 end
 
 EXTRACTED_PIPELINES.each do |pipeline|
-  package_root = File.join(repository_root, "Modules", pipeline)
+  package_root = File.join(modules_root, pipeline)
   manifest_path = File.join(package_root, "Package.swift")
   failures.concat(
     audit_pipeline_independence(

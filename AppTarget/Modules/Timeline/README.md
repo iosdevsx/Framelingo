@@ -33,5 +33,5 @@
 Тесты покрывают удаления в начале, середине, конце и через несколько клипов, split, пересчёт координат, mapping времени и переходы плеера у границ. Отдельно проверяются выбор видимых субтитров и downsampling waveform.
 
 ```sh
-swift test --package-path Modules/Timeline
+swift test --package-path AppTarget/Modules/Timeline
 ```

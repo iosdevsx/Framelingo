@@ -29,9 +29,47 @@
 		D10000000000000000000003 /* Framelingo/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Framelingo/Assets.xcassets; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D30000000000000000000000 /* Exceptions for "AppTarget" folder in "Framelingo" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Modules/AppUpdate,
+				Modules/Application,
+				Modules/DesignSystem,
+				Modules/ExportFeature,
+				Modules/FFmpeg,
+				Modules/HomeFeature,
+				Modules/MacFeature,
+				Modules/Media,
+				Modules/PlayerFeature,
+				Modules/Project,
+				Modules/ProjectFeature,
+				Modules/ProjectPreparation,
+				Modules/Settings,
+				Modules/SettingsFeature,
+				Modules/Shorts,
+				Modules/ShortsFeature,
+				Modules/SpeakerAnalysis,
+				Modules/SpeechToText,
+				Modules/SubtitleEditorFeature,
+				Modules/Subtitles,
+				Modules/Timeline,
+				Modules/TimelineFeature,
+				Modules/TranscriptionPipeline,
+				Modules/Translation,
+				Modules/TranslationPipeline,
+				Modules/VideoRendering,
+			);
+			target = 8CBA44342F9FAE3A00693B6B /* Framelingo */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		8CBA44372F9FAE3A00693B6B /* AppTarget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D30000000000000000000000 /* Exceptions for "AppTarget" folder in "Framelingo" target */,
+			);
 			path = AppTarget;
 			sourceTree = "<group>";
 		};
@@ -160,7 +198,7 @@
 			mainGroup = 8CBA442C2F9FAE3A00693B6B;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				D10000000000000000000000 /* XCLocalSwiftPackageReference "Modules/MacFeature" */,
+				D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/MacFeature" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 8CBA44362F9FAE3A00693B6B /* Products */;
@@ -202,7 +240,7 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/Modules",
+				"$(SRCROOT)/AppTarget/Modules",
 				"$(SRCROOT)/Scripts/audit-module-boundaries.rb",
 			);
 			name = "Audit Module Boundaries";
@@ -516,16 +554,16 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		D10000000000000000000000 /* XCLocalSwiftPackageReference "Modules/MacFeature" */ = {
+		D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/MacFeature" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = Modules/MacFeature;
+			relativePath = AppTarget/Modules/MacFeature;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		D10000000000000000000002 /* MacFeatureImpl */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D10000000000000000000000 /* XCLocalSwiftPackageReference "Modules/MacFeature" */;
+			package = D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/MacFeature" */;
 			productName = MacFeatureImpl;
 		};
 /* End XCSwiftPackageProductDependency section */

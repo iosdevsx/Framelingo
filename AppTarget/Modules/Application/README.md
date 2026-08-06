@@ -38,5 +38,5 @@
 Запуск тестов пакета:
 
 ```sh
-swift test --package-path Modules/Application
+swift test --package-path AppTarget/Modules/Application
 ```

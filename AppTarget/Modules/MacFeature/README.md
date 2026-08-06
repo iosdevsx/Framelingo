@@ -45,5 +45,5 @@
 Запуск:
 
 ```sh
-swift test --package-path Modules/MacFeature
+swift test --package-path AppTarget/Modules/MacFeature
 ```

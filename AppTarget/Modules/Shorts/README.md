@@ -36,5 +36,5 @@
 Проверяются предложения по паузам и спикерам, лимиты платформ, ручное редактирование, keyframes, JSON-совместимость моделей, mapping после удаления диапазона, подготовка клипов и субтитров, кириллица и коллизии в именах файлов.
 
 ```sh
-swift test --package-path Modules/Shorts
+swift test --package-path AppTarget/Modules/Shorts
 ```

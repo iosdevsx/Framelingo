@@ -32,5 +32,5 @@
 Тесты подтверждают, что mock сохраняет идентичность, порядок и тайминги реплик, заполняет перевод и что assembly возвращает значения через публичные протоколы.
 
 ```sh
-swift test --package-path Modules/Translation
+swift test --package-path AppTarget/Modules/Translation
 ```

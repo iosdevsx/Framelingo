@@ -44,5 +44,5 @@
 Запуск:
 
 ```sh
-swift test --package-path Modules/ProjectFeature
+swift test --package-path AppTarget/Modules/ProjectFeature
 ```

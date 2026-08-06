@@ -30,5 +30,5 @@
 API-контракт проверяется отдельно от реализации. Сценарные тесты покрывают полный исходник и монтажную таймлинию, порядок событий и сохранений, передачу общей audio URL всем этапам, fallback без word timings, повторный запуск, отмену и сочетания ошибок операции, persistence и cleanup.
 
 ```sh
-swift test --package-path Modules/TranscriptionPipeline
+swift test --package-path AppTarget/Modules/TranscriptionPipeline
 ```

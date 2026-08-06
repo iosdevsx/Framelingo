@@ -17,7 +17,7 @@ Declaration = Struct.new(
 
 options = {
   original: "Framelingo",
-  modular: "Modules,AppTarget",
+  modular: "AppTarget",
   allowlist: "openspec/changes/modularize-codebase-with-spm/parity-allowlist.json",
   format: "text"
 }
@@ -25,7 +25,7 @@ options = {
 OptionParser.new do |parser|
   parser.banner = "Usage: Scripts/audit-module-parity.rb [options]"
   parser.on("--original PATH", "Original source root (default: Framelingo)") { |value| options[:original] = value }
-  parser.on("--modular PATHS", "Comma-separated modular source roots (default: Modules,AppTarget)") { |value| options[:modular] = value }
+  parser.on("--modular PATHS", "Comma-separated modular source roots (default: AppTarget)") { |value| options[:modular] = value }
   parser.on("--allowlist PATH", "Reviewed boundary-adaptation allowlist") { |value| options[:allowlist] = value }
   parser.on("--format FORMAT", %w[text json], "Output format: text or json") { |value| options[:format] = value }
 end.parse!
