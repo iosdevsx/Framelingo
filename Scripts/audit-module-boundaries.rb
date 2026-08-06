@@ -35,6 +35,16 @@ EXTRACTED_PIPELINES = %w[
   TranslationPipeline
 ].freeze
 PROJECT_SESSION_FORBIDDEN_IMPORTS = %w[SwiftUI AppKit UIKit].freeze
+PROJECT_FEATURE_EFFECT_AUTHORITIES = %w[
+  ProjectRepository
+  ProjectPreparing
+  TranscribingProject
+  TranslatingProject
+  SubtitleImporting
+  SubtitleExportService
+  ProjectFileServicing
+  VideoExportQueue
+].freeze
 
 def read_utf8(path)
   File.read(path, encoding: Encoding::UTF_8)
@@ -174,6 +184,9 @@ end
 def audit_project_session_production_wiring(source, label)
   return [] unless label.start_with?("#{MODULES_RELATIVE_ROOT}/ProjectFeature/")
   failures = []
+  if source.match?(/\bProjectViewModel\b/)
+    failures << "#{label}: retired ProjectViewModel returned"
+  end
   if source.match?(/^\s*import\s+ProjectSessionImpl\s*$/)
     failures << "#{label}: ProjectFeature must receive ProjectSession API ports from the product composer"
   end
@@ -186,7 +199,19 @@ def audit_project_session_production_wiring(source, label)
   if source.match?(/selection\.update\s*\(/)
     failures << "#{label}: ProjectFeature must not write through the product-shell selection projection"
   end
+  PROJECT_FEATURE_EFFECT_AUTHORITIES.each do |authority|
+    if source.match?(/\b#{Regexp.escape(authority)}\b/)
+      failures << "#{label}: ProjectFeature directly owns #{authority}"
+    end
+  end
   failures
+end
+
+def audit_mac_shell_document_ownership(source, label)
+  return [] unless label.include?("/MacFeature/Sources/Impl/Shell/")
+  return [] unless source.match?(/@Published\s+(?:private\(set\)\s+)?var\s+\w+\s*:\s*Project\??(?:\s*=|\s*$)/)
+
+  ["#{label}: product shell must retain navigation identity and summary, not an editable Project"]
 end
 
 def run_self_test
@@ -307,13 +332,27 @@ def run_self_test
     ["existing production owner", "import Project\n", 0],
     ["concrete session construction", "import ProjectSessionImpl\nlet session = ProjectSessionAssembly.makeSession\n", 1],
     ["mutable project adapter", "@Published var project: Project?\n", 1],
+    ["retired view model", "final class ProjectViewModel {}\n", 1],
     ["legacy history", "private var undoStack: [Project] = []\n", 1],
-    ["product-shell write", "selection.update(project)\n", 1]
+    ["product-shell write", "selection.update(project)\n", 1],
+    ["presentation repository", "let repository: any ProjectRepository\n", 1]
   ]
   production_wiring_cases.each do |name, source, expected_count|
     actual_count = audit_project_session_production_wiring(
       source,
       "#{MODULES_RELATIVE_ROOT}/ProjectFeature/#{name}.swift"
+    ).count
+    failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
+  end
+
+  shell_cases = [
+    ["identity-only shell", "@Published var selectedProjectID: UUID?\n@Published var summary: ProjectSummary?\n", 0],
+    ["document-owning shell", "@Published var selectedProject: Project?\n", 1]
+  ]
+  shell_cases.each do |name, source, expected_count|
+    actual_count = audit_mac_shell_document_ownership(
+      source,
+      "#{MODULES_RELATIVE_ROOT}/MacFeature/Sources/Impl/Shell/#{name}.swift"
     ).count
     failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
   end
@@ -346,6 +385,7 @@ Dir.glob(File.join(modules_root, "*", "Sources", "{Api,Impl}", "**", "*.swift"))
     failures.concat(audit_project_session_source(source, relative, role))
   end
   failures.concat(audit_project_session_production_wiring(source, relative))
+  failures.concat(audit_mac_shell_document_ownership(source, relative))
 
   MAC_PRODUCT_PLATFORM_SYMBOLS.each do |symbol|
     next unless source.match?(/\b#{Regexp.escape(symbol)}\b/)

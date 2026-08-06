@@ -40,5 +40,7 @@ public protocol ProjectSession:
     ProjectSessionDocumentLifecycle,
     ProjectSessionHistoryControlling,
     ProjectSessionPersisting,
-    ProjectSessionExtensionAccessing
+    ProjectSessionExtensionAccessing,
+    ProjectSessionDisposing,
+    ProjectSessionEffectCoordinating
 {}

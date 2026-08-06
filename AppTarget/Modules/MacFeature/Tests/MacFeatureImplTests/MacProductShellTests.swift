@@ -1,6 +1,5 @@
 import Combine
 import Project
-import ProjectFeature
 import XCTest
 
 @testable import MacFeatureImpl
@@ -11,7 +10,7 @@ final class MacProductShellTests: XCTestCase {
         let project = MacMockData.project
         let shell = makeShell(project: project)
 
-        XCTAssertEqual(shell.selectedProject?.id, project.id)
+        XCTAssertEqual(shell.selectedProjectID, project.id)
         XCTAssertFalse(shell.hasOpenedProject)
         XCTAssertEqual(shell.workspaceMode, .subtitles)
         XCTAssertEqual(shell.projectMode, .subtitles)
@@ -30,9 +29,9 @@ final class MacProductShellTests: XCTestCase {
         var updated = MacMockData.project
         updated.name = "Updated"
         shell.projectMode = .shorts
-        shell.updateSelectedProject(updated)
+        shell.refreshSummary(from: updated)
 
-        XCTAssertEqual(shell.selectedProject?.name, "Updated")
+        XCTAssertEqual(shell.selectedProjectSummary?.displayName, "Updated")
         XCTAssertEqual(shell.workspaceMode, .shorts)
         XCTAssertEqual(shell.projectMode, .shorts)
     }
@@ -56,7 +55,7 @@ final class MacProductShellTests: XCTestCase {
         shell = makeShell(
             project: MacMockData.project,
             cleanup: PreparedMediaCleanup { _ in
-                selectionDuringCleanup = shell.selectedProject?.id
+                selectionDuringCleanup = shell.selectedProjectID
             }
         )
         shell.open(MacMockData.project)
@@ -64,7 +63,7 @@ final class MacProductShellTests: XCTestCase {
         await shell.closeSelectedProject()
 
         XCTAssertEqual(selectionDuringCleanup, MacMockData.project.id)
-        XCTAssertNil(shell.selectedProject)
+        XCTAssertNil(shell.selectedProjectID)
         XCTAssertFalse(shell.hasOpenedProject)
     }
 
@@ -77,7 +76,7 @@ final class MacProductShellTests: XCTestCase {
 
         await shell.closeSelectedProject()
 
-        XCTAssertEqual(shell.selectedProject?.id, MacMockData.project.id)
+        XCTAssertEqual(shell.selectedProjectID, MacMockData.project.id)
         XCTAssertTrue(shell.hasOpenedProject)
         XCTAssertNotNil(shell.failure)
         XCTAssertFalse(shell.isClosingProject)
@@ -91,7 +90,7 @@ final class MacProductShellTests: XCTestCase {
         await shell.deleteActiveProject()
 
         XCTAssertEqual(catalog.deletedIDs, [MacMockData.project.id])
-        XCTAssertNil(shell.selectedProject)
+        XCTAssertNil(shell.selectedProjectID)
     }
 
     func testActiveDeleteFailurePreservesSelection() async {
@@ -101,7 +100,7 @@ final class MacProductShellTests: XCTestCase {
 
         await shell.deleteActiveProject()
 
-        XCTAssertEqual(shell.selectedProject?.id, MacMockData.project.id)
+        XCTAssertEqual(shell.selectedProjectID, MacMockData.project.id)
         XCTAssertTrue(shell.hasOpenedProject)
         XCTAssertNotNil(shell.failure)
     }

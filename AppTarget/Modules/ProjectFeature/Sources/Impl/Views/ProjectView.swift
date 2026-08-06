@@ -16,7 +16,7 @@ import UniformTypeIdentifiers
 import VideoRendering
 
 struct ProjectView: View {
-    @ObservedObject var viewModel: ProjectViewModel
+    @ObservedObject var viewModel: ProjectWorkspacePresentationModel
     @State private var player: AVPlayer?
     @State private var timeObserver: Any?
     @State private var isPlaying = false

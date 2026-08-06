@@ -1,4 +1,6 @@
 import Combine
+import ProjectSession
+import ProjectSessionImpl
 import VideoExport
 import VideoRendering
 import XCTest
@@ -7,34 +9,39 @@ import XCTest
 
 @MainActor
 final class CapabilityActivitySourceAdapterTests: XCTestCase {
-    func testProgressFlowsFromCanonicalOwnerAndDismissRoutesBack() {
+    func testTypedSessionFailureFlowsToActivityAndDismissRoutesBack() async {
         let dependencies = MacCompositionRoot.makeDependencies()
-        let activity = dependencies.transcriptionActivity
+        let session = DefaultProjectSession(dependencies: ProjectSessionDependencies(
+            repository: dependencies.projectRepository
+        ))
+        session.open(dependencies.mockProject)
         let source = CapabilityActivitySourceAdapter(
-            transcriptionActivity: activity,
+            session: session,
             videoExportQueue: dependencies.videoExportQueue
         ).source
         var snapshots = [source.snapshot]
         let subscription = source.snapshots.sink { snapshots.append($0) }
 
-        activity.start(projectName: "Demo")
-        activity.update(statusText: "Transcribing", progress: 0.5)
+        await session.transcribe()
         let item = snapshots.last?.items.first
-        XCTAssertEqual(item?.title, "Demo")
-        XCTAssertEqual(item?.progress, 0.5)
+        XCTAssertEqual(item?.title, dependencies.mockProject.displayName)
+        XCTAssertEqual(item?.status, .failed)
 
         if let id = item?.id {
-            activity.finish(success: true, message: nil)
             source.dismiss(id: id)
         }
-        XCTAssertNil(activity.activity)
+        XCTAssertTrue(source.snapshot.items.isEmpty)
         _ = subscription
     }
 
     func testComposedVideoExportQueueFeedsTheProductActivitySource() {
         let dependencies = MacCompositionRoot.makeDependencies()
+        let session = DefaultProjectSession(dependencies: ProjectSessionDependencies(
+            repository: dependencies.projectRepository
+        ))
+        session.open(dependencies.mockProject)
         let source = CapabilityActivitySourceAdapter(
-            transcriptionActivity: dependencies.transcriptionActivity,
+            session: session,
             videoExportQueue: dependencies.videoExportQueue
         ).source
         let request = FullProjectVideoExportRequest(

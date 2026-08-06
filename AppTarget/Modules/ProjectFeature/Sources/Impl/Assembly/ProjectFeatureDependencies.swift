@@ -1,25 +1,16 @@
-import VideoExport
 import ProjectSession
+import SubtitleEditorFeature
 
-/// Feature-scoped groups keep data, editing, processing, and export boundaries explicit.
+/// ProjectFeature receives shared session APIs and a macOS URL-acquisition port.
 public struct ProjectFeatureDependencies {
-    let data: ProjectWorkspaceDataDependencies
-    let editing: ProjectWorkspaceEditingDependencies
-    let processing: ProjectWorkspaceProcessingDependencies
-    let videoExportQueue: any VideoExportQueue
     let session: any ProjectSessionWorkspace
+    let subtitleDocumentPicker: SubtitleDocumentPicker
 
     public init(
-        data: ProjectWorkspaceDataDependencies,
-        editing: ProjectWorkspaceEditingDependencies,
-        processing: ProjectWorkspaceProcessingDependencies,
-        videoExportQueue: any VideoExportQueue,
-        session: any ProjectSessionWorkspace
+        session: any ProjectSessionWorkspace,
+        subtitleDocumentPicker: SubtitleDocumentPicker
     ) {
-        self.data = data
-        self.editing = editing
-        self.processing = processing
-        self.videoExportQueue = videoExportQueue
         self.session = session
+        self.subtitleDocumentPicker = subtitleDocumentPicker
     }
 }

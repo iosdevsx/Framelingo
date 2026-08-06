@@ -15,7 +15,6 @@ import VideoExport
 public typealias FFmpegServiceBuilder = (AppSettings) -> any FFmpegService
 
 public struct MacFeatureDependencies {
-    public var transcriptionActivity: any TranscriptionActivityTracking
     public var videoExportQueue: any VideoExportQueue
     public var settingsAccess: SettingsAccess
     public var projectCatalog: any ProjectCatalogManaging
@@ -41,7 +40,6 @@ public struct MacFeatureDependencies {
     public var mockSubtitles: [SubtitleSegment]
 
     public init(
-        transcriptionActivity: any TranscriptionActivityTracking,
         videoExportQueue: any VideoExportQueue,
         settingsAccess: SettingsAccess,
         projectCatalog: any ProjectCatalogManaging,
@@ -66,7 +64,6 @@ public struct MacFeatureDependencies {
         mockProject: Project,
         mockSubtitles: [SubtitleSegment]
     ) {
-        self.transcriptionActivity = transcriptionActivity
         self.videoExportQueue = videoExportQueue
         self.settingsAccess = settingsAccess
         self.projectCatalog = projectCatalog

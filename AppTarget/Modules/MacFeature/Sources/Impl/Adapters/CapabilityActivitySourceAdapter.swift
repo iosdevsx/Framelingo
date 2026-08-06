@@ -1,6 +1,7 @@
 import Combine
 import ExportFeature
 import Foundation
+import ProjectSession
 import TranscriptionPipeline
 import VideoExport
 
@@ -9,21 +10,20 @@ final class CapabilityActivitySourceAdapter {
     let source: ProductActivitySource
 
     init(
-        transcriptionActivity: any TranscriptionActivityTracking,
+        session: any ProjectSessionWorkspace,
         videoExportQueue: any VideoExportQueue
     ) {
-        let snapshots = transcriptionActivity.activitySnapshots
+        let snapshots = session.snapshots
             .combineLatest(videoExportQueue.jobSnapshots)
             .map(Self.snapshot)
             .eraseToAnyPublisher()
 
         source = ProductActivitySource(
-            snapshot: { Self.snapshot(transcriptionActivity.activity, videoExportQueue.jobs) },
+            snapshot: { Self.snapshot(session.snapshot, videoExportQueue.jobs) },
             snapshots: { snapshots },
             dismiss: { id in
-                if let activity = transcriptionActivity.activity,
-                   id == "transcription-\(activity.id.uuidString)" {
-                    transcriptionActivity.dismiss()
+                if id.hasPrefix("transcription-") {
+                    session.clearTranscriptionState()
                     return
                 }
                 guard let job = videoExportQueue.jobs.first(where: {
@@ -35,20 +35,17 @@ final class CapabilityActivitySourceAdapter {
     }
 
     private static func snapshot(
-        _ transcription: TranscriptionActivity?,
+        _ session: ProjectSessionSnapshot,
         _ jobs: [VideoExportJob]
     ) -> ProductActivitySnapshot {
         var items: [ProductActivityItem] = []
-        if let transcription {
-            items.append(ProductActivityItem(
-                id: "transcription-\(transcription.id.uuidString)",
-                title: transcription.projectName,
-                subtitle: transcription.statusText,
-                progress: transcription.progress,
-                status: transcription.status.productActivityStatus,
-                errorMessage: transcription.status == .failed ? transcription.statusText : nil,
-                canDismiss: transcription.isFinished
-            ))
+        if let project = session.project,
+           let transcription = transcriptionItem(
+                state: session.effects.transcription,
+                projectID: project.id,
+                projectName: project.displayName
+           ) {
+            items.append(transcription)
         }
         items.append(contentsOf: jobs.map { job in
             ProductActivityItem(
@@ -67,22 +64,73 @@ final class CapabilityActivitySourceAdapter {
         return ProductActivitySnapshot(items: items)
     }
 
+    private static func transcriptionItem(
+        state: ProjectSessionTranscriptionState,
+        projectID: UUID,
+        projectName: String
+    ) -> ProductActivityItem? {
+        let id = "transcription-\(projectID.uuidString)"
+        switch state {
+        case .idle:
+            return nil
+        case .running(let progress):
+            return ProductActivityItem(
+                id: id,
+                title: projectName,
+                subtitle: progress.map(status(for:)) ?? "Preparing transcription...",
+                progress: progress?.fractionCompleted,
+                status: .running,
+                canDismiss: false
+            )
+        case .completed(let warning):
+            let message = completionMessage(for: warning)
+            return ProductActivityItem(
+                id: id,
+                title: projectName,
+                subtitle: message ?? "Transcription complete",
+                progress: 1,
+                status: .succeeded,
+                canDismiss: true
+            )
+        case .failed(let failure):
+            let message = failure.diagnostic ?? "Transcription failed."
+            return ProductActivityItem(
+                id: id,
+                title: projectName,
+                subtitle: message,
+                progress: nil,
+                status: .failed,
+                errorMessage: message,
+                diagnosticText: failure.diagnostic,
+                canDismiss: true
+            )
+        }
+    }
+
+    private static func status(for progress: TranscriptionPipelineProgress) -> String {
+        if let detail = progress.providerDetail?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !detail.isEmpty { return detail }
+        return switch progress.phase {
+        case .extractingAudio: "Extracting audio..."
+        case .transcribing: "Transcribing audio..."
+        case .analyzingSpeakers: "Analyzing speakers..."
+        case .aligningSubtitles: "Aligning subtitles..."
+        }
+    }
+
+    private static func completionMessage(for warning: TranscriptionPipelineWarning?) -> String? {
+        guard case .speakerAnalysisUnavailable(let providerDetail) = warning else { return nil }
+        let message = "Transcription complete. Speaker analysis failed; subtitle timings were not refined."
+        let detail = providerDetail?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return detail.isEmpty ? message : "\(message) \(detail)"
+    }
+
     private static func diagnosticText(for job: VideoExportJob) -> String? {
         let value = [job.errorMessage, job.debugOutput]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: "\n\nDebug output:\n")
         return value.isEmpty ? nil : value
-    }
-}
-
-private extension TranscriptionActivityStatus {
-    var productActivityStatus: ProductActivityStatus {
-        switch self {
-        case .running: .running
-        case .succeeded: .succeeded
-        case .failed: .failed
-        }
     }
 }
 

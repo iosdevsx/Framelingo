@@ -22,7 +22,7 @@ public enum ProjectFeatureAssembly {
 
 @MainActor
 private struct ProjectFeatureRootView: View {
-    @StateObject private var viewModel: ProjectViewModel
+    @StateObject private var viewModel: ProjectWorkspacePresentationModel
     @Binding private var projectMode: ProjectWorkspaceMode
 
     private let components: ProjectFeatureComponents
@@ -33,7 +33,7 @@ private struct ProjectFeatureRootView: View {
         components: ProjectFeatureComponents
     ) {
         _viewModel = StateObject(
-            wrappedValue: ProjectViewModel(dependencies: dependencies)
+            wrappedValue: ProjectWorkspacePresentationModel(dependencies: dependencies)
         )
         _projectMode = projectMode
         self.components = components

@@ -3,6 +3,7 @@ import Foundation
 import Project
 import ProjectSession
 import Subtitles
+import VideoRendering
 import XCTest
 
 @MainActor
@@ -86,6 +87,24 @@ private final class ContractSession: ProjectSession {
     func close() {
         subject.send(ProjectSessionSnapshot(project: nil, history: .empty, persistence: .idle))
     }
+
+    func replace(with project: Project) { open(project) }
+    func dispose() { close() }
+    func prepare() async {}
+    func transcribe() async {}
+    func clearTranscriptionState() {}
+    func translate() async {}
+    func previewSubtitleImport(from url: URL) async {}
+    func clearSubtitleImportPreview() {}
+    func applySubtitleImport(
+        _ preview: SubtitleImportPreview,
+        mode: SubtitleImportMode,
+        destination: SubtitleImportDestination
+    ) -> ProjectSessionEditResult { .unchanged }
+    func exportSubtitles(kind: SubtitleExportKind, to url: URL) async {}
+    func exportProject(to url: URL) async {}
+    func enqueueVideoExport(settings: VideoExportSettings, outputURL: URL) {}
+    func enqueueShortsExport(shortIDs: [UUID], to directoryURL: URL) {}
 
     func undo() {}
     func redo() {}

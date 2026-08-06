@@ -75,7 +75,8 @@ func makeSessionFixture(
     repository: RecordingProjectRepository = RecordingProjectRepository(),
     sleeper providedSleeper: ManualSleeper? = nil,
     events: @escaping @MainActor @Sendable (ProjectSessionDocumentChangeEvent) -> Void = { _ in },
-    editTimelineService: (any EditTimelineEditing)? = nil
+    editTimelineService: (any EditTimelineEditing)? = nil,
+    effects: ProjectSessionEffectDependencies? = nil
 ) -> (DefaultProjectSession, RecordingProjectRepository, ManualSleeper) {
     let sleeper = providedSleeper ?? ManualSleeper()
     let session = DefaultProjectSession(dependencies: ProjectSessionDependencies(
@@ -86,7 +87,8 @@ func makeSessionFixture(
             try await sleeper.sleep(for: duration)
         },
         now: { Date(timeIntervalSince1970: 10) },
-        editTimelineService: editTimelineService
+        editTimelineService: editTimelineService,
+        effects: effects
     ))
     return (session, repository, sleeper)
 }

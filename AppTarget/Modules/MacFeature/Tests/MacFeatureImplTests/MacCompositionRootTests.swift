@@ -1,6 +1,7 @@
 import ExportFeature
 import MacFeature
 import PlayerFeature
+import Project
 import ProjectFeature
 import ProjectFeatureImpl
 import ProjectSession
@@ -24,47 +25,63 @@ final class MacCompositionRootTests: XCTestCase {
             dependencies.projectPreparationConfiguration().ffmpegExecutablePath,
             dependencies.settingsAccess.snapshot.settings.ffmpegPath
         )
-        let shell = MacProductShell(
-            selectedProject: dependencies.mockProject,
-            preparedMediaCleanup: dependencies.preparedMediaCleanup,
-            projectCatalog: dependencies.projectCatalog
-        )
-
         for initialMode in ProjectWorkspaceMode.allCases {
             var mode = initialMode
+            let session = DefaultProjectSession(dependencies: ProjectSessionDependencies(
+                repository: dependencies.projectRepository,
+                historyLimit: 200,
+                editTimelineService: dependencies.editTimelineService
+            ))
+            session.open(dependencies.mockProject)
             _ = ProjectFeatureAssembly.makeView(
                 dependencies: ProjectFeatureDependencies(
-                    data: ProjectWorkspaceDataDependencies(
-                        projectRepository: dependencies.projectRepository,
-                        projectCatalog: dependencies.projectCatalog,
-                        settingsAccess: dependencies.settingsAccess,
-                        selection: shell.selectionAccess
-                    ),
-                    editing: ProjectWorkspaceEditingDependencies(
-                        subtitleImporter: dependencies.subtitleImporter,
-                        subtitleExportService: dependencies.subtitleExportService,
-                        projectFileService: dependencies.projectFileService,
-                        editTimelineService: dependencies.editTimelineService,
-                        subtitleDocumentPicker: SubtitleDocumentPicker { _ in .cancelled }
-                    ),
-                    processing: ProjectWorkspaceProcessingDependencies(
-                        projectPreparer: dependencies.projectPreparer,
-                        projectPreparationConfiguration: dependencies.projectPreparationConfiguration,
-                        projectTranscriber: dependencies.projectTranscriber,
-                        transcriptionActivity: dependencies.transcriptionActivity,
-                        projectTranslator: dependencies.projectTranslator
-                    ),
-                    videoExportQueue: dependencies.videoExportQueue,
-                    session: DefaultProjectSession(dependencies: ProjectSessionDependencies(
-                        repository: dependencies.projectRepository,
-                        historyLimit: 200,
-                        editTimelineService: dependencies.editTimelineService
-                    ))
+                    session: session,
+                    subtitleDocumentPicker: SubtitleDocumentPicker { _ in .cancelled }
                 ),
                 projectMode: Binding(get: { mode }, set: { mode = $0 }),
                 components: dependencies.projectFeatureComponents
             )
         }
+    }
+
+    func testWorkspaceSessionsHaveIndependentWindowLifetimes() {
+        let dependencies = MacCompositionRoot.makeDependencies()
+        let first = makeSession(dependencies: dependencies)
+        let second = makeSession(dependencies: dependencies)
+        let firstProject = dependencies.mockProject
+        let secondProject = Project(
+            id: UUID(),
+            name: "Second window",
+            createdAt: firstProject.createdAt,
+            updatedAt: firstProject.updatedAt,
+            mediaFile: firstProject.mediaFile,
+            sourceLanguage: firstProject.sourceLanguage,
+            targetLanguage: firstProject.targetLanguage,
+            subtitles: firstProject.subtitles,
+            wordTimings: firstProject.wordTimings,
+            speakers: firstProject.speakers,
+            speakerLabels: firstProject.speakerLabels,
+            speakerSegments: firstProject.speakerSegments,
+            status: firstProject.status,
+            videoExportSettings: firstProject.videoExportSettings,
+            speakerExportOptions: firstProject.speakerExportOptions,
+            editTimeline: firstProject.editTimeline,
+            shorts: firstProject.shorts,
+            shortsExportSettings: firstProject.shortsExportSettings
+        )
+
+        first.open(firstProject)
+        second.open(secondProject)
+        _ = first.updateTargetLanguage("German")
+
+        XCTAssertEqual(first.snapshot.project?.id, firstProject.id)
+        XCTAssertEqual(first.snapshot.project?.targetLanguage, "German")
+        XCTAssertEqual(second.snapshot.project?.id, secondProject.id)
+        XCTAssertEqual(second.snapshot.project?.targetLanguage, secondProject.targetLanguage)
+
+        first.close()
+        XCTAssertNil(first.snapshot.project)
+        XCTAssertEqual(second.snapshot.project?.id, secondProject.id)
     }
 
     func testConcreteCapabilityAdaptersAcceptEveryProjectSurfaceRequest() throws {
@@ -265,5 +282,13 @@ final class MacCompositionRootTests: XCTestCase {
             dismissSuggestion: { _ in },
             exportShorts: { _, _ in }
         )
+    }
+
+    private func makeSession(dependencies: MacFeatureDependencies) -> DefaultProjectSession {
+        DefaultProjectSession(dependencies: ProjectSessionDependencies(
+            repository: dependencies.projectRepository,
+            historyLimit: 200,
+            editTimelineService: dependencies.editTimelineService
+        ))
     }
 }

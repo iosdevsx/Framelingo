@@ -68,7 +68,7 @@ final class ProjectFeatureAssemblyTests: XCTestCase {
         )
     }
 
-    func testShortsActionsAfterParentRerenderMutatePreservedViewModel() async throws {
+    func testShortsActionsAfterParentRerenderMutatePreservedPresentationModel() async throws {
         let short = ShortDefinition(title: "Selected", startMs: 1_000, endMs: 4_000)
         var project = TestDoubles.project()
         project.shorts = [short]

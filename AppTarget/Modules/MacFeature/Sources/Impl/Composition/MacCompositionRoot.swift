@@ -68,7 +68,6 @@ enum MacCompositionRoot {
         )
         projectCatalog.register(MacMockData.project)
 
-        let transcriptionActivity = TranscriptionPipelineAssembly.makeActivityTracker()
         let videoExportQueue = VideoExportAssembly.makeQueue(
             makeFFmpegService: { makeFFmpegService(settingsAccess.snapshot.settings) },
             subtitleScriptGenerator: subtitleScriptGenerator,
@@ -117,7 +116,6 @@ enum MacCompositionRoot {
         )
 
         return MacFeatureDependencies(
-            transcriptionActivity: transcriptionActivity,
             videoExportQueue: videoExportQueue,
             settingsAccess: settingsAccess,
             projectCatalog: projectCatalog,

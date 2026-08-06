@@ -87,20 +87,12 @@ public protocol ProjectSessionShortsEditing: AnyObject {
     func dismissShortSuggestion(id: UUID)
 }
 
-/// Temporary bridge for effects that still live in ProjectViewModel.
-/// The expected ID prevents a late effect from replacing another open document.
-@MainActor
-public protocol ProjectSessionEffectInstalling: AnyObject {
-    func installEffectOutput(_ project: Project, expectedProjectID: UUID) -> Bool
-}
-
 @MainActor
 public protocol ProjectSessionEditing:
     ProjectSessionSubtitleEditing,
     ProjectSessionSelectionPlaybackEditing,
     ProjectSessionTimelineEditing,
-    ProjectSessionShortsEditing,
-    ProjectSessionEffectInstalling
+    ProjectSessionShortsEditing
 {}
 
 @MainActor

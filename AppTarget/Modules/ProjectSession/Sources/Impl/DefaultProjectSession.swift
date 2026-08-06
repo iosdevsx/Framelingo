@@ -40,14 +40,27 @@ public final class DefaultProjectSession: ProjectSessionWorkspace {
 
     private(set) var project: Project?
     private(set) var interactionState: ProjectSessionInteractionState = .empty
+    private(set) var effectsState: ProjectSessionEffectsState = .empty
     private var history: ProjectSessionHistory
     private var persistenceState: ProjectSessionPersistenceState = .idle
     private var generation: UInt = 0
+    private var preparationGeneration: UInt = 0
+    private var transcriptionGeneration: UInt = 0
+    private var translationGeneration: UInt = 0
+    private var importGeneration: UInt = 0
+    private var exportGeneration: UInt = 0
+    private var preparationTask: Task<Void, Never>?
+    private var transcriptionTask: Task<Void, Never>?
+    private var translationTask: Task<Void, Never>?
+    private var importTask: Task<Void, Never>?
+    private var exportTask: Task<Void, Never>?
+    private var isDisposed = false
     private let documentChangeSink: ProjectSessionDocumentChangeSink
     private let now: @MainActor () -> Date
     private let autosave: ProjectAutosaveCoordinator
     private let snapshotSubject: CurrentValueSubject<ProjectSessionSnapshot, Never>
     let editTimelineService: (any EditTimelineEditing)?
+    let effectDependencies: ProjectSessionEffectDependencies?
 
     public init(dependencies: ProjectSessionDependencies) {
         let initialSnapshot = ProjectSessionSnapshot(
@@ -66,14 +79,18 @@ public final class DefaultProjectSession: ProjectSessionWorkspace {
             sleeper: dependencies.sleeper
         )
         editTimelineService = dependencies.editTimelineService
+        effectDependencies = dependencies.effects
     }
 
     public func open(_ project: Project) {
+        guard !isDisposed else { return }
+        resetProjectScopedEffects()
         autosave.invalidate()
         history.reset()
         generation &+= 1
         self.project = project
         interactionState = .empty
+        effectsState = .empty
         persistenceState = .idle
         publishSnapshot()
         sendDocumentEvent(kind: .opened)
@@ -81,14 +98,28 @@ public final class DefaultProjectSession: ProjectSessionWorkspace {
 
     public func close() {
         guard project != nil else { return }
+        resetProjectScopedEffects()
         autosave.invalidate()
         history.reset()
         generation &+= 1
         project = nil
         interactionState = .empty
+        effectsState = .empty
         persistenceState = .idle
         publishSnapshot()
         sendDocumentEvent(kind: .closed)
+    }
+
+    public func replace(with project: Project) {
+        open(project)
+    }
+
+    public func dispose() {
+        guard !isDisposed else { return }
+        close()
+        resetProjectScopedEffects()
+        autosave.invalidate()
+        isDisposed = true
     }
 
     public func undo() {
@@ -225,8 +256,110 @@ public final class DefaultProjectSession: ProjectSessionWorkspace {
                 canRedo: history.canRedo
             ),
             persistence: persistenceState,
-            interaction: interactionState
+            interaction: interactionState,
+            effects: effectsState
         )
+    }
+
+    func publishEffects(_ state: ProjectSessionEffectsState) {
+        effectsState = state
+        publishSnapshot()
+    }
+
+    func updateEffects(
+        preparation: ProjectSessionPreparationState? = nil,
+        transcription: ProjectSessionTranscriptionState? = nil,
+        translation: ProjectSessionTranslationState? = nil,
+        subtitleImport: ProjectSessionImportState? = nil,
+        export: ProjectSessionExportState? = nil,
+        derivedMedia: ProjectSessionDerivedMediaState? = nil
+    ) {
+        publishEffects(ProjectSessionEffectsState(
+            preparation: preparation ?? effectsState.preparation,
+            transcription: transcription ?? effectsState.transcription,
+            translation: translation ?? effectsState.translation,
+            subtitleImport: subtitleImport ?? effectsState.subtitleImport,
+            export: export ?? effectsState.export,
+            derivedMedia: derivedMedia ?? effectsState.derivedMedia
+        ))
+    }
+
+    func nextPreparationGeneration() -> UInt {
+        preparationGeneration &+= 1
+        preparationTask?.cancel()
+        return preparationGeneration
+    }
+
+    func nextTranscriptionGeneration() -> UInt {
+        transcriptionGeneration &+= 1
+        transcriptionTask?.cancel()
+        return transcriptionGeneration
+    }
+
+    func nextTranslationGeneration() -> UInt {
+        translationGeneration &+= 1
+        translationTask?.cancel()
+        return translationGeneration
+    }
+
+    func nextImportGeneration() -> UInt {
+        importGeneration &+= 1
+        importTask?.cancel()
+        return importGeneration
+    }
+
+    func nextExportGeneration() -> UInt {
+        exportGeneration &+= 1
+        exportTask?.cancel()
+        return exportGeneration
+    }
+
+    func setPreparationTask(_ task: Task<Void, Never>?) { preparationTask = task }
+    func setTranscriptionTask(_ task: Task<Void, Never>?) { transcriptionTask = task }
+    func setTranslationTask(_ task: Task<Void, Never>?) { translationTask = task }
+    func setImportTask(_ task: Task<Void, Never>?) { importTask = task }
+    func setExportTask(_ task: Task<Void, Never>?) { exportTask = task }
+
+    func matches(projectID: UUID, preparation token: UInt) -> Bool {
+        project?.id == projectID && preparationGeneration == token && !isDisposed
+    }
+
+    func matches(projectID: UUID, transcription token: UInt) -> Bool {
+        project?.id == projectID && transcriptionGeneration == token && !isDisposed
+    }
+
+    func matches(projectID: UUID, translation token: UInt) -> Bool {
+        project?.id == projectID && translationGeneration == token && !isDisposed
+    }
+
+    func matches(projectID: UUID, importing token: UInt) -> Bool {
+        project?.id == projectID && importGeneration == token && !isDisposed
+    }
+
+    func matches(projectID: UUID, exporting token: UInt) -> Bool {
+        project?.id == projectID && exportGeneration == token && !isDisposed
+    }
+
+    func cancelPendingAutosaveForReplacingEffect() {
+        autosave.invalidate()
+    }
+
+    private func resetProjectScopedEffects() {
+        preparationGeneration &+= 1
+        transcriptionGeneration &+= 1
+        translationGeneration &+= 1
+        importGeneration &+= 1
+        exportGeneration &+= 1
+        preparationTask?.cancel()
+        transcriptionTask?.cancel()
+        translationTask?.cancel()
+        importTask?.cancel()
+        exportTask?.cancel()
+        preparationTask = nil
+        transcriptionTask = nil
+        translationTask = nil
+        importTask = nil
+        exportTask = nil
     }
 
     private var currentDocumentState: ProjectSessionHistory.DocumentState? {

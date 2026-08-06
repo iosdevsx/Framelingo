@@ -1,17 +1,18 @@
-import Combine
 import Foundation
 import Project
 import ProjectFeature
 
 struct MacProductShellFailure: Error, Equatable, LocalizedError {
     let message: String
-
     var errorDescription: String? { message }
 }
 
+/// Product navigation state. It deliberately stores identity and presentation
+/// metadata, never the editable Project document owned by ProjectSession.
 @MainActor
 final class MacProductShell: ObservableObject {
-    @Published private(set) var selectedProject: Project?
+    @Published private(set) var selectedProjectID: UUID?
+    @Published private(set) var selectedProjectSummary: ProjectSummary?
     @Published private(set) var hasOpenedProject: Bool
     @Published var workspaceMode: AppWorkspaceMode {
         didSet { synchronizeProjectMode() }
@@ -25,63 +26,56 @@ final class MacProductShell: ObservableObject {
 
     private let preparedMediaCleanup: PreparedMediaCleanup
     private let projectCatalog: any ProjectCatalogManaging
-    private let selectionSubject: CurrentValueSubject<Project?, Never>
+    private let closeWorkspace: () -> Void
+    private var selectedMediaURL: URL?
     private var isSynchronizingModes = false
 
     init(
         selectedProject: Project?,
         startsWorkspaceOpen: Bool = false,
         preparedMediaCleanup: PreparedMediaCleanup,
-        projectCatalog: any ProjectCatalogManaging
+        projectCatalog: any ProjectCatalogManaging,
+        closeWorkspace: @escaping () -> Void = {}
     ) {
-        self.selectedProject = selectedProject
+        selectedProjectID = selectedProject?.id
+        selectedProjectSummary = selectedProject.map(ProjectSummary.init)
+        selectedMediaURL = selectedProject?.mediaFile.originalURL
         hasOpenedProject = startsWorkspaceOpen && selectedProject != nil
         workspaceMode = .subtitles
         projectMode = .subtitles
         self.preparedMediaCleanup = preparedMediaCleanup
         self.projectCatalog = projectCatalog
-        selectionSubject = CurrentValueSubject(selectedProject)
-    }
-
-    var selectionAccess: ProjectSelectionAccess {
-        ProjectSelectionAccess(
-            current: { [weak self] in self?.selectedProject },
-            updates: { [weak self] in
-                self?.selectionSubject.eraseToAnyPublisher()
-                    ?? Empty<Project?, Never>().eraseToAnyPublisher()
-            },
-            close: { [weak self] in await self?.closeSelectedProject() }
-        )
+        self.closeWorkspace = closeWorkspace
     }
 
     func open(_ project: Project) {
-        selectedProject = project
-        selectionSubject.send(project)
+        selectedProjectID = project.id
+        selectedProjectSummary = ProjectSummary(project: project)
+        selectedMediaURL = project.mediaFile.originalURL
         hasOpenedProject = true
         resetWorkspaceModes()
         failure = nil
     }
 
-    func updateSelectedProject(_ project: Project) {
-        guard selectedProject?.id == project.id else {
-            open(project)
-            return
-        }
-
-        selectedProject = project
-        selectionSubject.send(project)
+    func refreshSummary(from project: Project) {
+        guard selectedProjectID == project.id else { return }
+        selectedProjectSummary = ProjectSummary(project: project)
+        selectedMediaURL = project.mediaFile.originalURL
     }
 
     func closeSelectedProject() async {
-        guard let project = selectedProject, !isClosingProject else { return }
+        guard selectedProjectID != nil,
+              let mediaURL = selectedMediaURL,
+              !isClosingProject else { return }
 
         isClosingProject = true
         failure = nil
         defer { isClosingProject = false }
 
         do {
-            try preparedMediaCleanup.removePreparedMedia(for: project.mediaFile.originalURL)
+            try preparedMediaCleanup.removePreparedMedia(for: mediaURL)
             clearSelection()
+            closeWorkspace()
         } catch {
             failure = MacProductShellFailure(
                 message: "Could not close the project because prepared media cleanup failed: \(error.localizedDescription)"
@@ -90,16 +84,17 @@ final class MacProductShell: ObservableObject {
     }
 
     func deleteActiveProject() async {
-        guard let project = selectedProject, !isDeletingProject else { return }
+        guard let projectID = selectedProjectID, !isDeletingProject else { return }
 
         isDeletingProject = true
         failure = nil
         defer { isDeletingProject = false }
 
         do {
-            try await projectCatalog.delete(id: project.id)
-            guard selectedProject?.id == project.id else { return }
+            try await projectCatalog.delete(id: projectID)
+            guard selectedProjectID == projectID else { return }
             clearSelection()
+            closeWorkspace()
         } catch let error as LocalizedError {
             failure = MacProductShellFailure(
                 message: error.errorDescription ?? "Could not delete the project."
@@ -109,13 +104,12 @@ final class MacProductShell: ObservableObject {
         }
     }
 
-    func clearFailure() {
-        failure = nil
-    }
+    func clearFailure() { failure = nil }
 
     private func clearSelection() {
-        selectedProject = nil
-        selectionSubject.send(nil)
+        selectedProjectID = nil
+        selectedProjectSummary = nil
+        selectedMediaURL = nil
         hasOpenedProject = false
         resetWorkspaceModes()
     }
@@ -129,7 +123,6 @@ final class MacProductShell: ObservableObject {
 
     private func synchronizeProjectMode() {
         guard !isSynchronizingModes else { return }
-
         let matchingMode: ProjectWorkspaceMode?
         switch workspaceMode {
         case .subtitles: matchingMode = .subtitles
@@ -137,7 +130,6 @@ final class MacProductShell: ObservableObject {
         case .shorts: matchingMode = .shorts
         case .settings: matchingMode = nil
         }
-
         guard let matchingMode, projectMode != matchingMode else { return }
         isSynchronizingModes = true
         projectMode = matchingMode
@@ -146,14 +138,12 @@ final class MacProductShell: ObservableObject {
 
     private func synchronizeWorkspaceMode() {
         guard !isSynchronizingModes else { return }
-
         let matchingMode: AppWorkspaceMode
         switch projectMode {
         case .subtitles: matchingMode = .subtitles
         case .edit: matchingMode = .videoEditor
         case .shorts: matchingMode = .shorts
         }
-
         guard workspaceMode != matchingMode else { return }
         isSynchronizingModes = true
         workspaceMode = matchingMode

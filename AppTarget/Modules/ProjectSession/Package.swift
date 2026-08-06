@@ -14,10 +14,15 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../Project"),
+        .package(path: "../ProjectPreparation"),
         .package(path: "../Shorts"),
+        .package(path: "../SpeechToText"),
         .package(path: "../SpeakerAnalysis"),
         .package(path: "../Subtitles"),
         .package(path: "../Timeline"),
+        .package(path: "../TranscriptionPipeline"),
+        .package(path: "../TranslationPipeline"),
+        .package(path: "../VideoExport"),
         .package(path: "../VideoRendering"),
     ],
     targets: [
@@ -25,9 +30,13 @@ let package = Package(
             name: "ProjectSession",
             dependencies: [
                 .product(name: "Project", package: "Project"),
+                .product(name: "ProjectPreparation", package: "ProjectPreparation"),
                 .product(name: "Shorts", package: "Shorts"),
                 .product(name: "Subtitles", package: "Subtitles"),
                 .product(name: "Timeline", package: "Timeline"),
+                .product(name: "TranscriptionPipeline", package: "TranscriptionPipeline"),
+                .product(name: "TranslationPipeline", package: "TranslationPipeline"),
+                .product(name: "VideoExport", package: "VideoExport"),
                 .product(name: "VideoRendering", package: "VideoRendering"),
             ],
             path: "Sources/Api"
@@ -37,9 +46,13 @@ let package = Package(
             dependencies: [
                 "ProjectSession",
                 .product(name: "Project", package: "Project"),
+                .product(name: "ProjectPreparation", package: "ProjectPreparation"),
                 .product(name: "Shorts", package: "Shorts"),
                 .product(name: "Subtitles", package: "Subtitles"),
                 .product(name: "Timeline", package: "Timeline"),
+                .product(name: "TranscriptionPipeline", package: "TranscriptionPipeline"),
+                .product(name: "TranslationPipeline", package: "TranslationPipeline"),
+                .product(name: "VideoExport", package: "VideoExport"),
                 .product(name: "VideoRendering", package: "VideoRendering"),
             ],
             path: "Sources/Impl"
@@ -55,6 +68,7 @@ let package = Package(
                 "ProjectSession",
                 "ProjectSessionImpl",
                 .product(name: "SpeakerAnalysis", package: "SpeakerAnalysis"),
+                .product(name: "SpeechToText", package: "SpeechToText"),
                 .product(name: "TimelineImpl", package: "Timeline"),
             ],
             path: "Tests/ImplTests"

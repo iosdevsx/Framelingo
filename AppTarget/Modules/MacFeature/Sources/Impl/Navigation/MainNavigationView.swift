@@ -11,8 +11,10 @@ import ProjectFeatureImpl
 import ProjectSession
 import ProjectSessionImpl
 import SettingsFeatureImpl
+import SpeechToText
 import SubtitleEditorFeature
 import SwiftUI
+import TranscriptionPipeline
 
 struct MainNavigationView: View {
     let dependencies: MacFeatureDependencies
@@ -35,34 +37,56 @@ struct MainNavigationView: View {
 
     init(dependencies: MacFeatureDependencies) {
         self.dependencies = dependencies
-        let shell = MacProductShell(
-            selectedProject: dependencies.mockProject,
-            preparedMediaCleanup: dependencies.preparedMediaCleanup,
-            projectCatalog: dependencies.projectCatalog
-        )
-        _shell = StateObject(wrappedValue: shell)
-        activeProjectExportSettings = ShellActiveProjectExportSettingsAdapter(
-            shell: shell,
-            projectRepository: dependencies.projectRepository,
-            projectCatalog: dependencies.projectCatalog
-        )
-        subtitleDocumentPicker = AppKitSubtitleDocumentPickerAdapter().port
         let projectSession = DefaultProjectSession(dependencies: ProjectSessionDependencies(
             repository: dependencies.projectRepository,
             historyLimit: 200,
-            editTimelineService: dependencies.editTimelineService
+            editTimelineService: dependencies.editTimelineService,
+            effects: ProjectSessionEffectDependencies(
+                projectPreparer: dependencies.projectPreparer,
+                preparationConfiguration: dependencies.projectPreparationConfiguration,
+                projectTranscriber: dependencies.projectTranscriber,
+                transcriptionConfiguration: {
+                    let settings = dependencies.settingsAccess.snapshot.settings
+                    return TranscriptionPipelineConfiguration(
+                        ffmpegExecutablePath: settings.ffmpegPath,
+                        speechToText: SpeechToTextProviderConfiguration(
+                            providerName: settings.speechToTextProviderName,
+                            whisperExecutableURL: Self.fileURL(from: settings.whisperExecutablePath),
+                            whisperModelURL: Self.fileURL(from: settings.whisperModelPath),
+                            whisperModelName: settings.whisperModelName,
+                            whisperVADEnabled: settings.whisperVADEnabled,
+                            whisperVADModelURL: Self.fileURL(from: settings.whisperVADModelPath)
+                        )
+                    )
+                },
+                projectTranslator: dependencies.projectTranslator,
+                subtitleImporter: dependencies.subtitleImporter,
+                subtitleExporter: dependencies.subtitleExportService,
+                projectFileService: dependencies.projectFileService,
+                videoExportQueue: dependencies.videoExportQueue
+            )
         ))
         self.projectSession = projectSession
+        let shell = MacProductShell(
+            selectedProject: dependencies.mockProject,
+            preparedMediaCleanup: dependencies.preparedMediaCleanup,
+            projectCatalog: dependencies.projectCatalog,
+            closeWorkspace: projectSession.close
+        )
+        _shell = StateObject(wrappedValue: shell)
+        activeProjectExportSettings = SessionActiveProjectExportSettingsAdapter(
+            session: projectSession
+        )
+        subtitleDocumentPicker = AppKitSubtitleDocumentPickerAdapter().port
         projectSessionProjection = projectSession.snapshots
             .compactMap(\.project)
             .sink { [weak shell] project in
-                // ProjectSession is the document authority. The product shell only
-                // receives a read-model projection for navigation and global UI.
-                shell?.updateSelectedProject(project)
+                shell?.refreshSummary(from: project)
+                dependencies.projectCatalog.register(project)
             }
 
         let activitySource = CapabilityActivitySourceAdapter(
-            transcriptionActivity: dependencies.transcriptionActivity,
+            session: projectSession,
             videoExportQueue: dependencies.videoExportQueue
         ).source
         activityOverlay = ExportFeatureAssembly.makeActivityOverlay(
@@ -75,7 +99,7 @@ struct MainNavigationView: View {
     var body: some View {
         HStack(spacing: 0) {
             SidebarView(
-                project: shell.selectedProject,
+                project: projectSession.snapshot.project,
                 workspaceMode: $shell.workspaceMode,
                 subtitleLayout: $subtitleLayout,
                 showTranslation: $showTranslation,
@@ -119,37 +143,17 @@ struct MainNavigationView: View {
                 fileManager: dependencies.fileManager
             )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if shell.hasOpenedProject && shell.selectedProject != nil {
+        } else if shell.hasOpenedProject && projectSession.snapshot.project != nil {
             ZStack(alignment: .topTrailing) {
                 ProjectFeatureAssembly.makeView(
                     dependencies: ProjectFeatureDependencies(
-                        data: ProjectWorkspaceDataDependencies(
-                            projectRepository: dependencies.projectRepository,
-                            projectCatalog: dependencies.projectCatalog,
-                            settingsAccess: dependencies.settingsAccess,
-                            selection: shell.selectionAccess
-                        ),
-                        editing: ProjectWorkspaceEditingDependencies(
-                            subtitleImporter: dependencies.subtitleImporter,
-                            subtitleExportService: dependencies.subtitleExportService,
-                            projectFileService: dependencies.projectFileService,
-                            editTimelineService: dependencies.editTimelineService,
-                            subtitleDocumentPicker: subtitleDocumentPicker
-                        ),
-                        processing: ProjectWorkspaceProcessingDependencies(
-                            projectPreparer: dependencies.projectPreparer,
-                            projectPreparationConfiguration: dependencies.projectPreparationConfiguration,
-                            projectTranscriber: dependencies.projectTranscriber,
-                            transcriptionActivity: dependencies.transcriptionActivity,
-                            projectTranslator: dependencies.projectTranslator
-                        ),
-                        videoExportQueue: dependencies.videoExportQueue,
-                        session: projectSession
+                        session: projectSession,
+                        subtitleDocumentPicker: subtitleDocumentPicker
                     ),
                     projectMode: $shell.projectMode,
                     components: dependencies.projectFeatureComponents
                 )
-                .id(shell.selectedProject?.id)
+                .id(shell.selectedProjectID)
 
                 activityOverlay
                     .padding(.top, 58)
@@ -164,10 +168,18 @@ struct MainNavigationView: View {
                 fileManager: dependencies.fileManager,
                 mockProject: dependencies.mockProject,
                 mockSubtitles: dependencies.mockSubtitles,
-                projectOpening: HomeProjectOpening(open: shell.open)
+                projectOpening: HomeProjectOpening(open: { project in
+                    shell.open(project)
+                    projectSession.open(project)
+                })
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    private static func fileURL(from path: String) -> URL? {
+        let path = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        return path.isEmpty ? nil : URL(fileURLWithPath: path)
     }
 }
 

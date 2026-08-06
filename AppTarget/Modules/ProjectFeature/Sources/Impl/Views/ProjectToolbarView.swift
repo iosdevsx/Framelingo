@@ -5,7 +5,7 @@ import SwiftUI
 
 struct ProjectToolbarView: View {
     let project: Project
-    @ObservedObject var viewModel: ProjectViewModel
+    @ObservedObject var viewModel: ProjectWorkspacePresentationModel
     let onExportVideo: () -> Void
     let onExportProjectFile: () -> Void
     let onExportSubtitles: (SubtitleExportKind) -> Void

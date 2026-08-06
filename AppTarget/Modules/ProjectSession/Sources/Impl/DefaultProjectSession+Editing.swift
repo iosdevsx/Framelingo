@@ -393,11 +393,6 @@ extension DefaultProjectSession {
         _ = updateInteraction(interaction(shorts: .init(selectedShortID: old.selectedShortID, pendingRangeStartMs: old.pendingRangeStartMs, suggestions: suggestions, suggestionStatus: status)))
     }
 
-    public func installEffectOutput(_ project: Project, expectedProjectID: UUID) -> Bool {
-        guard self.project?.id == expectedProjectID, project.id == expectedProjectID else { return false }
-        return install(candidate: project, metadata: metadata(undoable: false))
-    }
-
     private func structural(_ operation: SubtitleEditingCoordinator.Operation, id: UUID) -> ProjectSessionEditResult {
         guard let project else { return .unchanged }
         do {
