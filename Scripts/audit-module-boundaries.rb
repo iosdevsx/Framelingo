@@ -34,6 +34,7 @@ EXTRACTED_PIPELINES = %w[
   TranscriptionPipeline
   TranslationPipeline
 ].freeze
+PROJECT_SESSION_FORBIDDEN_IMPORTS = %w[SwiftUI AppKit UIKit].freeze
 
 def read_utf8(path)
   File.read(path, encoding: Encoding::UTF_8)
@@ -154,6 +155,29 @@ def audit_pipeline_independence(contents, label, pipeline)
   end
 end
 
+def audit_project_session_source(source, label, role)
+  failures = []
+  PROJECT_SESSION_FORBIDDEN_IMPORTS.each do |framework|
+    if source.match?(/^\s*import\s+#{framework}\s*$/)
+      failures << "#{label}: ProjectSession must not import #{framework}"
+    end
+  end
+  if source.match?(/^\s*(?:@testable\s+)?import\s+\w+FeatureImpl\s*$/)
+    failures << "#{label}: ProjectSession must not import a sibling FeatureImpl"
+  end
+  if role == :api && source.match?(/(?:inout\s+Project|\(\s*Project\s*\)\s*->\s*Project|replaceProject|installProject|mutateProject)/)
+    failures << "#{label}: ProjectSession API exposes generic Project mutation authority"
+  end
+  failures
+end
+
+def audit_project_session_production_wiring(source, label)
+  return [] unless label.start_with?("#{MODULES_RELATIVE_ROOT}/ProjectFeature/")
+  return [] unless source.match?(/\bProjectSession(?:Impl|Assembly|Dependencies)?\b|\.package\s*\(\s*path:\s*"\.\.\/ProjectSession"/)
+
+  ["#{label}: ProjectFeature must not construct or depend on ProjectSession before the editing migration"]
+end
+
 def run_self_test
   fixtures = {
     "accepted API-only dependency" => [
@@ -257,6 +281,29 @@ def run_self_test
     failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
   end
 
+  project_session_cases = [
+    ["cross-platform core", "import Combine\nimport Project\n", :impl, 0],
+    ["platform UI import", "import SwiftUI\n", :impl, 1],
+    ["feature implementation import", "import TimelineFeatureImpl\n", :impl, 1],
+    ["generic public mutation", "public func mutateProject(_ body: (inout Project) -> Void) {}\n", :api, 1]
+  ]
+  project_session_cases.each do |name, source, role, expected_count|
+    actual_count = audit_project_session_source(source, name, role).count
+    failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
+  end
+
+  production_wiring_cases = [
+    ["existing production owner", "import Project\n", 0],
+    ["shadow session", "import ProjectSessionImpl\nlet session = ProjectSessionAssembly.makeSession\n", 1]
+  ]
+  production_wiring_cases.each do |name, source, expected_count|
+    actual_count = audit_project_session_production_wiring(
+      source,
+      "#{MODULES_RELATIVE_ROOT}/ProjectFeature/#{name}.swift"
+    ).count
+    failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
+  end
+
   abort failures.join("\n") unless failures.empty?
   puts "Module-boundary audit self-tests passed."
 end
@@ -281,6 +328,11 @@ Dir.glob(File.join(modules_root, "*", "Sources", "{Api,Impl}", "**", "*.swift"))
   failures.concat(audit_import(source, relative, role, target_name))
   failures.concat(audit_broad_dependency_bag(source, relative))
 
+  if package_name == "ProjectSession"
+    failures.concat(audit_project_session_source(source, relative, role))
+  end
+  failures.concat(audit_project_session_production_wiring(source, relative))
+
   MAC_PRODUCT_PLATFORM_SYMBOLS.each do |symbol|
     next unless source.match?(/\b#{Regexp.escape(symbol)}\b/)
     next if relative.start_with?("#{MODULES_RELATIVE_ROOT}/MacFeature/Sources/Impl/")
@@ -294,6 +346,14 @@ Dir.glob(File.join(modules_root, "*", "Sources", "{Api,Impl}", "**", "*.swift"))
     failures << "#{relative}: subtitle document picker implementation must live in MacFeatureImpl"
   end
 end
+
+project_feature_manifest = File.join(modules_root, "ProjectFeature", "Package.swift")
+failures.concat(
+  audit_project_session_production_wiring(
+    read_utf8(project_feature_manifest),
+    project_feature_manifest.delete_prefix("#{repository_root}/")
+  )
+)
 
 
 retirement_scan_paths = Dir.glob(File.join(modules_root, "**", "*.swift"))

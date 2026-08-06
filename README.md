@@ -122,7 +122,7 @@ AppTarget/
 └── Modules/
     ├── Subtitles, Timeline, Shorts, SpeakerAnalysis  # domain
     ├── Media, Translation, SpeechToText              # processing
-    ├── VideoRendering, VideoExport, Project, Settings
+    ├── VideoRendering, VideoExport, Project, ProjectSession, Settings
     ├── DesignSystem                                  # tokens + shared components
     ├── HomeFeature, ProjectFeature, SettingsFeature, ExportFeature
     ├── SubtitleEditorFeature, TimelineFeature, PlayerFeature, ShortsFeature
@@ -139,8 +139,10 @@ BundledTools/Whisper/    # ресурс macOS-приложения
 
 Архитектура приложения остаётся MVVM. Настройки, каталог проектов, processing pipelines
 и очередь экспорта принадлежат профильным модулям; `ProjectViewModel` пока владеет рабочим состоянием редактора, а
-`ProjectViewModel.project.subtitles` является единственным изменяемым источником
-текста и таймингов субтитров. Дополнительных Store/session/proxy-слоёв нет.
+`ProjectViewModel.project.subtitles` является единственным production-источником
+текста и таймингов субтитров. Новый platform-neutral `ProjectSession` уже задаёт
+транзакции, историю и autosave для следующего шага миграции, но пока не подключён
+к рабочему экрану и не создаёт второго владельца документа.
 
 `MacCompositionRoot` собирает репозитории, провайдеры и сервисы через узкие
 API-протоколы и передаёт их в ViewModel/feature assemblies. Это позволяет
@@ -155,7 +157,7 @@ platform-neutral модели и алгоритмы монтажа/маппин�
 [`module-graph.md`](openspec/changes/modularize-codebase-with-spm/module-graph.md),
 а правила миграции — в OpenSpec change `modularize-codebase-with-spm`.
 
-Следующие архитектурные шаги — перенос редактируемого документа в ProjectSession,
+Следующие архитектурные шаги — переключение редактирования и эффектов на готовый ProjectSession,
 централизация Mac composition и добавление iOS composition. Tuist пока отложен. Сейчас checked-in Xcode-проект
 собирает macOS shell из `MacFeatureImpl`. Доменные границы уже не завязаны на
 AppKit, но адаптация существующих SwiftUI/AppKit interaction seams под iOS

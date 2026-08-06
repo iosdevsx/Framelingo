@@ -13,7 +13,9 @@ Framelingo modules separate public contracts from implementation selection.
 
 There is no Application umbrella or global AppState. Settings, project catalog, preparation, transcription, translation, and video export expose focused owners. The product root injects them directly; TranscriptionPipeline and VideoExport remain the canonical activity sources. ProjectFeature groups its inputs by data, editing, and processing responsibility instead of exposing one all-capability service bag.
 
-The next planned layers build on this baseline: ProjectSession takes canonical editable-document ownership, then Mac composition is tightened before the same capability graph is reused by the iOS product.
+`ProjectSession` now provides a SwiftUI-free API/Impl core for immutable snapshots, internal transactions, bounded history, interaction grouping, and debounced persistence. It depends only on the Project API. It is deliberately not composed into ProjectFeature yet, so `ProjectViewModel` remains the single production document owner until the editing migration switches ownership in one step.
+
+The next planned layers migrate editing and effects onto ProjectSession, then tighten Mac composition before reusing the same capability graph in the iOS product.
 
 Run the checks locally with:
 
