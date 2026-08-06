@@ -18,6 +18,11 @@ final class MacCompositionRootTests: XCTestCase {
 
     func testProductRootSelectsComponentsAndConstructsEveryProjectWorkspaceMode() {
         let dependencies = MacCompositionRoot.makeDependencies()
+        let shell = MacProductShell(
+            selectedProject: dependencies.mockProject,
+            preparedMediaCleanup: dependencies.preparedMediaCleanup,
+            projectCatalog: dependencies.projectCatalog
+        )
 
         for initialMode in ProjectWorkspaceMode.allCases {
             var mode = initialMode
@@ -33,7 +38,8 @@ final class MacCompositionRootTests: XCTestCase {
                     projectPreparationWorkflow: dependencies.projectPreparationWorkflow,
                     projectTranscriptionWorkflow: dependencies.projectTranscriptionWorkflow,
                     projectTranslationWorkflow: dependencies.projectTranslationWorkflow,
-                    pickSubtitleFile: dependencies.pickSubtitleFile
+                    selection: shell.selectionAccess,
+                    subtitleDocumentPicker: SubtitleDocumentPicker { _ in .cancelled }
                 ),
                 projectMode: Binding(get: { mode }, set: { mode = $0 }),
                 components: dependencies.projectFeatureComponents
@@ -44,7 +50,7 @@ final class MacCompositionRootTests: XCTestCase {
     func testConcreteCapabilityAdaptersAcceptEveryProjectSurfaceRequest() throws {
         let dependencies = MacCompositionRoot.makeDependencies()
         let components = dependencies.projectFeatureComponents
-        let project = try XCTUnwrap(dependencies.appState.selectedProject)
+        let project = dependencies.mockProject
 
         _ = components.player.makeProjectVideoPreview(
             ProjectVideoPreviewRequest(

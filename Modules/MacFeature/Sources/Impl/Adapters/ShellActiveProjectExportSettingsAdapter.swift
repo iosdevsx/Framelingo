@@ -1,28 +1,26 @@
-import Application
 import Foundation
 import Project
 import VideoRendering
 
-/// Transitional adapter until active-project ownership moves from AppState to
-/// the product shell. It stages the selected Project immediately and owns the
-/// existing 400 ms persistence debounce for settings-screen edits.
+/// Transitional persistence adapter for SettingsFeature. Selection remains in
+/// the product shell while repository/catalog updates stay explicit.
 @MainActor
-final class AppStateActiveProjectExportSettingsAdapter: ActiveProjectExportSettingsManaging {
+final class ShellActiveProjectExportSettingsAdapter: ActiveProjectExportSettingsManaging {
     var current: VideoExportSettings? {
-        appState.selectedProject?.videoExportSettings
+        shell.selectedProject?.videoExportSettings
     }
 
-    private let appState: AppState
+    private let shell: MacProductShell
     private let projectRepository: any ProjectRepository
     private let projectCatalog: any ProjectCatalogManaging
     private var saveTask: Task<Void, Never>?
 
     init(
-        appState: AppState,
+        shell: MacProductShell,
         projectRepository: any ProjectRepository,
         projectCatalog: any ProjectCatalogManaging
     ) {
-        self.appState = appState
+        self.shell = shell
         self.projectRepository = projectRepository
         self.projectCatalog = projectCatalog
     }
@@ -32,13 +30,11 @@ final class AppStateActiveProjectExportSettingsAdapter: ActiveProjectExportSetti
     }
 
     func update(_ settings: VideoExportSettings) {
-        guard var project = appState.selectedProject else {
-            return
-        }
+        guard var project = shell.selectedProject else { return }
 
         project.videoExportSettings = settings
         project.updatedAt = Date()
-        appState.selectedProject = project
+        shell.updateSelectedProject(project)
 
         saveTask?.cancel()
         let repository = projectRepository
@@ -52,7 +48,7 @@ final class AppStateActiveProjectExportSettingsAdapter: ActiveProjectExportSetti
             } catch is CancellationError {
                 return
             } catch {
-                assertionFailure("Project export settings could not be saved: \(error.localizedDescription)")
+                assertionFailure("Failed to persist active project export settings: \(error.localizedDescription)")
             }
         }
     }

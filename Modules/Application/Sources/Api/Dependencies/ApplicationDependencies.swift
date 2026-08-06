@@ -17,8 +17,6 @@ public struct AppStateDependencies {
     public var subtitleScriptGenerator: any SubtitleScriptGenerating
     public var fileManager: FileManager
     public var currentSettings: @MainActor () -> AppSettings
-    public var revealVideoExport: @MainActor (URL) -> Void
-    public var copyText: @MainActor (String) -> Void
 
     public init(
         subtitleExportService: any SubtitleExportService,
@@ -29,9 +27,7 @@ public struct AppStateDependencies {
         makeFFmpegService: @escaping FFmpegServiceBuilder,
         subtitleScriptGenerator: any SubtitleScriptGenerating,
         fileManager: FileManager = .default,
-        currentSettings: @escaping @MainActor () -> AppSettings,
-        revealVideoExport: @escaping @MainActor (URL) -> Void,
-        copyText: @escaping @MainActor (String) -> Void
+        currentSettings: @escaping @MainActor () -> AppSettings
     ) {
         self.subtitleExportService = subtitleExportService
         self.translationService = translationService
@@ -42,7 +38,5 @@ public struct AppStateDependencies {
         self.subtitleScriptGenerator = subtitleScriptGenerator
         self.fileManager = fileManager
         self.currentSettings = currentSettings
-        self.revealVideoExport = revealVideoExport
-        self.copyText = copyText
     }
 }

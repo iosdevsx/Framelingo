@@ -34,6 +34,7 @@ let package = Package(
             dependencies: [
                 .product(name: "ExportFeature", package: "ExportFeature"),
                 .product(name: "PlayerFeature", package: "PlayerFeature"),
+                .product(name: "Project", package: "Project"),
                 .product(name: "ShortsFeature", package: "ShortsFeature"),
                 .product(name: "SubtitleEditorFeature", package: "SubtitleEditorFeature"),
                 .product(name: "TimelineFeature", package: "TimelineFeature"),

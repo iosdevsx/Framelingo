@@ -1,4 +1,3 @@
-import AppKit
 import Application
 import ApplicationImpl
 import AppUpdate
@@ -20,7 +19,6 @@ import SubtitleEditorFeatureImpl
 import TimelineImpl
 import TimelineFeatureImpl
 import TranslationImpl
-import UniformTypeIdentifiers
 import VideoRendering
 import VideoRenderingImpl
 import ExportFeatureImpl
@@ -54,16 +52,16 @@ enum MacCompositionRoot {
         let audioPreparationService = VideoRenderingAssembly.makeAudioPreparationService(
             ffmpegService: ffmpegService
         )
+        let preparedMediaCleanup = PreparedMediaCleanup { mediaURL in
+            try audioPreparationService.removePreparedAudio(for: mediaURL)
+        }
         let projectCatalog = ProjectAssembly.makeCatalog(
             repository: projectRepository,
-            preparedMediaCleanup: PreparedMediaCleanup { mediaURL in
-                try audioPreparationService.removePreparedAudio(for: mediaURL)
-            }
+            preparedMediaCleanup: preparedMediaCleanup
         )
         projectCatalog.register(MacMockData.project)
 
         let appState = ApplicationAssembly.makeAppState(
-            selectedProject: MacMockData.project,
             dependencies: AppStateDependencies(
                 subtitleExportService: SubtitlesAssembly.makeExporter(),
                 translationService: translationService,
@@ -73,21 +71,11 @@ enum MacCompositionRoot {
                 makeFFmpegService: makeFFmpegService,
                 subtitleScriptGenerator: subtitleScriptGenerator,
                 fileManager: fileManager,
-                currentSettings: { settingsAccess.snapshot.settings },
-                revealVideoExport: { url in
-                    NSWorkspace.shared.activateFileViewerSelecting([url])
-                },
-                copyText: { value in
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(value, forType: .string)
-                }
+                currentSettings: { settingsAccess.snapshot.settings }
             )
         )
-        let activeProjectExportSettings = AppStateActiveProjectExportSettingsAdapter(
-            appState: appState,
-            projectRepository: projectRepository,
-            projectCatalog: projectCatalog
-        )
+        let outputRevealer = AppKitOutputRevealAdapter().port
+        let diagnosticCopier = AppKitDiagnosticCopyAdapter().port
 
         let projectPreparationWorkflow = ApplicationWorkflowAssembly.makeProjectPreparationWorkflow(
                 mediaMetadataProvider: mediaMetadataProvider,
@@ -116,6 +104,8 @@ enum MacCompositionRoot {
                 makeFFmpegService: { makeFFmpegService(settingsAccess.snapshot.settings) },
                 subtitleScriptGenerator: subtitleScriptGenerator,
                 mediaMetadataService: mediaMetadataProvider,
+                outputRevealer: outputRevealer,
+                diagnosticCopier: diagnosticCopier,
                 fileManager: fileManager
             )
         )
@@ -125,13 +115,12 @@ enum MacCompositionRoot {
             settingsAccess: settingsAccess,
             projectCatalog: projectCatalog,
             projectRepository: projectRepository,
-            activeProjectExportSettings: activeProjectExportSettings,
+            preparedMediaCleanup: preparedMediaCleanup,
             subtitleImporter: SubtitlesAssembly.makeImporter(),
             editTimelineService: TimelineAssembly.makeEditService(),
             projectPreparationWorkflow: projectPreparationWorkflow,
             projectTranscriptionWorkflow: projectTranscriptionWorkflow,
             projectTranslationWorkflow: projectTranslationWorkflow,
-            pickSubtitleFile: pickSubtitleFile,
             mediaMetadataProvider: mediaMetadataProvider,
             subtitleScriptGenerator: subtitleScriptGenerator,
             makeFFmpegService: makeFFmpegService,
@@ -146,21 +135,4 @@ enum MacCompositionRoot {
         )
     }
 
-    private static func pickSubtitleFile() async -> URL? {
-        let panel = NSOpenPanel()
-        panel.title = "Import Subtitles"
-        panel.prompt = "Import"
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowedContentTypes = SubtitleFileFormat.allSupportedExtensions.compactMap {
-            UTType(filenameExtension: $0)
-        }
-
-        guard panel.runModal() == .OK else {
-            return nil
-        }
-
-        return panel.url
-    }
 }

@@ -8,6 +8,7 @@ import Shorts
 import SpeakerAnalysis
 import SpeechToText
 import Subtitles
+import SubtitleEditorFeature
 import Timeline
 import VideoRendering
 import XCTest
@@ -16,6 +17,38 @@ import XCTest
 
 @MainActor
 final class ProjectViewModelTests: XCTestCase {
+    func testSubtitlePickerCancellationDoesNotStartImportOrShowError() async {
+        let appState = TestDoubles.appState(project: TestDoubles.project())
+        let viewModel = TestDoubles.projectViewModel(
+            appState: appState,
+            subtitleDocumentPicker: SubtitleDocumentPicker { _ in .cancelled }
+        )
+
+        viewModel.importSubtitlesFromFile()
+        await Task.yield()
+
+        XCTAssertFalse(viewModel.isImportingSubtitles)
+        XCTAssertNil(viewModel.subtitleImportPreview)
+        XCTAssertNil(viewModel.subtitleImportErrorMessage)
+    }
+
+    func testSubtitlePickerFailureIsPresentedWithoutStartingImport() async throws {
+        let appState = TestDoubles.appState(project: TestDoubles.project())
+        let viewModel = TestDoubles.projectViewModel(
+            appState: appState,
+            subtitleDocumentPicker: SubtitleDocumentPicker { _ in
+                .failed(SubtitleDocumentPickerFailure(message: "Picker unavailable"))
+            }
+        )
+
+        viewModel.importSubtitlesFromFile()
+        try await Task.sleep(for: .milliseconds(20))
+
+        XCTAssertFalse(viewModel.isImportingSubtitles)
+        XCTAssertNil(viewModel.subtitleImportPreview)
+        XCTAssertEqual(viewModel.subtitleImportErrorMessage, "Picker unavailable")
+    }
+
     func testVideoExportCancellationDoesNotMutateProjectOrQueue() {
         let project = TestDoubles.project()
         let appState = TestDoubles.appState(project: project)
@@ -45,7 +78,7 @@ final class ProjectViewModelTests: XCTestCase {
         )
 
         XCTAssertEqual(viewModel.project?.videoExportSettings, settings)
-        XCTAssertEqual(appState.selectedProject?.videoExportSettings, settings)
+        XCTAssertEqual(TestDoubles.selectedProject(for: appState)?.videoExportSettings, settings)
         XCTAssertEqual(appState.videoExportJobs.count, 1)
         XCTAssertEqual(appState.videoExportJobs.first?.outputURL, outputURL)
     }
@@ -72,7 +105,7 @@ final class ProjectViewModelTests: XCTestCase {
         )
 
         let rootSubtitles = try XCTUnwrap(viewModel.project?.subtitles)
-        XCTAssertEqual(appState.selectedProject?.subtitles, rootSubtitles)
+        XCTAssertEqual(TestDoubles.selectedProject(for: appState)?.subtitles, rootSubtitles)
         XCTAssertEqual(exporter.request?.segments, rootSubtitles)
         XCTAssertEqual(exporter.request?.segments.first?.translatedText, "Shared root text")
         XCTAssertEqual(exporter.request?.segments.first?.endMs, 2_500)
@@ -118,7 +151,7 @@ final class ProjectViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedCueIDs, [segment.id])
         XCTAssertEqual(viewModel.project?.subtitles.first?.startMs, 250)
         XCTAssertEqual(
-            appState.selectedProject?.subtitles.first?.translatedText,
+            TestDoubles.selectedProject(for: appState)?.subtitles.first?.translatedText,
             "Edited through subtitle workspace"
         )
     }
@@ -136,7 +169,7 @@ final class ProjectViewModelTests: XCTestCase {
         }
 
         XCTAssertEqual(viewModel.selectedShort?.title, "Updated")
-        XCTAssertEqual(appState.selectedProject?.shorts.first?.title, "Updated")
+        XCTAssertEqual(TestDoubles.selectedProject(for: appState)?.shorts.first?.title, "Updated")
 
         viewModel.undo()
 
@@ -155,7 +188,7 @@ final class ProjectViewModelTests: XCTestCase {
         viewModel.updateSpeakerExportOptions(options)
 
         XCTAssertEqual(viewModel.project?.speakerExportOptions, options)
-        XCTAssertEqual(appState.selectedProject?.speakerExportOptions, options)
+        XCTAssertEqual(TestDoubles.selectedProject(for: appState)?.speakerExportOptions, options)
 
         viewModel.undo()
 
@@ -171,7 +204,7 @@ final class ProjectViewModelTests: XCTestCase {
         viewModel.updateTimelineTranslatedText(segmentID: segmentID, text: "Привет")
 
         XCTAssertEqual(viewModel.project?.subtitles.first?.translatedText, "Привет")
-        XCTAssertEqual(appState.selectedProject?.subtitles.first?.translatedText, "Привет")
+        XCTAssertEqual(TestDoubles.selectedProject(for: appState)?.subtitles.first?.translatedText, "Привет")
         XCTAssertEqual(viewModel.project?.subtitles.count, 1)
     }
 
@@ -382,7 +415,7 @@ final class ProjectViewModelTests: XCTestCase {
         )
 
         viewModel.prepareProjectForEditing()
-        appState.selectedProject = replacement
+        TestDoubles.select(replacement, for: appState)
         viewModel.loadSelectedProject()
         try await Task.sleep(for: .milliseconds(80))
 
@@ -402,7 +435,7 @@ final class ProjectViewModelTests: XCTestCase {
 
         let translationTask = Task { await viewModel.translate() }
         await Task.yield()
-        appState.selectedProject = replacement
+        TestDoubles.select(replacement, for: appState)
         viewModel.loadSelectedProject()
         await translationTask.value
 

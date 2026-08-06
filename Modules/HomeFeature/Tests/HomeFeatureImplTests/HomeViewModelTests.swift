@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import HomeFeature
 import Media
 import Project
 import Subtitles
@@ -8,6 +9,20 @@ import Testing
 
 @MainActor
 struct HomeViewModelTests {
+    @Test
+    func projectOpeningForwardsLoadedProjectThroughNarrowContract() {
+        let project = makeHomeProject(
+            mediaURL: URL(fileURLWithPath: "/tmp/open.mov"),
+            name: "Opened"
+        )
+        var openedProject: Project?
+        let opening = HomeProjectOpening { openedProject = $0 }
+
+        opening.open(project)
+
+        #expect(openedProject?.id == project.id)
+    }
+
     @Test
     func createRegistersCatalogOnlyAfterSuccessfulPersistence() async throws {
         let root = try makeTemporaryDirectory()

@@ -14,13 +14,12 @@ public struct MacFeatureDependencies {
     public var settingsAccess: SettingsAccess
     public var projectCatalog: any ProjectCatalogManaging
     public var projectRepository: any ProjectRepository
-    public var activeProjectExportSettings: any ActiveProjectExportSettingsManaging
+    public var preparedMediaCleanup: PreparedMediaCleanup
     public var subtitleImporter: any SubtitleImporting
     public var editTimelineService: any EditTimelineEditing
     public var projectPreparationWorkflow: any ProjectPreparationWorkflow
     public var projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow
     public var projectTranslationWorkflow: any ProjectTranslationWorkflow
-    public var pickSubtitleFile: @MainActor () async -> URL?
     public var mediaMetadataProvider: any MediaMetadataProviding
     public var subtitleScriptGenerator: any SubtitleScriptGenerating
     public var makeFFmpegService: FFmpegServiceBuilder
@@ -38,13 +37,12 @@ public struct MacFeatureDependencies {
         settingsAccess: SettingsAccess,
         projectCatalog: any ProjectCatalogManaging,
         projectRepository: any ProjectRepository,
-        activeProjectExportSettings: any ActiveProjectExportSettingsManaging,
+        preparedMediaCleanup: PreparedMediaCleanup,
         subtitleImporter: any SubtitleImporting,
         editTimelineService: any EditTimelineEditing,
         projectPreparationWorkflow: any ProjectPreparationWorkflow,
         projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow,
         projectTranslationWorkflow: any ProjectTranslationWorkflow,
-        pickSubtitleFile: @escaping @MainActor () async -> URL?,
         mediaMetadataProvider: any MediaMetadataProviding,
         subtitleScriptGenerator: any SubtitleScriptGenerating,
         makeFFmpegService: @escaping FFmpegServiceBuilder,
@@ -61,13 +59,12 @@ public struct MacFeatureDependencies {
         self.settingsAccess = settingsAccess
         self.projectCatalog = projectCatalog
         self.projectRepository = projectRepository
-        self.activeProjectExportSettings = activeProjectExportSettings
+        self.preparedMediaCleanup = preparedMediaCleanup
         self.subtitleImporter = subtitleImporter
         self.editTimelineService = editTimelineService
         self.projectPreparationWorkflow = projectPreparationWorkflow
         self.projectTranscriptionWorkflow = projectTranscriptionWorkflow
         self.projectTranslationWorkflow = projectTranslationWorkflow
-        self.pickSubtitleFile = pickSubtitleFile
         self.mediaMetadataProvider = mediaMetadataProvider
         self.subtitleScriptGenerator = subtitleScriptGenerator
         self.makeFFmpegService = makeFFmpegService

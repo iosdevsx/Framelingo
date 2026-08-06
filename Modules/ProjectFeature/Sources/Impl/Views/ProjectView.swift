@@ -61,10 +61,6 @@ struct ProjectView: View {
             viewModel.prepareProjectForEditing()
             configurePlayerIfNeeded()
         }
-        .onChange(of: appState.selectedProject) { _, selectedProject in
-            guard viewModel.project != selectedProject else { return }
-            viewModel.loadSelectedProject()
-        }
         .onChange(of: viewModel.project?.id) { _, _ in
             viewModel.prepareProjectForEditing()
             configurePlayerIfNeeded()

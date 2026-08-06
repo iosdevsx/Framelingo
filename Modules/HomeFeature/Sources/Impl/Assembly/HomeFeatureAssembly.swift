@@ -1,4 +1,5 @@
 import Foundation
+import HomeFeature
 import Media
 import Project
 import Subtitles
@@ -14,7 +15,7 @@ public enum HomeFeatureAssembly {
         fileManager: FileManager = .default,
         mockProject: Project,
         mockSubtitles: [SubtitleSegment],
-        onOpenProject: @escaping (Project) -> Void
+        projectOpening: HomeProjectOpening
     ) -> AnyView {
         let viewModel = HomeViewModel(
             projectCatalog: projectCatalog,
@@ -28,7 +29,7 @@ public enum HomeFeatureAssembly {
         return AnyView(
             HomeView(
                 viewModel: viewModel,
-                onOpenProject: onOpenProject
+                onOpenProject: projectOpening.open
             )
         )
     }

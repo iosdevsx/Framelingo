@@ -17,7 +17,9 @@ let package = Package(
     targets: [
         .target(
             name: "HomeFeature",
-            dependencies: [],
+            dependencies: [
+                .product(name: "Project", package: "Project"),
+            ],
             path: "Sources/Api"
         ),
         .target(

@@ -1,24 +1,27 @@
 import Application
 import DesignSystem
 import ExportFeatureImpl
+import ExportFeature
+import HomeFeature
 import HomeFeatureImpl
 import MacFeature
 import Project
 import ProjectFeature
 import ProjectFeatureImpl
 import SettingsFeatureImpl
+import SubtitleEditorFeature
 import SwiftUI
 
 struct MainNavigationView: View {
     @EnvironmentObject private var appState: AppState
     let dependencies: MacFeatureDependencies
 
-    @State private var workspaceMode: AppWorkspaceMode = .subtitles
-    @State private var projectMode: ProjectWorkspaceMode = .subtitles
+    @StateObject private var shell: MacProductShell
     @State private var selectedSpeakerID: String? = nil
     @State private var showShortcuts = false
-    // Starts on HomeView regardless of appState.selectedProject (matches original behaviour)
-    @State private var hasOpenedProject: Bool = false
+    private let activeProjectExportSettings: any ActiveProjectExportSettingsManaging
+    private let subtitleDocumentPicker: SubtitleDocumentPicker
+    private let activityOverlay: AnyView
 
     @AppStorage("Framelingo.subtitleLayout") private var subtitleLayout: SubtitleLayoutMode = .split
     @AppStorage("Framelingo.showTranslation") private var showTranslation: Bool = false
@@ -27,11 +30,34 @@ struct MainNavigationView: View {
     @AppStorage("Framelingo.accentColorName") private var accentColorName: String = AccentColorName.blue.rawValue
     @AppStorage("Framelingo.sidebarCollapsed") private var sidebarCollapsed: Bool = false
 
+    init(dependencies: MacFeatureDependencies) {
+        self.dependencies = dependencies
+        let shell = MacProductShell(
+            selectedProject: dependencies.mockProject,
+            preparedMediaCleanup: dependencies.preparedMediaCleanup,
+            projectCatalog: dependencies.projectCatalog
+        )
+        _shell = StateObject(wrappedValue: shell)
+        activeProjectExportSettings = ShellActiveProjectExportSettingsAdapter(
+            shell: shell,
+            projectRepository: dependencies.projectRepository,
+            projectCatalog: dependencies.projectCatalog
+        )
+        subtitleDocumentPicker = AppKitSubtitleDocumentPickerAdapter().port
+
+        let activitySource = AppStateActivitySourceAdapter(appState: dependencies.appState).source
+        activityOverlay = ExportFeatureAssembly.makeActivityOverlay(
+            source: activitySource,
+            outputRevealer: AppKitOutputRevealAdapter().port,
+            diagnosticCopier: AppKitDiagnosticCopyAdapter().port
+        )
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             SidebarView(
-                project: appState.selectedProject,
-                workspaceMode: $workspaceMode,
+                project: shell.selectedProject,
+                workspaceMode: $shell.workspaceMode,
                 subtitleLayout: $subtitleLayout,
                 showTranslation: $showTranslation,
                 showWarnings: $showWarnings,
@@ -45,27 +71,16 @@ struct MainNavigationView: View {
             contentArea
         }
         .frame(minWidth: 900, minHeight: 600)
-        .onChange(of: workspaceMode) { _, mode in
-            switch mode {
-            case .videoEditor: projectMode = .edit
-            case .subtitles:   projectMode = .subtitles
-            case .shorts:      projectMode = .shorts
-            case .settings:    break
-            }
-        }
-        .onChange(of: projectMode) { _, mode in
-            // Keep the sidebar highlight in sync when a workspace switches the
-            // project mode programmatically (e.g. "Create short from cue").
-            switch mode {
-            case .subtitles where workspaceMode != .subtitles: workspaceMode = .subtitles
-            case .edit where workspaceMode != .videoEditor:    workspaceMode = .videoEditor
-            case .shorts where workspaceMode != .shorts:       workspaceMode = .shorts
-            default: break
-            }
-        }
-        .onChange(of: appState.selectedProject?.id) { _, _ in
-            workspaceMode = .subtitles
-            projectMode = .subtitles
+        .alert(
+            "Project Error",
+            isPresented: Binding(
+                get: { shell.failure != nil },
+                set: { if !$0 { shell.clearFailure() } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(shell.failure?.message ?? "")
         }
         .sheet(isPresented: $showShortcuts) {
             KeyboardShortcutsSheet()
@@ -74,10 +89,10 @@ struct MainNavigationView: View {
 
     @ViewBuilder
     private var contentArea: some View {
-        if workspaceMode == .settings {
+        if shell.workspaceMode == .settings {
             SettingsFeatureAssembly.makeView(
                 settingsAccess: dependencies.settingsAccess,
-                activeProjectExportSettings: dependencies.activeProjectExportSettings,
+                activeProjectExportSettings: activeProjectExportSettings,
                 whisperInstaller: dependencies.whisperModelManager,
                 parakeetModelStore: dependencies.parakeetModelManager,
                 usesEmbeddedVideoRenderingBackend: dependencies.usesEmbeddedVideoRenderingBackend,
@@ -85,7 +100,7 @@ struct MainNavigationView: View {
                 fileManager: dependencies.fileManager
             )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if hasOpenedProject && appState.selectedProject != nil {
+        } else if shell.hasOpenedProject && shell.selectedProject != nil {
             ZStack(alignment: .topTrailing) {
                 ProjectFeatureAssembly.makeView(
                     appState: appState,
@@ -99,14 +114,15 @@ struct MainNavigationView: View {
                         projectPreparationWorkflow: dependencies.projectPreparationWorkflow,
                         projectTranscriptionWorkflow: dependencies.projectTranscriptionWorkflow,
                         projectTranslationWorkflow: dependencies.projectTranslationWorkflow,
-                        pickSubtitleFile: dependencies.pickSubtitleFile
+                        selection: shell.selectionAccess,
+                        subtitleDocumentPicker: subtitleDocumentPicker
                     ),
-                    projectMode: $projectMode,
+                    projectMode: $shell.projectMode,
                     components: dependencies.projectFeatureComponents
                 )
-                .id(appState.selectedProject?.id)
+                .id(shell.selectedProject?.id)
 
-                ExportFeatureAssembly.makeActivityOverlay(appState: appState)
+                activityOverlay
                     .padding(.top, 58)
                     .padding(.trailing, 16)
             }
@@ -119,11 +135,7 @@ struct MainNavigationView: View {
                 fileManager: dependencies.fileManager,
                 mockProject: dependencies.mockProject,
                 mockSubtitles: dependencies.mockSubtitles,
-                onOpenProject: { project in
-                    appState.selectedProject = project
-                    hasOpenedProject = true
-                    workspaceMode = .subtitles
-                }
+                projectOpening: HomeProjectOpening(open: shell.open)
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }

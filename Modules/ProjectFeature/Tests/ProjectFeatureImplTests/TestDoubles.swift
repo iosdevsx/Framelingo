@@ -26,6 +26,29 @@ enum TestDoubles {
     private static var repositoriesByAppState: [ObjectIdentifier: Repository] = [:]
     @MainActor
     private static var catalogsByAppState: [ObjectIdentifier: Catalog] = [:]
+    @MainActor
+    private static var selectionsByAppState: [ObjectIdentifier: Selection] = [:]
+
+    @MainActor
+    private final class Selection {
+        let subject: CurrentValueSubject<Project?, Never>
+
+        init(project: Project?) {
+            subject = CurrentValueSubject(project)
+        }
+
+        var access: ProjectSelectionAccess {
+            ProjectSelectionAccess(
+                current: { [weak self] in self?.subject.value },
+                updates: { [weak self] in
+                    self?.subject.eraseToAnyPublisher()
+                        ?? Empty<Project?, Never>().eraseToAnyPublisher()
+                },
+                update: { [weak self] in self?.subject.send($0) },
+                close: { [weak self] in self?.subject.send(nil) }
+            )
+        }
+    }
 
     enum TestError: LocalizedError {
         case expected
@@ -325,7 +348,6 @@ enum TestDoubles {
         makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() }
     ) -> AppState {
         let appState = AppState(
-            selectedProject: project,
             subtitleExportService: subtitleExportService,
             translationService: TranslationService(),
             speakerDiarizationEngine: speakerDiarizationEngine,
@@ -333,11 +355,10 @@ enum TestDoubles {
             audioPreparationService: audioPreparationService,
             makeFFmpegService: makeFFmpegService,
             subtitleScriptGenerator: ScriptGenerator(),
-            currentSettings: { .default },
-            revealVideoExport: { _ in },
-            copyText: { _ in }
+            currentSettings: { .default }
         )
         repositoriesByAppState[ObjectIdentifier(appState)] = repository
+        selectionsByAppState[ObjectIdentifier(appState)] = Selection(project: project)
         return appState
     }
 
@@ -349,12 +370,14 @@ enum TestDoubles {
         makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() },
         projectPreparationWorkflow: (any ProjectPreparationWorkflow)? = nil,
         projectTranscriptionWorkflow: (any ProjectTranscriptionWorkflow)? = nil,
-        projectTranslationWorkflow: (any ProjectTranslationWorkflow)? = nil
+        projectTranslationWorkflow: (any ProjectTranslationWorkflow)? = nil,
+        subtitleDocumentPicker: SubtitleDocumentPicker? = nil
     ) -> ProjectFeatureDependencies {
         let repository = repositoriesByAppState[ObjectIdentifier(appState)] ?? Repository()
+        let selection = selectionsByAppState[ObjectIdentifier(appState)] ?? Selection(project: nil)
         let catalog = Catalog(
             repository: repository,
-            projects: appState.selectedProject.map { [$0] } ?? []
+            projects: selection.subject.value.map { [$0] } ?? []
         )
         catalogsByAppState[ObjectIdentifier(appState)] = catalog
         let settingsSubject = CurrentValueSubject<SettingsSnapshot, Never>(
@@ -401,13 +424,24 @@ enum TestDoubles {
             projectPreparationWorkflow: preparationWorkflow,
             projectTranscriptionWorkflow: transcriptionWorkflow,
             projectTranslationWorkflow: translationWorkflow,
-            pickSubtitleFile: { nil }
+            selection: selection.access,
+            subtitleDocumentPicker: subtitleDocumentPicker ?? SubtitleDocumentPicker { _ in .cancelled }
         )
     }
 
     @MainActor
     static func catalog(for appState: AppState) -> Catalog? {
         catalogsByAppState[ObjectIdentifier(appState)]
+    }
+
+    @MainActor
+    static func selectedProject(for appState: AppState) -> Project? {
+        selectionsByAppState[ObjectIdentifier(appState)]?.subject.value
+    }
+
+    @MainActor
+    static func select(_ project: Project?, for appState: AppState) {
+        selectionsByAppState[ObjectIdentifier(appState)]?.subject.send(project)
     }
 
     @MainActor
@@ -418,7 +452,8 @@ enum TestDoubles {
         makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() },
         projectPreparationWorkflow: (any ProjectPreparationWorkflow)? = nil,
         projectTranscriptionWorkflow: (any ProjectTranscriptionWorkflow)? = nil,
-        projectTranslationWorkflow: (any ProjectTranslationWorkflow)? = nil
+        projectTranslationWorkflow: (any ProjectTranslationWorkflow)? = nil,
+        subtitleDocumentPicker: SubtitleDocumentPicker? = nil
     ) -> ProjectViewModel {
         ProjectViewModel(
             appState: appState,
@@ -429,7 +464,8 @@ enum TestDoubles {
                 makeFFmpegService: makeFFmpegService,
                 projectPreparationWorkflow: projectPreparationWorkflow,
                 projectTranscriptionWorkflow: projectTranscriptionWorkflow,
-                projectTranslationWorkflow: projectTranslationWorkflow
+                projectTranslationWorkflow: projectTranslationWorkflow,
+                subtitleDocumentPicker: subtitleDocumentPicker
             )
         )
     }

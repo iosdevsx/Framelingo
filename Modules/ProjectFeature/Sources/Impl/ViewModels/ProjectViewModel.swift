@@ -3,9 +3,11 @@ import Application
 import ExportFeature
 import Foundation
 import Project
+import ProjectFeature
 import Settings
 import Shorts
 import Subtitles
+import SubtitleEditorFeature
 import Timeline
 import VideoRendering
 
@@ -67,7 +69,9 @@ final class ProjectViewModel: ObservableObject {
     private let projectPreparationWorkflow: any ProjectPreparationWorkflow
     private let projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow
     private let projectTranslationWorkflow: any ProjectTranslationWorkflow
-    private let pickSubtitleFile: @MainActor () async -> URL?
+    private let selection: ProjectSelectionAccess
+    private let subtitleDocumentPicker: SubtitleDocumentPicker
+    private var selectionSubscription: AnyCancellable?
     private var autosaveTask: Task<Void, Never>?
     private var waveformTask: Task<Void, Never>?
     private var preparedWaveformProjectID: UUID?
@@ -94,8 +98,17 @@ final class ProjectViewModel: ObservableObject {
         projectPreparationWorkflow = dependencies.projectPreparationWorkflow
         projectTranscriptionWorkflow = dependencies.projectTranscriptionWorkflow
         projectTranslationWorkflow = dependencies.projectTranslationWorkflow
-        pickSubtitleFile = dependencies.pickSubtitleFile
-        project = appState.selectedProject
+        selection = dependencies.selection
+        subtitleDocumentPicker = dependencies.subtitleDocumentPicker
+        project = dependencies.selection.current
+        selectionSubscription = dependencies.selection.updates.sink { [weak self] selectedProject in
+            guard let self, self.project != selectedProject else { return }
+            if self.project?.id != selectedProject?.id {
+                self.videoSourceInfo = nil
+                self.pendingShortStartMs = nil
+            }
+            self.project = selectedProject
+        }
     }
 
     deinit {
@@ -104,11 +117,11 @@ final class ProjectViewModel: ObservableObject {
     }
 
     func loadSelectedProject() {
-        if project?.id != appState.selectedProject?.id {
+        if project?.id != selection.current?.id {
             videoSourceInfo = nil
             pendingShortStartMs = nil
         }
-        project = appState.selectedProject
+        project = selection.current
     }
 
     func prepareProjectForEditing() {
@@ -877,8 +890,17 @@ final class ProjectViewModel: ObservableObject {
 
     func importSubtitlesFromFile() {
         Task {
-            guard let fileURL = await pickSubtitleFile() else { return }
-            await previewSubtitleImport(from: fileURL)
+            let request = SubtitleDocumentPickerRequest(
+                allowedFileExtensions: SubtitleFileFormat.allSupportedExtensions
+            )
+            switch await subtitleDocumentPicker.pick(request) {
+            case .selected(let fileURL):
+                await previewSubtitleImport(from: fileURL)
+            case .cancelled:
+                return
+            case .failed(let failure):
+                subtitleImportErrorMessage = failure.message
+            }
         }
     }
 
@@ -1015,7 +1037,7 @@ final class ProjectViewModel: ObservableObject {
 
     private func applyProject(_ project: Project) {
         self.project = project
-        appState.selectedProject = project
+        selection.update(project)
     }
 
     private func scheduleAutosave(_ project: Project) {

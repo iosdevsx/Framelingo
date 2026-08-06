@@ -1,4 +1,3 @@
-import Application
 import ExportFeature
 import Foundation
 import Media
@@ -13,6 +12,8 @@ public enum ExportFeatureAssembly {
         makeFFmpegService: @escaping @MainActor () -> any FFmpegService,
         subtitleScriptGenerator: any SubtitleScriptGenerating,
         mediaMetadataService: any MediaMetadataProviding,
+        outputRevealer: ExportOutputRevealing,
+        diagnosticCopier: ExportDiagnosticCopying,
         fileManager: FileManager = .default
     ) -> ExportFeatureFactory {
         ExportFeatureFactory(
@@ -23,6 +24,8 @@ public enum ExportFeatureAssembly {
                         ffmpegService: makeFFmpegService(),
                         subtitleScriptGenerator: subtitleScriptGenerator,
                         mediaMetadataService: mediaMetadataService,
+                        outputRevealer: outputRevealer,
+                        diagnosticCopier: diagnosticCopier,
                         fileManager: fileManager
                     )
                 )
@@ -42,8 +45,18 @@ public enum ExportFeatureAssembly {
     }
 
     @MainActor
-    public static func makeActivityOverlay(appState: AppState) -> AnyView {
-        AnyView(ActivityToastOverlay().environmentObject(appState))
+    public static func makeActivityOverlay(
+        source: ProductActivitySource,
+        outputRevealer: ExportOutputRevealing,
+        diagnosticCopier: ExportDiagnosticCopying
+    ) -> AnyView {
+        AnyView(
+            ActivityToastOverlay(
+                source: source,
+                outputRevealer: outputRevealer,
+                diagnosticCopier: diagnosticCopier
+            )
+        )
     }
 }
 
@@ -57,6 +70,8 @@ private struct ExportVideoPresentationContainer: View {
         ffmpegService: any FFmpegService,
         subtitleScriptGenerator: any SubtitleScriptGenerating,
         mediaMetadataService: any MediaMetadataProviding,
+        outputRevealer: ExportOutputRevealing,
+        diagnosticCopier: ExportDiagnosticCopying,
         fileManager: FileManager
     ) {
         _viewModel = StateObject(
@@ -66,6 +81,8 @@ private struct ExportVideoPresentationContainer: View {
                 ffmpegService: ffmpegService,
                 subtitleScriptGenerator: subtitleScriptGenerator,
                 mediaMetadataService: mediaMetadataService,
+                outputRevealer: outputRevealer,
+                diagnosticCopier: diagnosticCopier,
                 fileManager: fileManager
             )
         )

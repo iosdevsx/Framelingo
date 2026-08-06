@@ -1,69 +1,124 @@
-import Application
+import Combine
 import DesignSystem
+import ExportFeature
 import SwiftUI
-import VideoRendering
+
+@MainActor
+private final class ActivityToastViewModel: ObservableObject {
+    @Published private(set) var snapshot: ProductActivitySnapshot
+    @Published var platformErrorMessage: String?
+
+    private let source: ProductActivitySource
+    private let outputRevealer: ExportOutputRevealing
+    private let diagnosticCopier: ExportDiagnosticCopying
+    private var subscription: AnyCancellable?
+
+    init(
+        source: ProductActivitySource,
+        outputRevealer: ExportOutputRevealing,
+        diagnosticCopier: ExportDiagnosticCopying
+    ) {
+        self.source = source
+        self.outputRevealer = outputRevealer
+        self.diagnosticCopier = diagnosticCopier
+        snapshot = source.snapshot
+        subscription = source.snapshots.sink { [weak self] snapshot in
+            self?.snapshot = snapshot
+        }
+    }
+
+    func reveal(_ url: URL) {
+        if case .failure(let failure) = outputRevealer.reveal(url) {
+            platformErrorMessage = failure.message
+        }
+    }
+
+    func copy(_ text: String) {
+        if case .failure(let failure) = diagnosticCopier.copy(text) {
+            platformErrorMessage = failure.message
+        }
+    }
+
+    func dismiss(_ id: String) {
+        source.dismiss(id: id)
+    }
+}
 
 struct ActivityToastOverlay: View {
-    @EnvironmentObject private var appState: AppState
+    @StateObject private var viewModel: ActivityToastViewModel
 
-    var body: some View {
-        ProgressToastStack(items: toastItems)
-    }
-
-    private var toastItems: [ProgressToastItem] {
-        var items: [ProgressToastItem] = []
-
-        if let activity = appState.transcriptionActivity {
-            items.append(transcriptionToastItem(activity))
-        }
-
-        items.append(contentsOf: appState.videoExportJobs.prefix(3).map(videoExportToastItem))
-        return items
-    }
-
-    private func transcriptionToastItem(_ activity: TranscriptionActivity) -> ProgressToastItem {
-        ProgressToastItem(
-            id: "transcription-\(activity.id.uuidString)",
-            title: activity.projectName,
-            subtitle: activity.statusText,
-            detail: nil,
-            progress: activity.progress,
-            status: activity.status.progressToastStatus,
-            errorMessage: activity.status == .failed ? activity.statusText : nil,
-            actions: [],
-            onDismiss: activity.isFinished ? { appState.dismissTranscriptionActivity() } : nil
+    init(
+        source: ProductActivitySource,
+        outputRevealer: ExportOutputRevealing,
+        diagnosticCopier: ExportDiagnosticCopying
+    ) {
+        _viewModel = StateObject(
+            wrappedValue: ActivityToastViewModel(
+                source: source,
+                outputRevealer: outputRevealer,
+                diagnosticCopier: diagnosticCopier
+            )
         )
     }
 
-    private func videoExportToastItem(_ job: VideoExportJob) -> ProgressToastItem {
+    var body: some View {
+        ProgressToastStack(items: toastItems)
+            .alert(
+                "Platform Operation Failed",
+                isPresented: Binding(
+                    get: { viewModel.platformErrorMessage != nil },
+                    set: { if !$0 { viewModel.platformErrorMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(viewModel.platformErrorMessage ?? "")
+            }
+    }
+
+    private var toastItems: [ProgressToastItem] {
+        viewModel.snapshot.items.prefix(4).map(toastItem)
+    }
+
+    private func toastItem(_ item: ProductActivityItem) -> ProgressToastItem {
         var actions: [ProgressToastAction] = []
 
-        if job.status == .succeeded {
+        if let outputURL = item.outputURL {
             actions.append(
                 ProgressToastAction(title: "Reveal in Finder") {
-                    appState.revealVideoExportInFinder(job)
+                    viewModel.reveal(outputURL)
                 }
             )
         }
 
-        if job.debugOutput != nil {
+        if let diagnosticText = item.diagnosticText {
             actions.append(
                 ProgressToastAction(title: "Copy Debug") {
-                    appState.copyVideoExportDebugOutput(job)
+                    viewModel.copy(diagnosticText)
                 }
             )
         }
 
         return ProgressToastItem(
-            id: "video-export-\(job.id.uuidString)",
-            title: job.projectName,
-            subtitle: job.statusText,
-            detail: job.outputURL.path,
-            progress: job.progress,
-            status: job.status.progressToastStatus,
-            errorMessage: job.errorMessage,
+            id: item.id,
+            title: item.title,
+            subtitle: item.subtitle,
+            detail: item.detail,
+            progress: item.progress,
+            status: item.status.progressToastStatus,
+            errorMessage: item.errorMessage,
             actions: actions,
-            onDismiss: job.isFinished ? { appState.removeVideoExportJob(job) } : nil
+            onDismiss: item.canDismiss ? { viewModel.dismiss(item.id) } : nil
         )
+    }
+}
+
+private extension ProductActivityStatus {
+    var progressToastStatus: ProgressToastStatus {
+        switch self {
+        case .running: .running
+        case .succeeded: .succeeded
+        case .failed: .failed
+        }
     }
 }

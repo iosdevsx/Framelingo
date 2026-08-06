@@ -10,7 +10,6 @@ let package = Package(
         .library(name: "ExportFeatureImpl", targets: ["ExportFeatureImpl"]),
     ],
     dependencies: [
-        .package(path: "../Application"),
         .package(path: "../DesignSystem"),
         .package(path: "../Media"),
         .package(path: "../Project"),
@@ -31,7 +30,6 @@ let package = Package(
             name: "ExportFeatureImpl",
             dependencies: [
                 "ExportFeature",
-                .product(name: "Application", package: "Application"),
                 .product(name: "DesignSystem", package: "DesignSystem"),
                 .product(name: "Media", package: "Media"),
                 .product(name: "Project", package: "Project"),

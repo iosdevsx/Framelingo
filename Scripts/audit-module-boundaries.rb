@@ -6,8 +6,18 @@ APP_STATE_FORBIDDEN_SURFACE = {
   /@Published\s+public\s+var\s+settings\b/ => "AppState owns global settings",
   /@Published\s+public\s+var\s+recentProjects\b/ => "AppState owns recent projects",
   /public\s+let\s+projectRepository\b/ => "AppState exposes ProjectRepository",
-  /\bsaveSettings\b/ => "AppState construction exposes settings persistence"
+  /\bsaveSettings\b/ => "AppState construction exposes settings persistence",
+  /@Published\s+public\s+var\s+selectedProject\b/ => "AppState owns selected project",
+  /\bcloseSelectedProject\b/ => "AppState owns product close navigation",
+  /\brevealVideoExport\b/ => "AppState owns Finder reveal authority",
+  /\bcopyText\b/ => "AppState owns clipboard authority"
 }.freeze
+
+MAC_PRODUCT_PLATFORM_SYMBOLS = %w[NSWorkspace NSPasteboard].freeze
+SUBTITLE_PICKER_CONSUMER_ROOTS = [
+  "Modules/ProjectFeature/",
+  "Modules/SubtitleEditorFeature/"
+].freeze
 
 def target_blocks(manifest)
   blocks = []
@@ -144,11 +154,15 @@ def run_self_test
 
 
   app_state_cases = [
-    ["reduced AppState", "@Published public var selectedProject: Project?\n", 0],
+    ["reduced AppState", "@Published public var videoExportJobs: [VideoExportJob]\n", 0],
     ["settings owner regression", "@Published public var settings: AppSettings\n", 1],
     ["recents owner regression", "@Published public var recentProjects: [Project]\n", 1],
     ["repository regression", "public let projectRepository: any ProjectRepository\n", 1],
-    ["settings persistence regression", "public var saveSettings: (AppSettings) -> Void\n", 1]
+    ["settings persistence regression", "public var saveSettings: (AppSettings) -> Void\n", 1],
+    ["selection owner regression", "@Published public var selectedProject: Project?\n", 1],
+    ["close owner regression", "public func closeSelectedProject() {}\n", 1],
+    ["reveal callback regression", "private let revealVideoExport: (URL) -> Void\n", 1],
+    ["clipboard callback regression", "public var copyText: (String) -> Void\n", 1]
   ]
   app_state_cases.each do |name, source, expected_count|
     actual_count = audit_app_state_surface(source, name).count
@@ -174,6 +188,19 @@ Dir.glob(File.join(repository_root, "Modules", "*", "Sources", "{Api,Impl}", "**
   role = parts[3] == "Api" ? :api : :impl
   target_name = role == :api ? package_name : "#{package_name}Impl"
   failures.concat(audit_import(File.read(source_path), relative, role, target_name))
+
+  MAC_PRODUCT_PLATFORM_SYMBOLS.each do |symbol|
+    next unless File.read(source_path).match?(/\b#{Regexp.escape(symbol)}\b/)
+    next if relative.start_with?("Modules/MacFeature/Sources/Impl/")
+
+    failures << "#{relative}: #{symbol} platform implementation must live in MacFeatureImpl"
+  end
+
+
+  if source_path.end_with?(".swift") && File.read(source_path).match?(/\bNSOpenPanel\b/) &&
+     SUBTITLE_PICKER_CONSUMER_ROOTS.any? { |root| relative.start_with?(root) }
+    failures << "#{relative}: subtitle document picker implementation must live in MacFeatureImpl"
+  end
 end
 
 
@@ -185,6 +212,17 @@ app_state_surface_paths = [
 app_state_surface_paths.each do |relative|
   path = File.join(repository_root, relative)
   failures.concat(audit_app_state_surface(File.read(path), relative))
+end
+
+anonymous_picker_paths = [
+  "Modules/MacFeature/Sources/Api/MacFeatureDependencies.swift",
+  "Modules/ProjectFeature/Sources/Impl/Assembly/ProjectFeatureDependencies.swift"
+]
+anonymous_picker_paths.each do |relative|
+  path = File.join(repository_root, relative)
+  next unless File.read(path).match?(/\bpickSubtitleFile\b/)
+
+  failures << "#{relative}: anonymous subtitle picker authority returned"
 end
 
 unless failures.empty?

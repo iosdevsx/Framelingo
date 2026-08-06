@@ -11,7 +11,6 @@ import VideoRendering
 
 @MainActor
 public final class AppState: ObservableObject {
-    @Published public var selectedProject: Project?
     @Published public var videoExportJobs: [VideoExportJob] = []
     @Published public var transcriptionActivity: TranscriptionActivity?
 
@@ -25,13 +24,10 @@ public final class AppState: ObservableObject {
     private let subtitleScriptGenerator: any SubtitleScriptGenerating
     private let fileManager: FileManager
     private let currentSettings: @MainActor () -> AppSettings
-    private let revealVideoExport: @MainActor (URL) -> Void
-    private let copyText: @MainActor (String) -> Void
     private var videoExportTask: Task<Void, Never>?
     private var videoExportPayloads: [UUID: VideoExportJobPayload] = [:]
 
     public init(
-        selectedProject: Project?,
         subtitleExportService: any SubtitleExportService,
         translationService: any TranslationOrchestrating,
         speakerDiarizationEngine: any SpeakerDiarizationEngine,
@@ -40,11 +36,8 @@ public final class AppState: ObservableObject {
         makeFFmpegService: @escaping FFmpegServiceBuilder,
         subtitleScriptGenerator: any SubtitleScriptGenerating,
         fileManager: FileManager = .default,
-        currentSettings: @escaping @MainActor () -> AppSettings,
-        revealVideoExport: @escaping @MainActor (URL) -> Void,
-        copyText: @escaping @MainActor (String) -> Void
+        currentSettings: @escaping @MainActor () -> AppSettings
     ) {
-        self.selectedProject = selectedProject
         self.subtitleExportService = subtitleExportService
         self.translationService = translationService
         self.speakerDiarizationEngine = speakerDiarizationEngine
@@ -54,8 +47,6 @@ public final class AppState: ObservableObject {
         self.subtitleScriptGenerator = subtitleScriptGenerator
         self.fileManager = fileManager
         self.currentSettings = currentSettings
-        self.revealVideoExport = revealVideoExport
-        self.copyText = copyText
     }
 
     deinit {
@@ -174,26 +165,8 @@ public final class AppState: ObservableObject {
         startNextVideoExportIfNeeded()
     }
 
-    public func revealVideoExportInFinder(_ job: VideoExportJob) {
-        revealVideoExport(job.outputURL)
-    }
-
     public func removeVideoExportJob(_ job: VideoExportJob) {
         videoExportJobs.removeAll { $0.id == job.id && $0.isFinished }
-    }
-
-    public func copyVideoExportDebugOutput(_ job: VideoExportJob) {
-        let text = [
-            job.errorMessage,
-            job.debugOutput
-        ]
-        .compactMap { value in
-            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed?.isEmpty == false ? trimmed : nil
-        }
-        .joined(separator: "\n\nDebug output:\n")
-
-        copyText(text)
     }
 
     public func startTranscriptionActivity(projectName: String) {
@@ -229,17 +202,6 @@ public final class AppState: ObservableObject {
 
     public func dismissTranscriptionActivity() {
         transcriptionActivity = nil
-    }
-
-    public func closeSelectedProject() {
-        if let selectedProject {
-            do {
-                try audioPreparationService.removePreparedAudio(for: selectedProject.mediaFile.originalURL)
-            } catch {
-                assertionFailure("Failed to remove prepared audio cache: \(error.localizedDescription)")
-            }
-        }
-        selectedProject = nil
     }
 
     private func startNextVideoExportIfNeeded() {

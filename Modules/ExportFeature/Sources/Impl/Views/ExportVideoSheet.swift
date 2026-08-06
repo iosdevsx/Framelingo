@@ -1,4 +1,3 @@
-import AppKit
 import Subtitles
 import SwiftUI
 import VideoRendering
@@ -46,7 +45,7 @@ struct ExportVideoSheet: View {
         }
         .alert("Video Export Failed", isPresented: $isShowingErrorAlert) {
             Button("Copy Error") {
-                copyErrorToPasteboard()
+                viewModel.copyDiagnosticText(errorAlertText)
             }
 
             Button("OK", role: .cancel) {}
@@ -282,8 +281,4 @@ struct ExportVideoSheet: View {
         .joined(separator: "\n\nDebug output:\n")
     }
 
-    private func copyErrorToPasteboard() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(errorAlertText, forType: .string)
-    }
 }

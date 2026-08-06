@@ -3,6 +3,7 @@ import Combine
 import Foundation
 import Media
 import Project
+import ExportFeature
 import Subtitles
 import UniformTypeIdentifiers
 import VideoRendering
@@ -28,6 +29,8 @@ public final class ExportVideoViewModel: ObservableObject, Identifiable {
     private let subtitleScriptGenerator: any SubtitleScriptGenerating
     private let mediaMetadataService: any MediaMetadataProviding
     private let fileManager: FileManager
+    private let outputRevealer: ExportOutputRevealing
+    private let diagnosticCopier: ExportDiagnosticCopying
     private var hasPreparedSourceInfo = false
 
     public init(
@@ -36,6 +39,8 @@ public final class ExportVideoViewModel: ObservableObject, Identifiable {
         ffmpegService: any FFmpegService,
         subtitleScriptGenerator: any SubtitleScriptGenerating,
         mediaMetadataService: any MediaMetadataProviding,
+        outputRevealer: ExportOutputRevealing,
+        diagnosticCopier: ExportDiagnosticCopying,
         fileManager: FileManager = .default
     ) {
         self.project = project
@@ -43,6 +48,8 @@ public final class ExportVideoViewModel: ObservableObject, Identifiable {
         self.ffmpegService = ffmpegService
         self.subtitleScriptGenerator = subtitleScriptGenerator
         self.mediaMetadataService = mediaMetadataService
+        self.outputRevealer = outputRevealer
+        self.diagnosticCopier = diagnosticCopier
         self.fileManager = fileManager
     }
 
@@ -178,7 +185,15 @@ public final class ExportVideoViewModel: ObservableObject, Identifiable {
             return
         }
 
-        NSWorkspace.shared.activateFileViewerSelecting([successOutputURL])
+        if case .failure(let failure) = outputRevealer.reveal(successOutputURL) {
+            errorMessage = failure.message
+        }
+    }
+
+    public func copyDiagnosticText(_ text: String) {
+        if case .failure(let failure) = diagnosticCopier.copy(text) {
+            errorMessage = failure.message
+        }
     }
 
     private func temporaryExportWorkingDirectory() throws -> URL {
