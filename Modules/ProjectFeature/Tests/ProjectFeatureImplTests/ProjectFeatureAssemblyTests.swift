@@ -1,6 +1,9 @@
+import AppKit
+import Application
 import ExportFeature
 import PlayerFeature
 import ProjectFeature
+import Shorts
 import ShortsFeature
 import SubtitleEditorFeature
 import SwiftUI
@@ -68,6 +71,52 @@ final class ProjectFeatureAssemblyTests: XCTestCase {
         )
     }
 
+    func testShortsActionsAfterParentRerenderMutatePreservedViewModel() async throws {
+        let short = ShortDefinition(title: "Selected", startMs: 1_000, endMs: 4_000)
+        var project = TestDoubles.project()
+        project.shorts = [short]
+
+        let appState = TestDoubles.appState(project: project)
+        let dependencies = TestDoubles.projectFeatureDependencies(appState: appState)
+        let trigger = AssemblyRenderTrigger()
+        let probe = ShortsWorkspaceProbe()
+        let baseComponents = TestDoubles.projectFeatureComponents()
+        let components = ProjectFeatureComponents(
+            player: baseComponents.player,
+            timeline: baseComponents.timeline,
+            subtitleEditor: baseComponents.subtitleEditor,
+            shorts: ShortsFeatureFactory { request in
+                probe.capture(request)
+                return AnyView(EmptyView())
+            },
+            export: baseComponents.export
+        )
+        let host = NSHostingView(
+            rootView: AssemblyRerenderHost(
+                appState: appState,
+                dependencies: dependencies,
+                components: components,
+                trigger: trigger
+            )
+        )
+        host.frame = NSRect(x: 0, y: 0, width: 1_200, height: 800)
+        host.layoutSubtreeIfNeeded()
+
+        try await waitUntil { probe.captureCount > 0 }
+        let initialCaptureCount = probe.captureCount
+
+        trigger.revision += 1
+        host.layoutSubtreeIfNeeded()
+        try await waitUntil { probe.captureCount > initialCaptureCount }
+
+        let actions = try XCTUnwrap(probe.actions)
+        actions.selectShort(id: short.id)
+        host.layoutSubtreeIfNeeded()
+        try await waitUntil { probe.state?.selectedShortID == short.id }
+
+        withExtendedLifetime(host) {}
+    }
+
     private func recordingComponents(
         record: @escaping @MainActor (String) -> Void
     ) -> ProjectFeatureComponents {
@@ -118,6 +167,55 @@ final class ProjectFeatureAssemblyTests: XCTestCase {
                     return AnyView(EmptyView())
                 }
             )
+        )
+    }
+
+    private func waitUntil(
+        _ condition: @escaping @MainActor () -> Bool
+    ) async throws {
+        for _ in 0..<50 {
+            if condition() {
+                return
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTFail("Timed out waiting for the SwiftUI state update")
+    }
+}
+
+@MainActor
+private final class AssemblyRenderTrigger: ObservableObject {
+    @Published var revision = 0
+}
+
+@MainActor
+private final class ShortsWorkspaceProbe {
+    private(set) var captureCount = 0
+    private(set) var state: ShortsWorkspaceState?
+    private(set) var actions: ShortsWorkspaceActions?
+
+    func capture(_ request: ShortsWorkspaceRequest) {
+        captureCount += 1
+        state = request.state
+        actions = request.actions
+    }
+}
+
+@MainActor
+private struct AssemblyRerenderHost: View {
+    let appState: AppState
+    let dependencies: ProjectFeatureDependencies
+    let components: ProjectFeatureComponents
+    @ObservedObject var trigger: AssemblyRenderTrigger
+    @State private var mode = ProjectWorkspaceMode.shorts
+
+    var body: some View {
+        let _ = trigger.revision
+        ProjectFeatureAssembly.makeView(
+            appState: appState,
+            dependencies: dependencies,
+            projectMode: $mode,
+            components: components
         )
     }
 }

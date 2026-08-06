@@ -34,6 +34,10 @@ EXTRACTED_PIPELINES = %w[
   TranslationPipeline
 ].freeze
 
+def read_utf8(path)
+  File.read(path, encoding: Encoding::UTF_8)
+end
+
 def target_blocks(manifest)
   blocks = []
   offset = 0
@@ -230,7 +234,7 @@ run_self_test if ARGV.delete("--self-test")
 
 failures = []
 Dir.glob(File.join(repository_root, "Modules", "*", "Package.swift")).sort.each do |manifest_path|
-  failures.concat(audit_manifest(File.read(manifest_path), manifest_path.delete_prefix("#{repository_root}/")))
+  failures.concat(audit_manifest(read_utf8(manifest_path), manifest_path.delete_prefix("#{repository_root}/")))
 end
 
 Dir.glob(File.join(repository_root, "Modules", "*", "Sources", "{Api,Impl}", "**", "*.swift")).sort.each do |source_path|
@@ -239,17 +243,18 @@ Dir.glob(File.join(repository_root, "Modules", "*", "Sources", "{Api,Impl}", "**
   package_name = parts[1]
   role = parts[3] == "Api" ? :api : :impl
   target_name = role == :api ? package_name : "#{package_name}Impl"
-  failures.concat(audit_import(File.read(source_path), relative, role, target_name))
+  source = read_utf8(source_path)
+  failures.concat(audit_import(source, relative, role, target_name))
 
   MAC_PRODUCT_PLATFORM_SYMBOLS.each do |symbol|
-    next unless File.read(source_path).match?(/\b#{Regexp.escape(symbol)}\b/)
+    next unless source.match?(/\b#{Regexp.escape(symbol)}\b/)
     next if relative.start_with?("Modules/MacFeature/Sources/Impl/")
 
     failures << "#{relative}: #{symbol} platform implementation must live in MacFeatureImpl"
   end
 
 
-  if source_path.end_with?(".swift") && File.read(source_path).match?(/\bNSOpenPanel\b/) &&
+  if source_path.end_with?(".swift") && source.match?(/\bNSOpenPanel\b/) &&
      SUBTITLE_PICKER_CONSUMER_ROOTS.any? { |root| relative.start_with?(root) }
     failures << "#{relative}: subtitle document picker implementation must live in MacFeatureImpl"
   end
@@ -263,7 +268,7 @@ app_state_surface_paths = [
 ]
 app_state_surface_paths.each do |relative|
   path = File.join(repository_root, relative)
-  failures.concat(audit_app_state_surface(File.read(path), relative))
+  failures.concat(audit_app_state_surface(read_utf8(path), relative))
 end
 
 anonymous_picker_paths = [
@@ -272,14 +277,14 @@ anonymous_picker_paths = [
 ]
 anonymous_picker_paths.each do |relative|
   path = File.join(repository_root, relative)
-  next unless File.read(path).match?(/\bpickSubtitleFile\b/)
+  next unless read_utf8(path).match?(/\bpickSubtitleFile\b/)
 
   failures << "#{relative}: anonymous subtitle picker authority returned"
 end
 
 Dir.glob(File.join(repository_root, "Modules", "Application", "Sources", "**", "*.swift")).sort.each do |path|
   relative = path.delete_prefix("#{repository_root}/")
-  failures.concat(audit_application_processing_surface(File.read(path), relative))
+  failures.concat(audit_application_processing_surface(read_utf8(path), relative))
 end
 
 EXTRACTED_PIPELINES.each do |pipeline|
@@ -287,7 +292,7 @@ EXTRACTED_PIPELINES.each do |pipeline|
   manifest_path = File.join(package_root, "Package.swift")
   failures.concat(
     audit_pipeline_independence(
-      File.read(manifest_path),
+      read_utf8(manifest_path),
       manifest_path.delete_prefix("#{repository_root}/"),
       pipeline
     )
@@ -295,7 +300,7 @@ EXTRACTED_PIPELINES.each do |pipeline|
   Dir.glob(File.join(package_root, "Sources", "**", "*.swift")).sort.each do |path|
     failures.concat(
       audit_pipeline_independence(
-        File.read(path),
+        read_utf8(path),
         path.delete_prefix("#{repository_root}/"),
         pipeline
       )

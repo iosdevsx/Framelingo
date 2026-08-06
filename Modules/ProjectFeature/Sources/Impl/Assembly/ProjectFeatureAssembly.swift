@@ -29,9 +29,6 @@ private struct ProjectFeatureRootView: View {
 
     private let appState: AppState
     private let components: ProjectFeatureComponents
-    private let subtitleEditorActions: SubtitleEditorActions
-    private let shortsWorkspaceActions: ShortsWorkspaceActions
-    private let subtitleExportOptionsActions: SubtitleExportOptionsActions
 
     init(
         appState: AppState,
@@ -39,15 +36,19 @@ private struct ProjectFeatureRootView: View {
         projectMode: Binding<ProjectWorkspaceMode>,
         components: ProjectFeatureComponents
     ) {
-        let viewModel = ProjectViewModel(
-            appState: appState,
-            dependencies: dependencies
-        )
         self.appState = appState
-        _viewModel = StateObject(wrappedValue: viewModel)
+        _viewModel = StateObject(
+            wrappedValue: ProjectViewModel(
+                appState: appState,
+                dependencies: dependencies
+            )
+        )
         _projectMode = projectMode
         self.components = components
-        self.subtitleEditorActions = SubtitleEditorActions(
+    }
+
+    private var subtitleEditorActions: SubtitleEditorActions {
+        SubtitleEditorActions(
             selectSegment: viewModel.selectSegment,
             updateSubtitle: { segment in
                 viewModel.updateSubtitle(segment)
@@ -65,7 +66,10 @@ private struct ProjectFeatureRootView: View {
             endTextEdit: viewModel.endSubtitleTextEdit,
             currentErrorMessage: { viewModel.autosaveErrorMessage }
         )
-        self.shortsWorkspaceActions = ShortsWorkspaceActions(
+    }
+
+    private var shortsWorkspaceActions: ShortsWorkspaceActions {
+        ShortsWorkspaceActions(
             selectShort: { viewModel.shortsSelectedShortID = $0 },
             addShortAtPlayhead: viewModel.addShortAtPlayhead,
             deleteShort: viewModel.deleteShort,
@@ -103,7 +107,10 @@ private struct ProjectFeatureRootView: View {
             dismissSuggestion: viewModel.dismissShortSuggestion,
             exportShorts: viewModel.exportShorts
         )
-        self.subtitleExportOptionsActions = SubtitleExportOptionsActions(
+    }
+
+    private var subtitleExportOptionsActions: SubtitleExportOptionsActions {
+        SubtitleExportOptionsActions(
             update: viewModel.updateSpeakerExportOptions
         )
     }
