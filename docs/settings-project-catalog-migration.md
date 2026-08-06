@@ -6,7 +6,7 @@ retired so later changes can audit that ownership is not reintroduced.
 
 | Current consumer | Transitional dependency | Replacement contract |
 | --- | --- | --- |
-| `MacCompositionRoot` | `SettingsAssembly.loadSettings/saveSettings` | One `SettingsManaging` owner from `SettingsImpl`; factories receive `SettingsAccess` snapshots |
+| `MacAppComposition` | `SettingsAssembly.loadSettings/saveSettings` | One `SettingsManaging` owner from `SettingsImpl`; factories receive `SettingsAccess` snapshots |
 | `AppState` | `settings` plus `saveSettings` callback | `currentSettings` read accessor only for transitional export work |
 | `ProjectViewModel` | `appState.settings` | `SettingsAccess` snapshot supplied in `ProjectFeatureDependencies` |
 | `SettingsViewModel` | reads/writes `appState.settings` | `SettingsAccess` for global settings |

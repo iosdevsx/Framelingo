@@ -1,16 +1,16 @@
-import MacFeatureImpl
+import MacApp
 import SwiftUI
 
 @main
 struct FramelingoApp: App {
-    private let rootView = MacFeatureAssembly.makeDefaultRootView()
+    private let rootView = MacAppAssembly.makeRootView()
 
     var body: some Scene {
         WindowGroup {
             rootView
         }
         .commands {
-            MacFeatureAssembly.makeDefaultCommands()
+            MacAppAssembly.makeDefaultCommands()
         }
     }
 }

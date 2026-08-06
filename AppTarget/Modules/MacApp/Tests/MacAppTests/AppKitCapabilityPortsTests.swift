@@ -3,7 +3,7 @@ import SubtitleEditorFeature
 import UniformTypeIdentifiers
 import XCTest
 
-@testable import MacFeatureImpl
+@testable import MacApp
 
 @MainActor
 final class AppKitCapabilityPortsTests: XCTestCase {
@@ -36,6 +36,21 @@ final class AppKitCapabilityPortsTests: XCTestCase {
         XCTAssertFalse(failure.message.isEmpty)
     }
 
+    func testSubtitlePickerRejectsUnknownTypesBeforeOpeningPanel() async {
+        var didRunPanel = false
+        let picker = AppKitSubtitleDocumentPickerAdapter { _ in
+            didRunPanel = true
+            return nil
+        }.port
+
+        let outcome = await picker.pick(
+            SubtitleDocumentPickerRequest(allowedFileExtensions: [""])
+        )
+
+        guard case .failed = outcome else { return XCTFail("Expected invalid type failure") }
+        XCTAssertFalse(didRunPanel)
+    }
+
     func testRevealReportsSuccessMissingOutputAndPlatformFailure() {
         let url = URL(fileURLWithPath: "/tmp/output.mp4")
         var revealedURL: URL?
@@ -55,6 +70,18 @@ final class AppKitCapabilityPortsTests: XCTestCase {
         guard case .failure = failed.reveal(url) else { return XCTFail("Expected reveal failure") }
     }
 
+    func testRevealPreservesFileURLWithSpacesAndCyrillicCharacters() {
+        let url = URL(fileURLWithPath: "/tmp/Готовые видео/мой ролик.mp4")
+        var revealedURL: URL?
+        let port = AppKitOutputRevealAdapter(
+            fileExists: { $0 == url.path },
+            reveal: { revealedURL = $0 }
+        ).port
+
+        XCTAssertEqual(port.reveal(url), .success)
+        XCTAssertEqual(revealedURL, url)
+    }
+
     func testDiagnosticCopyReportsSuccessAndPlatformErrors() {
         var copiedText: String?
         let success = AppKitDiagnosticCopyAdapter { text in
@@ -68,6 +95,7 @@ final class AppKitCapabilityPortsTests: XCTestCase {
         XCTAssertEqual(copiedText, "debug")
         guard case .failure = rejected.copy("debug") else { return XCTFail("Expected copy rejection") }
         guard case .failure = failed.copy("debug") else { return XCTFail("Expected copy failure") }
+        guard case .failure = success.copy("") else { return XCTFail("Expected empty diagnostic failure") }
     }
 }
 

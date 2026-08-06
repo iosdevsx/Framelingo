@@ -2,7 +2,7 @@ import Combine
 import Project
 import XCTest
 
-@testable import MacFeatureImpl
+@testable import MacApp
 
 @MainActor
 final class MacProductShellTests: XCTestCase {

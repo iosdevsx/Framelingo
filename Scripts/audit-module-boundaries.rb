@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-PRODUCT_COMPOSERS = ["MacFeatureImpl"].freeze
+PRODUCT_COMPOSERS = ["MacApp"].freeze
 MODULES_RELATIVE_ROOT = "AppTarget/Modules".freeze
 APPLICATION_RETIREMENT_PATTERNS = {
   /^\s*(?:@testable\s+)?import\s+Application(?:Impl)?\s*$/ => "removed Application module import",
@@ -111,6 +111,12 @@ def audit_manifest(contents, label)
 
         failures << "#{label}: ordinary Impl target #{target_name} depends on foreign Impl product #{product}"
       end
+    elsif !PRODUCT_COMPOSERS.include?(target_name)
+      impl_dependencies.each do |product, dependency_package|
+        next if dependency_package == package_name
+
+        failures << "#{label}: non-product target #{target_name} depends on foreign Impl product #{product}"
+      end
     end
   end
 
@@ -120,9 +126,14 @@ end
 def audit_import(source, label, role, target_name)
   source.scan(/^\s*(?:@testable\s+)?import\s+([A-Za-z0-9_]*Impl)\s*$/).each_with_object([]) do |match, failures|
     imported = match.first
-    next if role == :impl && PRODUCT_COMPOSERS.include?(target_name)
+    if role == :product && PRODUCT_COMPOSERS.include?(target_name)
+      next if label.start_with?("#{MODULES_RELATIVE_ROOT}/MacApp/Sources/Composition/")
+    elsif role == :impl && PRODUCT_COMPOSERS.include?(target_name)
+      next
+    end
 
-    failures << "#{label}: #{role == :api ? 'API' : 'ordinary Impl'} target #{target_name} imports #{imported}"
+    target_role = role == :api ? "API" : (role == :product ? "product source outside Composition" : "ordinary Impl")
+    failures << "#{label}: #{target_role} target #{target_name} imports #{imported}"
   end
 end
 
@@ -132,8 +143,14 @@ def audit_application_retirement(source, label)
   end
 end
 
+def audit_mac_feature_retirement(source, label)
+  return [] unless source.match?(/\bMacFeature(?:Impl|Dependencies|Assembly|Commands)?\b|Modules\/MacFeature/)
+
+  ["#{label}: retired MacFeature naming returned"]
+end
+
 def audit_broad_dependency_bag(source, label)
-  return [] if label.start_with?("#{MODULES_RELATIVE_ROOT}/MacFeature/")
+  return [] if label.start_with?("#{MODULES_RELATIVE_ROOT}/MacApp/")
 
   groups = [
     source.match?(/\bSettingsAccess\b/),
@@ -208,7 +225,7 @@ def audit_project_session_production_wiring(source, label)
 end
 
 def audit_mac_shell_document_ownership(source, label)
-  return [] unless label.include?("/MacFeature/Sources/Impl/Shell/")
+  return [] unless label.include?("/MacApp/Sources/Shell/")
   return [] unless source.match?(/@Published\s+(?:private\(set\)\s+)?var\s+\w+\s*:\s*Project\??(?:\s*=|\s*$)/)
 
   ["#{label}: product shell must retain navigation identity and summary, not an editable Project"]
@@ -242,8 +259,8 @@ def run_self_test
     ],
     "accepted registered product composer" => [
       <<~SWIFT,
-        let package = Package(name: "MacFeature", targets: [
-          .target(name: "MacFeatureImpl", dependencies: [.product(name: "TimelineFeatureImpl", package: "TimelineFeature")], path: "Sources/Impl")
+        let package = Package(name: "MacApp", targets: [
+          .target(name: "MacApp", dependencies: [.product(name: "TimelineFeatureImpl", package: "TimelineFeature")], path: "Sources")
         ])
       SWIFT
       0
@@ -258,10 +275,18 @@ def run_self_test
   import_cases = [
     ["API import", "import TimelineFeatureImpl\n", :api, "Consumer", 1],
     ["ordinary Impl import", "import TimelineFeatureImpl\n", :impl, "ConsumerImpl", 1],
-    ["composer import", "import TimelineFeatureImpl\n", :impl, "MacFeatureImpl", 0]
+    ["composer import", "import TimelineFeatureImpl\n", :product, "MacApp", 0],
+    ["navigation concrete import", "import TimelineFeatureImpl\n", :product, "MacApp", 1]
   ]
   import_cases.each do |name, source, role, target, expected_count|
-    actual_count = audit_import(source, name, role, target).count
+    label = if name == "composer import"
+      "#{MODULES_RELATIVE_ROOT}/MacApp/Sources/Composition/Test.swift"
+    elsif name == "navigation concrete import"
+      "#{MODULES_RELATIVE_ROOT}/MacApp/Sources/Navigation/Test.swift"
+    else
+      name
+    end
+    actual_count = audit_import(source, label, role, target).count
     failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
   end
 
@@ -276,6 +301,16 @@ def run_self_test
   ]
   retirement_cases.each do |name, source, expected_count|
     actual_count = audit_application_retirement(source, name).count
+    failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
+  end
+
+  mac_product_cases = [
+    ["MacApp entry", "import MacApp\nMacAppAssembly.makeRootView()\n", 0],
+    ["legacy product", "import MacFeatureImpl\n", 1],
+    ["legacy dependency bag", "let dependencies: MacFeatureDependencies\n", 1]
+  ]
+  mac_product_cases.each do |name, source, expected_count|
+    actual_count = audit_mac_feature_retirement(source, name).count
     failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
   end
 
@@ -352,7 +387,7 @@ def run_self_test
   shell_cases.each do |name, source, expected_count|
     actual_count = audit_mac_shell_document_ownership(
       source,
-      "#{MODULES_RELATIVE_ROOT}/MacFeature/Sources/Impl/Shell/#{name}.swift"
+      "#{MODULES_RELATIVE_ROOT}/MacApp/Sources/Shell/#{name}.swift"
     ).count
     failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
   end
@@ -370,13 +405,17 @@ Dir.glob(File.join(modules_root, "*", "Package.swift")).sort.each do |manifest_p
   failures.concat(audit_manifest(read_utf8(manifest_path), manifest_path.delete_prefix("#{repository_root}/")))
 end
 
-Dir.glob(File.join(modules_root, "*", "Sources", "{Api,Impl}", "**", "*.swift")).sort.each do |source_path|
+Dir.glob(File.join(modules_root, "*", "Sources", "**", "*.swift")).sort.each do |source_path|
   relative = source_path.delete_prefix("#{repository_root}/")
   module_relative = source_path.delete_prefix("#{modules_root}/")
   parts = module_relative.split(File::SEPARATOR)
   package_name = parts[0]
-  role = parts[2] == "Api" ? :api : :impl
-  target_name = role == :api ? package_name : "#{package_name}Impl"
+  role = if package_name == "MacApp"
+    :product
+  else
+    parts[2] == "Api" ? :api : :impl
+  end
+  target_name = role == :api ? package_name : (role == :product ? package_name : "#{package_name}Impl")
   source = read_utf8(source_path)
   failures.concat(audit_import(source, relative, role, target_name))
   failures.concat(audit_broad_dependency_bag(source, relative))
@@ -389,15 +428,15 @@ Dir.glob(File.join(modules_root, "*", "Sources", "{Api,Impl}", "**", "*.swift"))
 
   MAC_PRODUCT_PLATFORM_SYMBOLS.each do |symbol|
     next unless source.match?(/\b#{Regexp.escape(symbol)}\b/)
-    next if relative.start_with?("#{MODULES_RELATIVE_ROOT}/MacFeature/Sources/Impl/")
+    next if relative.start_with?("#{MODULES_RELATIVE_ROOT}/MacApp/Sources/")
 
-    failures << "#{relative}: #{symbol} platform implementation must live in MacFeatureImpl"
+    failures << "#{relative}: #{symbol} platform implementation must live in MacApp"
   end
 
 
   if source_path.end_with?(".swift") && source.match?(/\bNSOpenPanel\b/) &&
      SUBTITLE_PICKER_CONSUMER_ROOTS.any? { |root| relative.start_with?(root) }
-    failures << "#{relative}: subtitle document picker implementation must live in MacFeatureImpl"
+    failures << "#{relative}: subtitle document picker implementation must live in MacApp"
   end
 end
 
@@ -416,10 +455,10 @@ retirement_scan_paths << File.join(repository_root, "Framelingo.xcodeproj", "pro
 retirement_scan_paths.sort.each do |path|
   relative = path.delete_prefix("#{repository_root}/")
   failures.concat(audit_application_retirement(read_utf8(path), relative))
+  failures.concat(audit_mac_feature_retirement(read_utf8(path), relative))
 end
 
 anonymous_picker_paths = [
-  "#{MODULES_RELATIVE_ROOT}/MacFeature/Sources/Api/MacFeatureDependencies.swift",
   "#{MODULES_RELATIVE_ROOT}/ProjectFeature/Sources/Impl/Assembly/ProjectFeatureDependencies.swift"
 ]
 anonymous_picker_paths.each do |relative|

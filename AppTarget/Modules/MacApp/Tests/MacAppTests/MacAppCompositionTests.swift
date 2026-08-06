@@ -1,11 +1,7 @@
 import ExportFeature
-import MacFeature
 import PlayerFeature
 import Project
 import ProjectFeature
-import ProjectFeatureImpl
-import ProjectSession
-import ProjectSessionImpl
 import ShortsFeature
 import Subtitles
 import SubtitleEditorFeature
@@ -13,41 +9,44 @@ import SwiftUI
 import TimelineFeature
 import XCTest
 
-@testable import MacFeatureImpl
+@testable import MacApp
 
 @MainActor
-final class MacCompositionRootTests: XCTestCase {
+final class MacAppCompositionTests: XCTestCase {
     @FocusState private var focusedSubtitleField: SubtitleEditorFocus?
 
     func testProductRootSelectsComponentsAndConstructsEveryProjectWorkspaceMode() {
-        let dependencies = MacCompositionRoot.makeDependencies()
+        let dependencies = MacAppComposition.makeInfrastructure()
+        let graph = MacAppComposition.makeNavigationGraph(
+            infrastructure: dependencies,
+            platform: .live
+        )
         XCTAssertEqual(
             dependencies.projectPreparationConfiguration().ffmpegExecutablePath,
             dependencies.settingsAccess.snapshot.settings.ffmpegPath
         )
+        _ = graph.screens.makeHome()
+        _ = graph.screens.makeSettings()
         for initialMode in ProjectWorkspaceMode.allCases {
             var mode = initialMode
-            let session = DefaultProjectSession(dependencies: ProjectSessionDependencies(
-                repository: dependencies.projectRepository,
-                historyLimit: 200,
-                editTimelineService: dependencies.editTimelineService
-            ))
-            session.open(dependencies.mockProject)
-            _ = ProjectFeatureAssembly.makeView(
-                dependencies: ProjectFeatureDependencies(
-                    session: session,
-                    subtitleDocumentPicker: SubtitleDocumentPicker { _ in .cancelled }
-                ),
-                projectMode: Binding(get: { mode }, set: { mode = $0 }),
-                components: dependencies.projectFeatureComponents
-            )
+            _ = graph.screens.makeProject(Binding(get: { mode }, set: { mode = $0 }))
         }
+
+        graph.runtime.open(dependencies.mockProject)
+        XCTAssertEqual(graph.runtime.session.snapshot.project?.id, dependencies.mockProject.id)
+        XCTAssertEqual(graph.runtime.shell.selectedProjectID, dependencies.mockProject.id)
     }
 
     func testWorkspaceSessionsHaveIndependentWindowLifetimes() {
-        let dependencies = MacCompositionRoot.makeDependencies()
-        let first = makeSession(dependencies: dependencies)
-        let second = makeSession(dependencies: dependencies)
+        let dependencies = MacAppComposition.makeInfrastructure()
+        let first = MacAppComposition.makeNavigationGraph(
+            infrastructure: dependencies,
+            platform: .live
+        ).runtime
+        let second = MacAppComposition.makeNavigationGraph(
+            infrastructure: dependencies,
+            platform: .live
+        ).runtime
         let firstProject = dependencies.mockProject
         let secondProject = Project(
             id: UUID(),
@@ -72,21 +71,24 @@ final class MacCompositionRootTests: XCTestCase {
 
         first.open(firstProject)
         second.open(secondProject)
-        _ = first.updateTargetLanguage("German")
+        _ = first.session.updateTargetLanguage("German")
 
-        XCTAssertEqual(first.snapshot.project?.id, firstProject.id)
-        XCTAssertEqual(first.snapshot.project?.targetLanguage, "German")
-        XCTAssertEqual(second.snapshot.project?.id, secondProject.id)
-        XCTAssertEqual(second.snapshot.project?.targetLanguage, secondProject.targetLanguage)
+        XCTAssertEqual(first.session.snapshot.project?.id, firstProject.id)
+        XCTAssertEqual(first.session.snapshot.project?.targetLanguage, "German")
+        XCTAssertEqual(second.session.snapshot.project?.id, secondProject.id)
+        XCTAssertEqual(second.session.snapshot.project?.targetLanguage, secondProject.targetLanguage)
 
-        first.close()
-        XCTAssertNil(first.snapshot.project)
-        XCTAssertEqual(second.snapshot.project?.id, secondProject.id)
+        first.session.close()
+        XCTAssertNil(first.session.snapshot.project)
+        XCTAssertEqual(second.session.snapshot.project?.id, secondProject.id)
     }
 
     func testConcreteCapabilityAdaptersAcceptEveryProjectSurfaceRequest() throws {
-        let dependencies = MacCompositionRoot.makeDependencies()
-        let components = dependencies.projectFeatureComponents
+        let dependencies = MacAppComposition.makeInfrastructure()
+        let components = MacAppComposition.makeProjectComponents(
+            infrastructure: dependencies,
+            platform: .live
+        )
         let project = dependencies.mockProject
 
         _ = components.player.makeProjectVideoPreview(
@@ -282,13 +284,5 @@ final class MacCompositionRootTests: XCTestCase {
             dismissSuggestion: { _ in },
             exportShorts: { _, _ in }
         )
-    }
-
-    private func makeSession(dependencies: MacFeatureDependencies) -> DefaultProjectSession {
-        DefaultProjectSession(dependencies: ProjectSessionDependencies(
-            repository: dependencies.projectRepository,
-            historyLimit: 200,
-            editTimelineService: dependencies.editTimelineService
-        ))
     }
 }

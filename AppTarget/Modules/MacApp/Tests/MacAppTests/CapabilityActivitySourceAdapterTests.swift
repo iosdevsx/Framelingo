@@ -5,12 +5,12 @@ import VideoExport
 import VideoRendering
 import XCTest
 
-@testable import MacFeatureImpl
+@testable import MacApp
 
 @MainActor
 final class CapabilityActivitySourceAdapterTests: XCTestCase {
     func testTypedSessionFailureFlowsToActivityAndDismissRoutesBack() async {
-        let dependencies = MacCompositionRoot.makeDependencies()
+        let dependencies = MacAppComposition.makeInfrastructure()
         let session = DefaultProjectSession(dependencies: ProjectSessionDependencies(
             repository: dependencies.projectRepository
         ))
@@ -35,7 +35,7 @@ final class CapabilityActivitySourceAdapterTests: XCTestCase {
     }
 
     func testComposedVideoExportQueueFeedsTheProductActivitySource() {
-        let dependencies = MacCompositionRoot.makeDependencies()
+        let dependencies = MacAppComposition.makeInfrastructure()
         let session = DefaultProjectSession(dependencies: ProjectSessionDependencies(
             repository: dependencies.projectRepository
         ))

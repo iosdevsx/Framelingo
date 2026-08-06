@@ -8,10 +8,10 @@
 | `MainNavigationView.hasOpenedProject` | MainNavigationView | `MacProductShell.hasOpenedProject` |
 | `MainNavigationView.workspaceMode` / `projectMode` | Sidebar, ProjectFeature, navigation synchronization callbacks | `MacProductShell.workspaceMode` / `projectMode` with one synchronization implementation |
 | `AppState.closeSelectedProject` | Product close flow | `MacProductShell.closeSelectedProject`, using `PreparedMediaCleanup` before clearing selection |
-| `AppState.revealVideoExport` | Activity toast | `ExportOutputRevealing`, implemented by `AppKitOutputRevealAdapter` in MacFeatureImpl |
-| `AppState.copyText` | Activity toast | `ExportDiagnosticCopying`, implemented by `AppKitDiagnosticCopyAdapter` in MacFeatureImpl |
-| `ProjectFeatureDependencies.pickSubtitleFile` | ProjectViewModel subtitle import | `SubtitleDocumentPicker`, implemented by `AppKitSubtitleDocumentPickerAdapter` in MacFeatureImpl |
-| Direct Application activity reads in ExportFeature | Activity toast | `ProductActivitySource`; temporary `AppStateActivitySourceAdapter` remains in MacFeatureImpl |
+| `AppState.revealVideoExport` | Activity toast | `ExportOutputRevealing`, implemented by `AppKitOutputRevealAdapter` in MacApp |
+| `AppState.copyText` | Activity toast | `ExportDiagnosticCopying`, implemented by `AppKitDiagnosticCopyAdapter` in MacApp |
+| `ProjectFeatureDependencies.pickSubtitleFile` | Project workspace subtitle import | `SubtitleDocumentPicker`, implemented by `AppKitSubtitleDocumentPickerAdapter` in MacApp |
+| Product activity presentation | Activity toast | `ProductActivitySource`, composed in MacApp |
 
 ## Remaining Application compatibility surface
 

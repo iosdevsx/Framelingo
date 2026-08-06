@@ -2,7 +2,7 @@ import AppUpdate
 import SwiftUI
 
 @MainActor
-struct MacFeatureCommands: Commands {
+struct MacAppCommands: Commands {
     let updateChecker: any AppUpdateChecking
 
     var body: some Commands {

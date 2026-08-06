@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		A00000000000000000000050 /* BundledTools/Whisper in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000051 /* BundledTools/Whisper */; };
-		D10000000000000000000001 /* MacFeatureImpl in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000002 /* MacFeatureImpl */; };
+		D10000000000000000000001 /* MacApp in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000002 /* MacApp */; };
 		D10000000000000000000004 /* Framelingo/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000003 /* Framelingo/Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -38,7 +38,7 @@
 				Modules/ExportFeature,
 				Modules/FFmpeg,
 				Modules/HomeFeature,
-				Modules/MacFeature,
+				Modules/MacApp,
 				Modules/Media,
 				Modules/PlayerFeature,
 				Modules/Project,
@@ -86,7 +86,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D10000000000000000000001 /* MacFeatureImpl in Frameworks */,
+				D10000000000000000000001 /* MacApp in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -141,7 +141,7 @@
 			);
 			name = Framelingo;
 			packageProductDependencies = (
-				D10000000000000000000002 /* MacFeatureImpl */,
+				D10000000000000000000002 /* MacApp */,
 			);
 			productName = Framelingo;
 			productReference = 8CBA44352F9FAE3A00693B6B /* Framelingo.app */;
@@ -199,7 +199,7 @@
 			mainGroup = 8CBA442C2F9FAE3A00693B6B;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/MacFeature" */,
+				D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/MacApp" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 8CBA44362F9FAE3A00693B6B /* Products */;
@@ -555,17 +555,17 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/MacFeature" */ = {
+		D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/MacApp" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = AppTarget/Modules/MacFeature;
+			relativePath = AppTarget/Modules/MacApp;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		D10000000000000000000002 /* MacFeatureImpl */ = {
+		D10000000000000000000002 /* MacApp */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/MacFeature" */;
-			productName = MacFeatureImpl;
+			package = D10000000000000000000000 /* XCLocalSwiftPackageReference "AppTarget/Modules/MacApp" */;
+			productName = MacApp;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

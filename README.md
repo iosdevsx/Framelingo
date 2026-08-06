@@ -126,7 +126,7 @@ AppTarget/
     ├── DesignSystem                                  # tokens + shared components
     ├── HomeFeature, ProjectFeature, SettingsFeature, ExportFeature
     ├── SubtitleEditorFeature, TimelineFeature, PlayerFeature, ShortsFeature
-    ├── MacFeature                                    # macOS composition
+    ├── MacApp                                        # macOS composition root
     └── FFmpeg                                        # vendor binary integration
 
 Framelingo/              # неизменённый behavioral baseline миграции
@@ -138,14 +138,11 @@ BundledTools/Whisper/    # ресурс macOS-приложения
 таймлайна туда не входят.
 
 Архитектура приложения остаётся MVVM. Настройки, каталог проектов, processing pipelines
-и очередь экспорта принадлежат профильным модулям; `ProjectViewModel` пока владеет рабочим состоянием редактора, а
-`ProjectViewModel.project.subtitles` является единственным production-источником
-текста и таймингов субтитров. Новый platform-neutral `ProjectSession` уже задаёт
-транзакции, историю и autosave для следующего шага миграции, но пока не подключён
-к рабочему экрану и не создаёт второго владельца документа.
+и очередь экспорта принадлежат профильным модулям. `ProjectSession` — единственный
+владелец открытого проекта, состояния редактора, истории, autosave и проектных эффектов.
 
-`MacCompositionRoot` собирает репозитории, провайдеры и сервисы через узкие
-API-протоколы и передаёт их в ViewModel/feature assemblies. Это позволяет
+`MacAppComposition` собирает репозитории, провайдеры и сервисы через узкие
+API-протоколы и передаёт их в feature factories. Это позволяет
 подменять эффекты в тестах без service locator и не заставляет протоколизировать
 чистые детерминированные вычисления.
 
@@ -159,7 +156,7 @@ platform-neutral модели и алгоритмы монтажа/маппин�
 
 Следующие архитектурные шаги — переключение редактирования и эффектов на готовый ProjectSession,
 централизация Mac composition и добавление iOS composition. Tuist пока отложен. Сейчас checked-in Xcode-проект
-собирает macOS shell из `MacFeatureImpl`. Доменные границы уже не завязаны на
+собирает macOS shell из `MacApp`. Доменные границы уже не завязаны на
 AppKit, но адаптация существующих SwiftUI/AppKit interaction seams под iOS
 будет отдельной задачей, а не скрытой частью модуляризации.
 
