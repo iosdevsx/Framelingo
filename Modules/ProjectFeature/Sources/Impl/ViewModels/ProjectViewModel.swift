@@ -4,6 +4,7 @@ import ExportFeature
 import Foundation
 import Project
 import ProjectFeature
+import ProjectPreparation
 import Settings
 import Shorts
 import Subtitles
@@ -66,7 +67,8 @@ final class ProjectViewModel: ObservableObject {
     private let subtitleStructuralEditingPolicy = SubtitleStructuralEditingPolicy()
     private let subtitleImportMergePolicy = SubtitleImportMergePolicy()
     private let shortsEditingPolicy = ShortsEditingPolicy()
-    private let projectPreparationWorkflow: any ProjectPreparationWorkflow
+    private let projectPreparer: any ProjectPreparing
+    private let projectPreparationConfiguration: ProjectPreparationConfigurationProvider
     private let projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow
     private let projectTranslationWorkflow: any ProjectTranslationWorkflow
     private let selection: ProjectSelectionAccess
@@ -74,6 +76,7 @@ final class ProjectViewModel: ObservableObject {
     private var selectionSubscription: AnyCancellable?
     private var autosaveTask: Task<Void, Never>?
     private var waveformTask: Task<Void, Never>?
+    private var preparationOperationID: UUID?
     private var preparedWaveformProjectID: UUID?
     private var undoStack: [ProjectUndoSnapshot] = []
     private var redoStack: [ProjectUndoSnapshot] = []
@@ -95,7 +98,8 @@ final class ProjectViewModel: ObservableObject {
         subtitleImportService = dependencies.subtitleImporter
         projectFileService = dependencies.projectFileService
         editTimelineService = dependencies.editTimelineService
-        projectPreparationWorkflow = dependencies.projectPreparationWorkflow
+        projectPreparer = dependencies.projectPreparer
+        projectPreparationConfiguration = dependencies.projectPreparationConfiguration
         projectTranscriptionWorkflow = dependencies.projectTranscriptionWorkflow
         projectTranslationWorkflow = dependencies.projectTranslationWorkflow
         selection = dependencies.selection
@@ -127,6 +131,7 @@ final class ProjectViewModel: ObservableObject {
     func prepareProjectForEditing() {
         guard let project else {
             waveformTask?.cancel()
+            preparationOperationID = nil
             preparedWaveformProjectID = nil
             waveformPeaks = []
             isPreparingProject = false
@@ -135,6 +140,7 @@ final class ProjectViewModel: ObservableObject {
         }
 
         if preparedWaveformProjectID == project.id, !waveformPeaks.isEmpty {
+            preparationOperationID = nil
             isPreparingProject = false
             projectPreparationProgress = 1
             projectPreparationStatus = "Project ready"
@@ -142,6 +148,8 @@ final class ProjectViewModel: ObservableObject {
         }
 
         waveformTask?.cancel()
+        let operationID = UUID()
+        preparationOperationID = operationID
         waveformPeaks = []
         preparedWaveformProjectID = nil
         isPreparingProject = true
@@ -152,29 +160,40 @@ final class ProjectViewModel: ObservableObject {
             guard let self else { return }
             let projectID = project.id
             do {
-                let output = try await projectPreparationWorkflow.prepare(
-                    ProjectPreparationRequest(project: project, settings: settings),
+                let output = try await projectPreparer.prepare(
+                    ProjectPreparationRequest(
+                        project: project,
+                        configuration: projectPreparationConfiguration()
+                    ),
                     events: { [weak self] event in
-                        self?.handlePreparationEvent(event, projectID: projectID)
+                        self?.handlePreparationEvent(
+                            event,
+                            projectID: projectID,
+                            operationID: operationID
+                        )
                     }
                 )
-                guard self.project?.id == projectID else { return }
+                guard self.project?.id == projectID,
+                      preparationOperationID == operationID else { return }
                 applyProject(output.project)
                 waveformPeaks = output.waveformPeaks
                 videoSourceInfo = output.videoSourceInfo
                 preparedWaveformProjectID = projectID
                 projectPreparationProgress = 1
-                projectPreparationStatus = output.status
+                projectPreparationStatus = ProjectPreparationPresentation.status(for: output.outcome)
                 isPreparingProject = false
+                preparationOperationID = nil
             } catch is CancellationError {
                 return
             } catch {
-                guard self.project?.id == projectID else { return }
+                guard self.project?.id == projectID,
+                      preparationOperationID == operationID else { return }
                 waveformPeaks = []
                 preparedWaveformProjectID = projectID
                 projectPreparationProgress = 1
                 projectPreparationStatus = "Project ready. Waveform unavailable."
                 isPreparingProject = false
+                preparationOperationID = nil
             }
         }
     }
@@ -823,17 +842,22 @@ final class ProjectViewModel: ObservableObject {
         }
     }
 
-    private func handlePreparationEvent(_ event: ProjectProcessingEvent, projectID: UUID) {
-        guard project?.id == projectID else { return }
+    private func handlePreparationEvent(
+        _ event: ProjectPreparationEvent,
+        projectID: UUID,
+        operationID: UUID
+    ) {
+        guard project?.id == projectID,
+              preparationOperationID == operationID else { return }
         switch event {
         case .projectChanged(let project):
             applyProject(project)
             scheduleAutosave(project)
-        case .progress(let progress, let status):
-            if let progress {
-                projectPreparationProgress = progress
+        case .progress(let progress):
+            if let fractionCompleted = progress.fractionCompleted {
+                projectPreparationProgress = fractionCompleted
             }
-            projectPreparationStatus = status
+            projectPreparationStatus = ProjectPreparationPresentation.status(for: progress)
         }
     }
 

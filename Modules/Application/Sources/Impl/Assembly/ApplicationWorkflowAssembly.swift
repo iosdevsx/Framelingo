@@ -1,28 +1,11 @@
 import Application
 import Foundation
-import Media
 import Project
 import SpeakerAnalysis
 import SpeechToText
 import Translation
 
 public enum ApplicationWorkflowAssembly {
-    public static func makeProjectPreparationWorkflow(
-        mediaMetadataProvider: any MediaMetadataProviding,
-        waveformLoader: any WaveformLoading,
-        makeFFmpegService: @escaping FFmpegServiceBuilder,
-        fileManager: FileManager = .default,
-        temporaryDirectory: URL = FileManager.default.temporaryDirectory
-    ) -> any ProjectPreparationWorkflow {
-        DefaultProjectPreparationWorkflow(
-            mediaMetadataProvider: mediaMetadataProvider,
-            waveformLoader: waveformLoader,
-            makeFFmpegService: makeFFmpegService,
-            fileManager: fileManager,
-            temporaryDirectory: temporaryDirectory
-        )
-    }
-
     public static func makeProjectTranscriptionWorkflow(
         projectRepository: any ProjectRepository,
         speechToTextProviderResolver: any SpeechToTextProviderResolving,

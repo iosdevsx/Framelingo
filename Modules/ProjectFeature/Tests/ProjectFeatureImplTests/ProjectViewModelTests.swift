@@ -4,6 +4,7 @@ import ExportFeature
 import Foundation
 import Media
 import Project
+import ProjectPreparation
 import Shorts
 import SpeakerAnalysis
 import SpeechToText
@@ -17,6 +18,30 @@ import XCTest
 
 @MainActor
 final class ProjectViewModelTests: XCTestCase {
+    func testPreparationPresentationMapsTypedProgressAndOutcomes() {
+        XCTAssertEqual(
+            ProjectPreparationPresentation.status(for: ProjectPreparationProgress(
+                phase: .readingDuration,
+                fractionCompleted: 0.06
+            )),
+            "Reading video duration..."
+        )
+        XCTAssertEqual(
+            ProjectPreparationPresentation.status(for: ProjectPreparationProgress(
+                phase: .preparingWaveform,
+                fractionCompleted: 0.5,
+                providerDetail: "Loading cached waveform..."
+            )),
+            "Loading cached waveform..."
+        )
+        XCTAssertEqual(
+            ProjectPreparationPresentation.status(
+                for: .degraded(.waveformUnavailableAndCleanupFailed(message: "Cleanup failed."))
+            ),
+            "Project ready. Waveform unavailable; temporary audio cleanup failed."
+        )
+    }
+
     func testSubtitlePickerCancellationDoesNotStartImportOrShowError() async {
         let appState = TestDoubles.appState(project: TestDoubles.project())
         let viewModel = TestDoubles.projectViewModel(
@@ -411,7 +436,7 @@ final class ProjectViewModelTests: XCTestCase {
         let appState = TestDoubles.appState(project: original)
         let viewModel = TestDoubles.projectViewModel(
             appState: appState,
-            projectPreparationWorkflow: DelayedPreparationWorkflow()
+            projectPreparer: DelayedPreparer()
         )
 
         viewModel.prepareProjectForEditing()
@@ -586,10 +611,10 @@ private final class RecordingAudioPreparationService: AudioPreparationService {
     func removePreparedAudio(for sourceVideoURL: URL) throws {}
 }
 
-private struct DelayedPreparationWorkflow: ProjectPreparationWorkflow {
+private struct DelayedPreparer: ProjectPreparing {
     func prepare(
         _ request: ProjectPreparationRequest,
-        events: @escaping ProjectProcessingEventHandler
+        events: @escaping ProjectPreparationEventHandler
     ) async throws -> ProjectPreparationOutput {
         try await Task.sleep(for: .milliseconds(40))
         await events(.projectChanged(request.project))
@@ -597,7 +622,7 @@ private struct DelayedPreparationWorkflow: ProjectPreparationWorkflow {
             project: request.project,
             waveformPeaks: [1],
             videoSourceInfo: nil,
-            status: "Project ready"
+            outcome: .ready
         )
     }
 }

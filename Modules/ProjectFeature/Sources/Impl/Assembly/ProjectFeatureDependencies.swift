@@ -2,6 +2,7 @@ import Application
 import Foundation
 import Project
 import ProjectFeature
+import ProjectPreparation
 import Settings
 import Subtitles
 import Timeline
@@ -16,7 +17,8 @@ public struct ProjectFeatureDependencies {
     let subtitleImporter: any SubtitleImporting
     let projectFileService: any ProjectFileServicing
     let editTimelineService: any EditTimelineEditing
-    let projectPreparationWorkflow: any ProjectPreparationWorkflow
+    let projectPreparer: any ProjectPreparing
+    let projectPreparationConfiguration: ProjectPreparationConfigurationProvider
     let projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow
     let projectTranslationWorkflow: any ProjectTranslationWorkflow
     let selection: ProjectSelectionAccess
@@ -29,7 +31,8 @@ public struct ProjectFeatureDependencies {
         subtitleImporter: any SubtitleImporting,
         projectFileService: any ProjectFileServicing,
         editTimelineService: any EditTimelineEditing,
-        projectPreparationWorkflow: any ProjectPreparationWorkflow,
+        projectPreparer: any ProjectPreparing,
+        projectPreparationConfiguration: @escaping ProjectPreparationConfigurationProvider,
         projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow,
         projectTranslationWorkflow: any ProjectTranslationWorkflow,
         selection: ProjectSelectionAccess,
@@ -41,7 +44,8 @@ public struct ProjectFeatureDependencies {
         self.subtitleImporter = subtitleImporter
         self.projectFileService = projectFileService
         self.editTimelineService = editTimelineService
-        self.projectPreparationWorkflow = projectPreparationWorkflow
+        self.projectPreparer = projectPreparer
+        self.projectPreparationConfiguration = projectPreparationConfiguration
         self.projectTranscriptionWorkflow = projectTranscriptionWorkflow
         self.projectTranslationWorkflow = projectTranslationWorkflow
         self.selection = selection

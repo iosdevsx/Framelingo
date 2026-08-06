@@ -18,6 +18,10 @@ final class MacCompositionRootTests: XCTestCase {
 
     func testProductRootSelectsComponentsAndConstructsEveryProjectWorkspaceMode() {
         let dependencies = MacCompositionRoot.makeDependencies()
+        XCTAssertEqual(
+            dependencies.projectPreparationConfiguration().ffmpegExecutablePath,
+            dependencies.settingsAccess.snapshot.settings.ffmpegPath
+        )
         let shell = MacProductShell(
             selectedProject: dependencies.mockProject,
             preparedMediaCleanup: dependencies.preparedMediaCleanup,
@@ -35,7 +39,8 @@ final class MacCompositionRootTests: XCTestCase {
                     subtitleImporter: dependencies.subtitleImporter,
                     projectFileService: dependencies.projectFileService,
                     editTimelineService: dependencies.editTimelineService,
-                    projectPreparationWorkflow: dependencies.projectPreparationWorkflow,
+                    projectPreparer: dependencies.projectPreparer,
+                    projectPreparationConfiguration: dependencies.projectPreparationConfiguration,
                     projectTranscriptionWorkflow: dependencies.projectTranscriptionWorkflow,
                     projectTranslationWorkflow: dependencies.projectTranslationWorkflow,
                     selection: shell.selectionAccess,

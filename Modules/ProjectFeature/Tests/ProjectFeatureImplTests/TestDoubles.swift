@@ -7,6 +7,7 @@ import Media
 import PlayerFeature
 import Project
 import ProjectFeature
+import ProjectPreparation
 import Settings
 import SpeakerAnalysis
 import SpeechToText
@@ -264,21 +265,6 @@ enum TestDoubles {
         func recalculateTimelinePositions(clips: [TimelineClip]) -> EditTimeline { fatalError("Unused") }
     }
 
-    struct MetadataProvider: MediaMetadataProviding {
-        func durationMs(for url: URL) async throws -> Int? { 10_000 }
-        func videoMetadata(for url: URL) async throws -> VideoMetadata {
-            VideoMetadata(width: 1_920, height: 1_080, nominalFrameRate: 30)
-        }
-    }
-
-    struct WaveformLoader: WaveformLoading {
-        func loadWaveform(
-            for request: WaveformRequest,
-            audioProvider: @escaping WaveformAudioProvider,
-            progressHandler: WaveformProgressHandler?
-        ) async throws -> [Double] { [0.25, 0.75] }
-    }
-
     struct SpeechProviderResolver: SpeechToTextProviderResolving {
         func resolve(
             configuration: SpeechToTextProviderConfiguration
@@ -368,7 +354,8 @@ enum TestDoubles {
         editTimelineService: any EditTimelineEditing = EditTimelineService(),
         speechToTextProviderResolver: any SpeechToTextProviderResolving = SpeechProviderResolver(),
         makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() },
-        projectPreparationWorkflow: (any ProjectPreparationWorkflow)? = nil,
+        projectPreparer: (any ProjectPreparing)? = nil,
+        projectPreparationConfiguration: ProjectPreparationConfigurationProvider? = nil,
         projectTranscriptionWorkflow: (any ProjectTranscriptionWorkflow)? = nil,
         projectTranslationWorkflow: (any ProjectTranslationWorkflow)? = nil,
         subtitleDocumentPicker: SubtitleDocumentPicker? = nil
@@ -394,12 +381,7 @@ enum TestDoubles {
                 ))
             }
         )
-        let preparationWorkflow = projectPreparationWorkflow
-            ?? ApplicationWorkflowAssembly.makeProjectPreparationWorkflow(
-                mediaMetadataProvider: MetadataProvider(),
-                waveformLoader: WaveformLoader(),
-                makeFFmpegService: makeFFmpegService
-            )
+        let preparer = projectPreparer ?? Preparer()
         let transcriptionWorkflow = projectTranscriptionWorkflow
             ?? ApplicationWorkflowAssembly.makeProjectTranscriptionWorkflow(
                 projectRepository: repository,
@@ -421,7 +403,12 @@ enum TestDoubles {
             subtitleImporter: SubtitleImporter(),
             projectFileService: ProjectFileService(),
             editTimelineService: editTimelineService,
-            projectPreparationWorkflow: preparationWorkflow,
+            projectPreparer: preparer,
+            projectPreparationConfiguration: projectPreparationConfiguration ?? {
+                ProjectPreparationConfiguration(
+                    ffmpegExecutablePath: settingsAccess.snapshot.settings.ffmpegPath
+                )
+            },
             projectTranscriptionWorkflow: transcriptionWorkflow,
             projectTranslationWorkflow: translationWorkflow,
             selection: selection.access,
@@ -450,7 +437,8 @@ enum TestDoubles {
         editTimelineService: any EditTimelineEditing = EditTimelineService(),
         speechToTextProviderResolver: any SpeechToTextProviderResolving = SpeechProviderResolver(),
         makeFFmpegService: @escaping FFmpegServiceBuilder = { _ in FFmpeg() },
-        projectPreparationWorkflow: (any ProjectPreparationWorkflow)? = nil,
+        projectPreparer: (any ProjectPreparing)? = nil,
+        projectPreparationConfiguration: ProjectPreparationConfigurationProvider? = nil,
         projectTranscriptionWorkflow: (any ProjectTranscriptionWorkflow)? = nil,
         projectTranslationWorkflow: (any ProjectTranslationWorkflow)? = nil,
         subtitleDocumentPicker: SubtitleDocumentPicker? = nil
@@ -462,11 +450,26 @@ enum TestDoubles {
                 editTimelineService: editTimelineService,
                 speechToTextProviderResolver: speechToTextProviderResolver,
                 makeFFmpegService: makeFFmpegService,
-                projectPreparationWorkflow: projectPreparationWorkflow,
+                projectPreparer: projectPreparer,
+                projectPreparationConfiguration: projectPreparationConfiguration,
                 projectTranscriptionWorkflow: projectTranscriptionWorkflow,
                 projectTranslationWorkflow: projectTranslationWorkflow,
                 subtitleDocumentPicker: subtitleDocumentPicker
             )
         )
+    }
+
+    private struct Preparer: ProjectPreparing {
+        func prepare(
+            _ request: ProjectPreparationRequest,
+            events: @escaping ProjectPreparationEventHandler
+        ) async throws -> ProjectPreparationOutput {
+            ProjectPreparationOutput(
+                project: request.project,
+                waveformPeaks: [0.2, 0.8],
+                videoSourceInfo: nil,
+                outcome: .ready
+            )
+        }
     }
 }

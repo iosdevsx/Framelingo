@@ -1,36 +1,40 @@
-import Application
 import Foundation
 import Media
+import ProjectPreparation
 import VideoRendering
 
-final class DefaultProjectPreparationWorkflow: ProjectPreparationWorkflow {
+final class DefaultProjectPreparer: ProjectPreparing {
     private let mediaMetadataProvider: any MediaMetadataProviding
     private let waveformLoader: any WaveformLoading
-    private let makeFFmpegService: FFmpegServiceBuilder
-    private let fileManager: FileManager
+    private let makeFFmpegService: ProjectPreparationFFmpegServiceBuilder
+    private let fileSystem: ProjectPreparationFileSystem
     private let temporaryDirectory: URL
 
     init(
         mediaMetadataProvider: any MediaMetadataProviding,
         waveformLoader: any WaveformLoading,
-        makeFFmpegService: @escaping FFmpegServiceBuilder,
-        fileManager: FileManager,
+        makeFFmpegService: @escaping ProjectPreparationFFmpegServiceBuilder,
+        fileSystem: ProjectPreparationFileSystem,
         temporaryDirectory: URL
     ) {
         self.mediaMetadataProvider = mediaMetadataProvider
         self.waveformLoader = waveformLoader
         self.makeFFmpegService = makeFFmpegService
-        self.fileManager = fileManager
+        self.fileSystem = fileSystem
         self.temporaryDirectory = temporaryDirectory
     }
 
     func prepare(
         _ request: ProjectPreparationRequest,
-        events: @escaping ProjectProcessingEventHandler
+        events: @escaping ProjectPreparationEventHandler
     ) async throws -> ProjectPreparationOutput {
         var project = request.project
         var sourceInfo: VideoSourceInfo?
 
+        await events(.progress(ProjectPreparationProgress(
+            phase: .readingSourceMetadata,
+            fractionCompleted: 0.02
+        )))
         do {
             let metadata = try await mediaMetadataProvider.videoMetadata(for: project.mediaFile.originalURL)
             sourceInfo = VideoSourceInfo(
@@ -45,7 +49,10 @@ final class DefaultProjectPreparationWorkflow: ProjectPreparationWorkflow {
         }
 
         if project.mediaFile.durationMs == nil {
-            await events(.progress(value: 0.06, status: "Reading video duration..."))
+            await events(.progress(ProjectPreparationProgress(
+                phase: .readingDuration,
+                fractionCompleted: 0.06
+            )))
             do {
                 if let durationMs = try await mediaMetadataProvider.durationMs(for: project.mediaFile.originalURL) {
                     try Task.checkCancellation()
@@ -56,14 +63,14 @@ final class DefaultProjectPreparationWorkflow: ProjectPreparationWorkflow {
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
-                await events(.progress(value: 0.08, status: "Preparing waveform..."))
+                await events(.progress(ProjectPreparationProgress(
+                    phase: .preparingWaveform,
+                    fractionCompleted: 0.08
+                )))
             }
         }
 
-        let audioURL = temporaryDirectory
-            .appendingPathComponent("Framelingo", isDirectory: true)
-            .appendingPathComponent(project.id.uuidString, isDirectory: true)
-            .appendingPathComponent("waveform-\(UUID().uuidString).wav")
+        let audioURL = temporaryAudioURL(projectID: project.id)
 
         do {
             let peaks = try await waveformLoader.loadWaveform(
@@ -75,35 +82,39 @@ final class DefaultProjectPreparationWorkflow: ProjectPreparationWorkflow {
                     fallbackContentEndMs: project.subtitles.map(\.endMs).max()
                 ),
                 audioProvider: {
-                    try await self.makeFFmpegService(request.settings).extractAudio(
+                    try await self.makeFFmpegService(request.configuration).extractAudio(
                         from: project.mediaFile.originalURL,
                         to: audioURL
                     )
                 },
-                progressHandler: { progress, status in
-                    await events(.progress(value: progress, status: status))
+                progressHandler: { progress, detail in
+                    await events(.progress(ProjectPreparationProgress(
+                        phase: .preparingWaveform,
+                        fractionCompleted: progress,
+                        providerDetail: detail
+                    )))
                 }
             )
             try Task.checkCancellation()
             do {
                 try removeTemporaryFileIfPresent(at: audioURL)
             } catch {
-                throw ProjectPreparationError.temporaryFileCleanupFailed(
-                    localizedMessage(from: error, fallback: "Temporary file cleanup failed.")
+                throw ProjectPreparationError.temporaryAudioCleanupFailed(
+                    message: localizedMessage(from: error, fallback: "Temporary file cleanup failed.")
                 )
             }
             return ProjectPreparationOutput(
                 project: project,
                 waveformPeaks: peaks,
                 videoSourceInfo: sourceInfo,
-                status: "Project ready"
+                outcome: .ready
             )
         } catch is CancellationError {
             do {
                 try removeTemporaryFileIfPresent(at: audioURL)
             } catch {
                 throw ProjectPreparationError.cancellationAndCleanupFailed(
-                    localizedMessage(from: error, fallback: "Temporary file cleanup failed.")
+                    message: localizedMessage(from: error, fallback: "Temporary file cleanup failed.")
                 )
             }
             throw CancellationError()
@@ -117,26 +128,34 @@ final class DefaultProjectPreparationWorkflow: ProjectPreparationWorkflow {
                     project: project,
                     waveformPeaks: [],
                     videoSourceInfo: sourceInfo,
-                    status: "Project ready. Waveform unavailable; temporary audio cleanup failed."
+                    outcome: .degraded(.waveformUnavailableAndCleanupFailed(
+                        message: localizedMessage(from: error, fallback: "Temporary file cleanup failed.")
+                    ))
                 )
             }
             return ProjectPreparationOutput(
                 project: project,
                 waveformPeaks: [],
                 videoSourceInfo: sourceInfo,
-                status: "Project ready. Waveform unavailable."
+                outcome: .degraded(.waveformUnavailable)
             )
         }
     }
 
+    private func temporaryAudioURL(projectID: UUID) -> URL {
+        temporaryDirectory
+            .appendingPathComponent("Framelingo", isDirectory: true)
+            .appendingPathComponent(projectID.uuidString, isDirectory: true)
+            .appendingPathComponent("waveform-\(UUID().uuidString).wav")
+    }
+
     private func removeTemporaryFileIfPresent(at url: URL) throws {
-        guard fileManager.fileExists(atPath: url.path) else { return }
-        try fileManager.removeItem(at: url)
+        guard fileSystem.fileExists(url) else { return }
+        try fileSystem.removeItem(url)
     }
 
     private func localizedMessage(from error: Error, fallback: String) -> String {
-        let message = (error as? LocalizedError)?.errorDescription
-            ?? error.localizedDescription
+        let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? fallback : trimmed
     }

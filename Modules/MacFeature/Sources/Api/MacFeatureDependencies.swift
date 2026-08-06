@@ -3,6 +3,7 @@ import Foundation
 import Media
 import Project
 import ProjectFeature
+import ProjectPreparation
 import Settings
 import SpeechToText
 import Subtitles
@@ -17,7 +18,8 @@ public struct MacFeatureDependencies {
     public var preparedMediaCleanup: PreparedMediaCleanup
     public var subtitleImporter: any SubtitleImporting
     public var editTimelineService: any EditTimelineEditing
-    public var projectPreparationWorkflow: any ProjectPreparationWorkflow
+    public var projectPreparer: any ProjectPreparing
+    public var projectPreparationConfiguration: ProjectPreparationConfigurationProvider
     public var projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow
     public var projectTranslationWorkflow: any ProjectTranslationWorkflow
     public var mediaMetadataProvider: any MediaMetadataProviding
@@ -40,7 +42,8 @@ public struct MacFeatureDependencies {
         preparedMediaCleanup: PreparedMediaCleanup,
         subtitleImporter: any SubtitleImporting,
         editTimelineService: any EditTimelineEditing,
-        projectPreparationWorkflow: any ProjectPreparationWorkflow,
+        projectPreparer: any ProjectPreparing,
+        projectPreparationConfiguration: @escaping ProjectPreparationConfigurationProvider,
         projectTranscriptionWorkflow: any ProjectTranscriptionWorkflow,
         projectTranslationWorkflow: any ProjectTranslationWorkflow,
         mediaMetadataProvider: any MediaMetadataProviding,
@@ -62,7 +65,8 @@ public struct MacFeatureDependencies {
         self.preparedMediaCleanup = preparedMediaCleanup
         self.subtitleImporter = subtitleImporter
         self.editTimelineService = editTimelineService
-        self.projectPreparationWorkflow = projectPreparationWorkflow
+        self.projectPreparer = projectPreparer
+        self.projectPreparationConfiguration = projectPreparationConfiguration
         self.projectTranscriptionWorkflow = projectTranscriptionWorkflow
         self.projectTranslationWorkflow = projectTranslationWorkflow
         self.mediaMetadataProvider = mediaMetadataProvider

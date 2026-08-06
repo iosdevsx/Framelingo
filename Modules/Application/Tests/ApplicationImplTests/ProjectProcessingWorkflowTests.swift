@@ -1,7 +1,6 @@
 import Application
 import ApplicationImpl
 import Foundation
-import Media
 import Project
 import Settings
 import SpeakerAnalysis
@@ -203,77 +202,6 @@ final class ProjectProcessingWorkflowTests: XCTestCase {
         XCTAssertEqual(repository.savedProjects.suffix(3).map(\.status), [.extractingAudio, .transcribing, .ready])
     }
 
-    func testPreparationPublishesMetadataAndProgressAndHandlesWaveformFailure() async throws {
-        var project = TestDoubles.project()
-        project.mediaFile.durationMs = nil
-        let ffmpeg = WorkflowFFmpeg()
-        let waveform = WorkflowWaveform()
-        let metadata = WorkflowMetadata()
-        let workflow = ApplicationWorkflowAssembly.makeProjectPreparationWorkflow(
-            mediaMetadataProvider: metadata,
-            waveformLoader: waveform,
-            makeFFmpegService: { _ in ffmpeg }
-        )
-        var events: [ProjectProcessingEvent] = []
-
-        let output = try await workflow.prepare(
-            ProjectPreparationRequest(project: project, settings: .default),
-            events: { events.append($0) }
-        )
-
-        XCTAssertEqual(output.project.mediaFile.durationMs, 12_000)
-        XCTAssertEqual(metadata.durationCallCount, 1)
-        XCTAssertEqual(output.waveformPeaks, [0.2, 0.8])
-        XCTAssertEqual(output.videoSourceInfo, VideoSourceInfo(width: 1920, height: 1080, nominalFrameRate: 30))
-        XCTAssertEqual(ffmpeg.outputURL, waveform.audioURL)
-        XCTAssertTrue(events.contains { event in
-            if case .progress(_, "Loading waveform...") = event { return true }
-            return false
-        })
-
-        let failing = ApplicationWorkflowAssembly.makeProjectPreparationWorkflow(
-            mediaMetadataProvider: WorkflowMetadata(error: WorkflowError.metadata),
-            waveformLoader: WorkflowWaveform(error: WorkflowError.waveform),
-            makeFFmpegService: { _ in ffmpeg }
-        )
-        let fallback = try await failing.prepare(
-            ProjectPreparationRequest(project: project, settings: .default),
-            events: { _ in }
-        )
-        XCTAssertEqual(fallback.waveformPeaks, [])
-        XCTAssertNil(fallback.videoSourceInfo)
-        XCTAssertEqual(fallback.status, "Project ready. Waveform unavailable.")
-
-        let cachedMetadata = WorkflowMetadata()
-        _ = try await ApplicationWorkflowAssembly.makeProjectPreparationWorkflow(
-            mediaMetadataProvider: cachedMetadata,
-            waveformLoader: WorkflowWaveform(),
-            makeFFmpegService: { _ in ffmpeg }
-        ).prepare(
-            ProjectPreparationRequest(project: TestDoubles.project(), settings: .default),
-            events: { _ in }
-        )
-        XCTAssertEqual(cachedMetadata.durationCallCount, 0)
-    }
-
-    func testPreparationCancellationIsStructured() async {
-        let workflow = ApplicationWorkflowAssembly.makeProjectPreparationWorkflow(
-            mediaMetadataProvider: WorkflowMetadata(),
-            waveformLoader: WorkflowWaveform(error: CancellationError()),
-            makeFFmpegService: { _ in WorkflowFFmpeg() }
-        )
-        do {
-            _ = try await workflow.prepare(
-                ProjectPreparationRequest(project: TestDoubles.project(), settings: .default),
-                events: { _ in }
-            )
-            XCTFail("Expected cancellation")
-        } catch is CancellationError {
-        } catch {
-            XCTFail("Unexpected error: \(error)")
-        }
-    }
-
     func testTranslationSuccessAndStatusOrder() async throws {
         let repository = TestDoubles.Repository()
         let service = WorkflowTranslation()
@@ -391,16 +319,12 @@ final class ProjectProcessingWorkflowTests: XCTestCase {
 private enum WorkflowError: LocalizedError {
     case provider
     case diarization
-    case metadata
-    case waveform
     case translation
 
     var errorDescription: String? {
         switch self {
         case .provider: "Provider unavailable."
         case .diarization: "Speaker engine unavailable."
-        case .metadata: "Metadata unavailable."
-        case .waveform: "Waveform unavailable."
         case .translation: "Translation provider unavailable."
         }
     }
@@ -511,40 +435,6 @@ private struct WorkflowAlignment: SubtitleAlignmentEngine {
         speakerSegments: [SpeakerSegment],
         options: SubtitleAlignmentOptions
     ) async throws -> [SubtitleAlignmentCue] { existingCues }
-}
-
-private final class WorkflowMetadata: MediaMetadataProviding {
-    let error: Error?
-    var durationCallCount = 0
-    init(error: Error? = nil) { self.error = error }
-
-    func durationMs(for url: URL) async throws -> Int? {
-        durationCallCount += 1
-        if let error { throw error }
-        return 12_000
-    }
-
-    func videoMetadata(for url: URL) async throws -> VideoMetadata {
-        if let error { throw error }
-        return VideoMetadata(width: 1920, height: 1080, nominalFrameRate: 30)
-    }
-}
-
-private final class WorkflowWaveform: WaveformLoading {
-    let error: Error?
-    var audioURL: URL?
-    init(error: Error? = nil) { self.error = error }
-
-    func loadWaveform(
-        for request: WaveformRequest,
-        audioProvider: @escaping WaveformAudioProvider,
-        progressHandler: WaveformProgressHandler?
-    ) async throws -> [Double] {
-        if let error { throw error }
-        if let progressHandler { await progressHandler(0.5, "Loading waveform...") }
-        audioURL = try await audioProvider()
-        return [0.2, 0.8]
-    }
 }
 
 private struct WorkflowTranslation: TranslationOrchestrating {

@@ -9,6 +9,8 @@ import PlayerFeatureImpl
 import Project
 import ProjectImpl
 import ProjectFeature
+import ProjectPreparation
+import ProjectPreparationImpl
 import SettingsImpl
 import ShortsFeatureImpl
 import SpeakerAnalysisImpl
@@ -77,12 +79,16 @@ enum MacCompositionRoot {
         let outputRevealer = AppKitOutputRevealAdapter().port
         let diagnosticCopier = AppKitDiagnosticCopyAdapter().port
 
-        let projectPreparationWorkflow = ApplicationWorkflowAssembly.makeProjectPreparationWorkflow(
-                mediaMetadataProvider: mediaMetadataProvider,
-                waveformLoader: waveformLoader,
-                makeFFmpegService: makeFFmpegService,
-                fileManager: fileManager
-            )
+        let projectPreparer = ProjectPreparationAssembly.makeProjectPreparer(
+            mediaMetadataProvider: mediaMetadataProvider,
+            waveformLoader: waveformLoader,
+            makeFFmpegService: { configuration in
+                VideoRenderingAssembly.makeDefaultService(
+                    preferredExecutableURL: URL(fileURLWithPath: configuration.ffmpegExecutablePath)
+                )
+            },
+            fileSystem: .live(fileManager: fileManager)
+        )
         let projectTranscriptionWorkflow = ApplicationWorkflowAssembly.makeProjectTranscriptionWorkflow(
                 projectRepository: projectRepository,
                 speechToTextProviderResolver: speechToTextProviderResolver,
@@ -118,7 +124,12 @@ enum MacCompositionRoot {
             preparedMediaCleanup: preparedMediaCleanup,
             subtitleImporter: SubtitlesAssembly.makeImporter(),
             editTimelineService: TimelineAssembly.makeEditService(),
-            projectPreparationWorkflow: projectPreparationWorkflow,
+            projectPreparer: projectPreparer,
+            projectPreparationConfiguration: {
+                ProjectPreparationConfiguration(
+                    ffmpegExecutablePath: settingsAccess.snapshot.settings.ffmpegPath
+                )
+            },
             projectTranscriptionWorkflow: projectTranscriptionWorkflow,
             projectTranslationWorkflow: projectTranslationWorkflow,
             mediaMetadataProvider: mediaMetadataProvider,

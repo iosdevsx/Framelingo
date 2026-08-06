@@ -1,7 +1,6 @@
 import Foundation
 import Project
 import Settings
-import VideoRendering
 
 /// Application workflows are reserved for use cases that coordinate multiple
 /// owner modules. Subtitle export remains on `SubtitleExportService`, while
@@ -68,56 +67,6 @@ public protocol ProjectTranscriptionWorkflow {
         _ request: ProjectTranscriptionRequest,
         events: @escaping ProjectProcessingEventHandler
     ) async throws -> ProjectTranscriptionOutput
-}
-
-public struct ProjectPreparationRequest {
-    public let project: Project
-    public let settings: AppSettings
-
-    public init(project: Project, settings: AppSettings) {
-        self.project = project
-        self.settings = settings
-    }
-}
-
-public struct ProjectPreparationOutput {
-    public let project: Project
-    public let waveformPeaks: [Double]
-    public let videoSourceInfo: VideoSourceInfo?
-    public let status: String
-
-    public init(
-        project: Project,
-        waveformPeaks: [Double],
-        videoSourceInfo: VideoSourceInfo?,
-        status: String
-    ) {
-        self.project = project
-        self.waveformPeaks = waveformPeaks
-        self.videoSourceInfo = videoSourceInfo
-        self.status = status
-    }
-}
-
-public enum ProjectPreparationError: LocalizedError, Equatable {
-    case temporaryFileCleanupFailed(String)
-    case cancellationAndCleanupFailed(String)
-
-    public var errorDescription: String? {
-        switch self {
-        case .temporaryFileCleanupFailed(let message):
-            "Project preparation finished, but its temporary audio could not be removed: \(message)"
-        case .cancellationAndCleanupFailed(let message):
-            "Project preparation was cancelled, but its temporary audio could not be removed: \(message)"
-        }
-    }
-}
-
-public protocol ProjectPreparationWorkflow {
-    func prepare(
-        _ request: ProjectPreparationRequest,
-        events: @escaping ProjectProcessingEventHandler
-    ) async throws -> ProjectPreparationOutput
 }
 
 public struct ProjectTranslationRequest {

@@ -43,7 +43,6 @@ let package = Package(
             name: "ApplicationImpl",
             dependencies: [
                 "Application",
-                .product(name: "Media", package: "Media"),
                 .product(name: "Project", package: "Project"),
                 .product(name: "Settings", package: "Settings"),
                 .product(name: "Shorts", package: "Shorts"),
@@ -61,7 +60,6 @@ let package = Package(
             dependencies: [
                 "Application",
                 "ApplicationImpl",
-                .product(name: "Media", package: "Media"),
                 .product(name: "Project", package: "Project"),
                 .product(name: "Settings", package: "Settings"),
                 .product(name: "Shorts", package: "Shorts"),
