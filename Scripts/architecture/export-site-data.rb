@@ -10,19 +10,36 @@ SCRIPT_DIRECTORY = Pathname.new(__dir__).realpath
 REPOSITORY_ROOT = SCRIPT_DIRECTORY.join("../..").realpath
 DEFAULT_OUTPUT = REPOSITORY_ROOT.join("docs/architecture/framelingo-architecture.json")
 SITE_OUTPUT = REPOSITORY_ROOT.join("Tools/ArchitectureSite/app/architecture-data.json")
-RUNTIME_SCENARIOS = SCRIPT_DIRECTORY.join("runtime-scenarios.json")
 CATEGORY_ORDER = %w[Composition Features Workflows Core Infrastructure UI External].freeze
 
-options = { outputs: [DEFAULT_OUTPUT, SITE_OUTPUT] }
+options = {
+  repository_root: REPOSITORY_ROOT,
+  runtime_scenarios: nil,
+  outputs: nil
+}
 OptionParser.new do |parser|
-  parser.banner = "Usage: export-site-data.rb [--output PATH]"
+  parser.banner = "Usage: export-site-data.rb [options]"
+  parser.on("--repository-root PATH", "Read Framelingo sources from PATH") do |path|
+    options[:repository_root] = Pathname.new(path).expand_path.realpath
+  end
+  parser.on("--runtime-scenarios PATH", "Read documented runtime scenarios from PATH") do |path|
+    options[:runtime_scenarios] = Pathname.new(path).expand_path
+  end
   parser.on("--output PATH", "Write the architecture snapshot to PATH") do |path|
     options[:outputs] = [Pathname.new(path).expand_path]
   end
 end.parse!
 
-def package_category(package_file)
-  relative = package_file.relative_path_from(REPOSITORY_ROOT.join("AppTarget/Modules"))
+repository_root = options.fetch(:repository_root)
+runtime_scenarios_path = options[:runtime_scenarios] || repository_root.join("Scripts/architecture/runtime-scenarios.json")
+outputs = options[:outputs] || if repository_root == REPOSITORY_ROOT
+  [DEFAULT_OUTPUT, SITE_OUTPUT]
+else
+  [repository_root.join("docs/architecture/framelingo-architecture.json")]
+end
+
+def package_category(package_file, repository_root)
+  relative = package_file.relative_path_from(repository_root.join("AppTarget/Modules"))
   relative.each_filename.first
 end
 
@@ -47,7 +64,7 @@ def test_targets(source)
   source.scan(/\.testTarget\(\s*name:\s*"([^"]+)"/m).flatten.uniq.sort
 end
 
-package_files = Dir.glob(REPOSITORY_ROOT.join("AppTarget/Modules/**/Package.swift")).map do |path|
+package_files = Dir.glob(repository_root.join("AppTarget/Modules/**/Package.swift")).map do |path|
   Pathname.new(path)
 end.reject { |path| path.each_filename.include?(".build") }
 
@@ -56,7 +73,7 @@ modules = package_files.map do |package_file|
   package_directory = package_file.dirname
   {
     "name" => package_name(source, package_file),
-    "category" => package_category(package_file),
+    "category" => package_category(package_file, repository_root),
     "dependencies" => package_dependencies(source),
     "tests" => test_targets(source),
     "sourceFiles" => Dir.glob(package_directory.join("Sources/**/*.swift")).length
@@ -79,9 +96,9 @@ modules.sort_by! do |record|
   [CATEGORY_ORDER.index(record.fetch("category")) || CATEGORY_ORDER.length, record.fetch("name")]
 end
 
-runtime_scenarios = JSON.parse(RUNTIME_SCENARIOS.read)
+runtime_scenarios = JSON.parse(runtime_scenarios_path.read)
 unless runtime_scenarios.is_a?(Array) && runtime_scenarios.all? { |scenario| scenario["steps"].is_a?(Array) }
-  raise "#{RUNTIME_SCENARIOS} must contain an array of scenarios with steps"
+  raise "#{runtime_scenarios_path} must contain an array of scenarios with steps"
 end
 
 runtime_scenarios.each do |scenario|
@@ -91,7 +108,7 @@ runtime_scenarios.each do |scenario|
 
   scenario.fetch("steps").each do |step|
     %w[id label module category kind source].each { |key| step.fetch(key) }
-    source_path = REPOSITORY_ROOT.join(step.fetch("source"))
+    source_path = repository_root.join(step.fetch("source"))
     raise "Runtime source does not exist: #{source_path}" unless source_path.file?
   end
 end
@@ -104,7 +121,7 @@ snapshot = {
 }
 
 payload = "#{JSON.pretty_generate(snapshot)}\n"
-options.fetch(:outputs).each do |output|
+outputs.each do |output|
   FileUtils.mkdir_p(output.dirname)
   Tempfile.create([output.basename.to_s, ".tmp"], output.dirname) do |temporary|
     temporary.write(payload)
@@ -115,4 +132,4 @@ options.fetch(:outputs).each do |output|
 end
 
 puts "Exported #{modules.length} packages and #{runtime_scenarios.length} runtime scenarios"
-options.fetch(:outputs).each { |output| puts "  -> #{output}" }
+outputs.each { |output| puts "  -> #{output}" }

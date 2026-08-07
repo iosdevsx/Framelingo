@@ -37,6 +37,10 @@ run = "./Scripts/tuist/project.sh graph"
 description = "Export package topology and documented runtime pipelines"
 run = "ruby Scripts/architecture/export-site-data.rb"
 
+[tasks."architecture:test"]
+description = "Test architecture snapshot and PR diff tooling"
+run = "ruby Scripts/architecture/test-architecture-diff.rb"
+
 [tasks.clean]
 description = "Remove only repository-local generated output"
 run = "./Scripts/tuist/project.sh clean"

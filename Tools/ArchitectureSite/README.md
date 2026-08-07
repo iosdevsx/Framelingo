@@ -34,3 +34,11 @@ The workflow uses `GITHUB_TOKEN` by default. If branch protection does not allow
 GitHub Actions to push directly to `main`, add a repository secret named
 `ARCHITECTURE_BOT_TOKEN` containing a fine-grained token with Contents read/write
 permission and allow that bot identity through the branch rule.
+
+## Pull request architecture diff
+
+`.github/workflows/architecture-pr-diff.yml` compares every pull request with
+its base revision using trusted tooling from `main`. It updates one bot comment
+with package and dependency changes, the resulting area of influence, affected
+runtime paths, and suggested test bundles. Complete base, head, JSON diff, and
+Markdown reports are attached to the workflow run as an artifact.
