@@ -339,10 +339,10 @@ private struct ShortsStageView: View {
 
                 ZStack {
                     RadialGradient(
-                        colors: [Color.accentColor.opacity(theme.dark ? 0.10 : 0.16), .clear],
+                        colors: [Color.accentColor.opacity(theme.dark ? 0.06 : 0.12), .clear],
                         center: UnitPoint(x: 0.5, y: 0.42),
                         startRadius: 0,
-                        endRadius: max(geometry.size.width, geometry.size.height) * 0.55
+                        endRadius: max(geometry.size.width, geometry.size.height) * 0.45
                     )
                     .allowsHitTesting(false)
 
@@ -607,14 +607,26 @@ private struct ShortsStageView: View {
         let topHeight = size.height * CGFloat(platform.topSafeAreaFraction)
         let bottomHeight = size.height * CGFloat(platform.bottomSafeAreaFraction)
 
-        return VStack(spacing: 0) {
-            Rectangle()
-                .fill(Color.black.opacity(0.28))
-                .frame(height: topHeight)
-            Spacer()
-            Rectangle()
-                .fill(Color.black.opacity(0.28))
-                .frame(height: bottomHeight)
+        return ZStack {
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(Color.black.opacity(0.15))
+                    .frame(height: topHeight)
+                Spacer()
+                Rectangle()
+                    .fill(Color.black.opacity(0.15))
+                    .frame(height: bottomHeight)
+            }
+
+            // dashed safe-area frame, as in the design mock
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(
+                    Color.white.opacity(0.14),
+                    style: StrokeStyle(lineWidth: 1, dash: [4, 4])
+                )
+                .padding(.horizontal, size.width * 0.06)
+                .padding(.top, topHeight)
+                .padding(.bottom, bottomHeight)
         }
         .allowsHitTesting(false)
     }
@@ -951,11 +963,11 @@ private struct ShortsLibraryCard: View {
                     )
                 )
 
-            Circle()
-                .fill(Color.accentColor.opacity(0.4))
-                .frame(width: 22, height: 22)
-                .blur(radius: 8)
-                .offset(y: -24)
+            Ellipse()
+                .fill(Color.accentColor.opacity(0.55))
+                .frame(width: 34, height: 40)
+                .blur(radius: 10)
+                .offset(x: -8, y: -18)
 
             Capsule()
                 .fill(Color.white.opacity(0.35))
@@ -963,8 +975,8 @@ private struct ShortsLibraryCard: View {
                 .padding(.horizontal, 3)
                 .padding(.bottom, 3)
         }
-        .frame(width: 42)
-        .aspectRatio(9.0 / 16.0, contentMode: .fit)
+        .frame(width: 42, height: 42 * 16 / 9)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
                 .stroke(theme.line2, lineWidth: 0.5)
