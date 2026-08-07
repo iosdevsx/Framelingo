@@ -35,6 +35,7 @@ public enum FramelingoPackages {
     /// Package directories that Xcode should discover inside the synchronized
     /// AppTarget folder, but must not compile as app-target sources/resources.
     public static let appTargetMembershipExclusions: [String] = [
+        "Resources",
         "Modules/Composition/MacApp",
         "Modules/Composition/IOSApp",
         "Modules/Core/Media",

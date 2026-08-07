@@ -44,11 +44,6 @@ end
 
 validate_plan("Tuist test plan", plan_targets, expected_names, manifest_containers)
 
-legacy_plan_path = File.join(root, "TestPlan.xctestplan")
-legacy_plan = JSON.parse(File.read(legacy_plan_path))
-legacy_plan_targets = legacy_plan.fetch("testTargets").map { |entry| entry.fetch("target") }
-validate_plan("legacy test plan", legacy_plan_targets, expected_names, manifest_containers)
-
 scheme_path = File.join(root, "Framelingo-Tuist.xcodeproj/xcshareddata/xcschemes/Framelingo-Tuist.xcscheme")
 if File.exist?(scheme_path)
   scheme = File.read(scheme_path)
@@ -68,5 +63,5 @@ if (xcresult_path = ARGV.first)
   abort "Generated test run executed #{summary.fetch('totalTestCount')} tests; expected baseline 385" unless summary.fetch("totalTestCount") == 385
 end
 
-suffix = xcresult_path ? " and xcresult parity passed (385 tests)" : ""
+suffix = xcresult_path ? " and xcresult execution passed (385 tests)" : ""
 puts "Test inventory audit passed (33 targets: 1 shell + 32 package-owned)#{suffix}."

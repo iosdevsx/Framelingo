@@ -461,7 +461,6 @@ failures.concat(
 
 retirement_scan_paths = Dir.glob(File.join(modules_root, "**", "*.swift"))
 retirement_scan_paths.concat(Dir.glob(File.join(modules_root, "*", "*", "Package.swift")))
-retirement_scan_paths << File.join(repository_root, "Framelingo.xcodeproj", "project.pbxproj")
 retirement_scan_paths.sort.each do |path|
   relative = path.delete_prefix("#{repository_root}/")
   failures.concat(audit_application_retirement(read_utf8(path), relative))

@@ -27,7 +27,6 @@ let project = Project(
     additionalFiles: [
         "README.md",
         "docs/**",
-        "TestPlan.xctestplan",
         "Tuist/**",
     ],
     resourceSynthesizers: []

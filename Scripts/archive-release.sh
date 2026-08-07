@@ -17,7 +17,8 @@
 #      via `generate_keys` when auto-update was first wired up; only needs
 #      redoing on a new machine).
 #
-# CURRENT_PROJECT_VERSION is bumped automatically (Sparkle compares
+# CURRENT_PROJECT_VERSION in the Tuist settings is bumped automatically
+# (Sparkle compares
 # CFBundleVersion to decide if an update exists). MARKETING_VERSION is only
 # bumped when one of --major/--minor/--patch is passed -- the script can't
 # know what kind of release this is. Both are rolled back if the release
@@ -82,36 +83,45 @@ if ! xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>
     exit 1
 fi
 
-# Auto-bump the build number across all targets (same as `agvtool
-# next-version -all`). The EXIT trap restores the pre-bump project.pbxproj
+# Auto-bump the build number across all Tuist product targets. The EXIT trap
+# restores the pre-bump settings file
 # unless the release made it all the way to a published archive, so a failed
 # build/notarization/push never leaves a half-released version behind.
-PBXPROJ="$ROOT_DIR/Framelingo.xcodeproj/project.pbxproj"
-OLD_BUILD=$(sed -n 's/^[[:space:]]*CURRENT_PROJECT_VERSION = \([0-9][0-9]*\);.*/\1/p' "$PBXPROJ" | sort -n | tail -1)
+SETTINGS_FILE="$ROOT_DIR/Tuist/ProjectDescriptionHelpers/FramelingoSettings.swift"
+WORKSPACE="$ROOT_DIR/Framelingo-Tuist.xcworkspace"
+OLD_BUILD=$(sed -n 's/.*"CURRENT_PROJECT_VERSION": "\([0-9][0-9]*\)".*/\1/p' "$SETTINGS_FILE" | sort -u)
 if [ -z "$OLD_BUILD" ]; then
-    echo "error: could not read CURRENT_PROJECT_VERSION from $PBXPROJ" >&2
+    echo "error: could not read CURRENT_PROJECT_VERSION from $SETTINGS_FILE" >&2
+    exit 1
+fi
+if [ "$(printf '%s\n' "$OLD_BUILD" | wc -l | tr -d ' ')" -ne 1 ]; then
+    echo "error: product targets have inconsistent CURRENT_PROJECT_VERSION values in $SETTINGS_FILE" >&2
     exit 1
 fi
 NEW_BUILD=$((OLD_BUILD + 1))
-PBXPROJ_BACKUP=$(mktemp /tmp/framelingo-pbxproj-backup.XXXXXX)
-cp "$PBXPROJ" "$PBXPROJ_BACKUP"
+SETTINGS_BACKUP=$(mktemp /tmp/framelingo-settings-backup.XXXXXX)
+cp "$SETTINGS_FILE" "$SETTINGS_BACKUP"
 PUBLISHED=0
 NEW_MARKETING=""
 restore_version_on_failure() {
     if [ "$PUBLISHED" -eq 0 ]; then
-        cp "$PBXPROJ_BACKUP" "$PBXPROJ"
-        echo "note: release did not publish -- restored project.pbxproj (build $NEW_BUILD -> $OLD_BUILD${NEW_MARKETING:+, version $NEW_MARKETING -> $OLD_MARKETING})" >&2
+        cp "$SETTINGS_BACKUP" "$SETTINGS_FILE"
+        echo "note: release did not publish -- restored Tuist settings (build $NEW_BUILD -> $OLD_BUILD${NEW_MARKETING:+, version $NEW_MARKETING -> $OLD_MARKETING})" >&2
     fi
-    rm -f "$PBXPROJ_BACKUP"
+    rm -f "$SETTINGS_BACKUP"
 }
 trap restore_version_on_failure EXIT
 trap 'exit 130' INT HUP TERM
 
 echo "==> Bumping CURRENT_PROJECT_VERSION $OLD_BUILD -> $NEW_BUILD (rolls back automatically if the release fails)"
-sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9][0-9]*;/CURRENT_PROJECT_VERSION = $NEW_BUILD;/g" "$PBXPROJ"
+sed -i '' "s/\"CURRENT_PROJECT_VERSION\": \"[0-9][0-9]*\"/\"CURRENT_PROJECT_VERSION\": \"$NEW_BUILD\"/g" "$SETTINGS_FILE"
 
 if [ -n "$BUMP_KIND" ]; then
-    OLD_MARKETING=$(sed -n 's/^[[:space:]]*MARKETING_VERSION = \([0-9.][0-9.]*\);.*/\1/p' "$PBXPROJ" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
+    OLD_MARKETING=$(sed -n 's/.*"MARKETING_VERSION": "\([0-9.][0-9.]*\)".*/\1/p' "$SETTINGS_FILE" | sort -u)
+    if [ "$(printf '%s\n' "$OLD_MARKETING" | wc -l | tr -d ' ')" -ne 1 ]; then
+        echo "error: product targets have inconsistent MARKETING_VERSION values in $SETTINGS_FILE" >&2
+        exit 1
+    fi
     IFS=. read -r V_MAJOR V_MINOR V_PATCH <<EOF
 $OLD_MARKETING
 EOF
@@ -123,17 +133,20 @@ EOF
         patch) NEW_MARKETING="$V_MAJOR.$V_MINOR.$((V_PATCH + 1))" ;;
     esac
     echo "==> Bumping MARKETING_VERSION $OLD_MARKETING -> $NEW_MARKETING (--$BUMP_KIND)"
-    sed -i '' "s/MARKETING_VERSION = [0-9.][0-9.]*;/MARKETING_VERSION = $NEW_MARKETING;/g" "$PBXPROJ"
+    sed -i '' "s/\"MARKETING_VERSION\": \"[0-9.][0-9.]*\"/\"MARKETING_VERSION\": \"$NEW_MARKETING\"/g" "$SETTINGS_FILE"
 fi
 
 echo "==> Cleaning $BUILD_DIR"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
-echo "==> Archiving (Release configuration, isolated DerivedData -- no stale incremental state)"
+echo "==> Generating the Tuist workspace from the release settings"
+(cd "$ROOT_DIR" && mise run generate)
+
+echo "==> Archiving generated workspace (Release configuration, isolated DerivedData -- no stale incremental state)"
 xcodebuild \
-    -project "$ROOT_DIR/Framelingo.xcodeproj" \
-    -scheme Framelingo \
+    -workspace "$WORKSPACE" \
+    -scheme Framelingo-Tuist \
     -configuration Release \
     -archivePath "$ARCHIVE_PATH" \
     -derivedDataPath "$DERIVED_DATA_PATH" \
@@ -223,5 +236,5 @@ echo ""
 echo "Done: $APP_PATH"
 echo "Notarized and stapled -- opens on any Mac without a Gatekeeper warning."
 if [ "$PUBLISHED" -eq 1 ]; then
-    echo "project.pbxproj now has CURRENT_PROJECT_VERSION = $NEW_BUILD${NEW_MARKETING:+, MARKETING_VERSION = $NEW_MARKETING} -- commit it."
+    echo "FramelingoSettings.swift now has CURRENT_PROJECT_VERSION = $NEW_BUILD${NEW_MARKETING:+, MARKETING_VERSION = $NEW_MARKETING} -- commit it."
 fi

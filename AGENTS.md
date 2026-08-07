@@ -15,9 +15,9 @@ Before editing:
 4. Preserve unrelated work in a dirty tree. Do not rewrite broad files for a
    focused change.
 
-New production work belongs under `AppTarget/Modules`. `Framelingo/` and the
-checked-in Xcode project are migration/parity surfaces; change them only when the
-task explicitly requires it.
+New production work belongs under `AppTarget/Modules`. Product workspaces are
+generated from the Tuist manifests; generated `.xcodeproj` and `.xcworkspace`
+files are never sources of truth.
 
 ## Repository shape
 

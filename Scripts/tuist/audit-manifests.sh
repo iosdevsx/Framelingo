@@ -25,7 +25,7 @@ grouped_package_count=$(find AppTarget/Modules -mindepth 3 -maxdepth 3 -name Pac
 grep -Eq 'buildableFolders:' Tuist/ProjectDescriptionHelpers/FramelingoTargets.swift || \
     fail "The app target must expose AppTarget through an Xcode synchronized folder."
 
-for project_file in Framelingo.xcodeproj/project.pbxproj Framelingo-Tuist.xcodeproj/project.pbxproj; do
+for project_file in Framelingo-Tuist.xcodeproj/project.pbxproj; do
     [ -f "$project_file" ] || continue
 
     if grep -Eq 'XCLocalSwiftPackageReference|packageReferences =|package = .*XCLocalSwiftPackageReference' "$project_file"; then

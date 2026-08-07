@@ -1,9 +1,9 @@
 # ADR-0003: Tuist generates product workspaces
 
-- Status: Accepted
+- Status: Superseded by ADR-0004
 - Date: 2026-08-06
 - Supersedes: —
-- Superseded by: —
+- Superseded by: [ADR-0004](0004-retire-legacy-xcode-project.md)
 
 ## Context
 

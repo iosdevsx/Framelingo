@@ -19,6 +19,7 @@ ADR фиксирует одно значимое архитектурное ре
 - [ADR-0001: API/Impl packages and product composition roots](0001-api-impl-packages.md)
 - [ADR-0002: ProjectSession owns the active project](0002-project-session-ownership.md)
 - [ADR-0003: Tuist generates product workspaces](0003-tuist-generated-workspace.md)
+- [ADR-0004: Retire the legacy Xcode project](0004-retire-legacy-xcode-project.md)
 
 Для нового решения скопируйте [template.md](template.md), выберите следующий
 номер и используйте короткое имя файла в kebab-case.

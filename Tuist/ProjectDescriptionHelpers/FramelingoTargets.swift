@@ -26,7 +26,7 @@ public enum FramelingoTargets {
                 "NSHumanReadableCopyright": "",
             ]),
             resources: [
-                "Framelingo/Assets.xcassets",
+                "AppTarget/Resources/Assets.xcassets",
                 .folderReference(path: "BundledTools/Whisper"),
             ],
             buildableFolders: [

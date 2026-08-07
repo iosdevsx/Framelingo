@@ -25,8 +25,9 @@ printf '%s\n' "$sdk_list" | grep -q -- '-sdk iphonesimulator' || fail "The iOS s
 package_count=$(find AppTarget/Modules -mindepth 3 -maxdepth 3 -name Package.swift | wc -l | tr -d ' ')
 [ "$package_count" = "28" ] || fail "Found $package_count module manifests; expected 28. Run the module audit before changing the inventory."
 
-test_target_count=$(jq '.testTargets | length' TestPlan.xctestplan)
-[ "$test_target_count" = "33" ] || fail "TestPlan.xctestplan contains $test_target_count targets; expected 33."
+test_plan=Tuist/TestPlans/FramelingoComplete.xctestplan
+test_target_count=$(jq '.testTargets | length' "$test_plan")
+[ "$test_target_count" = "33" ] || fail "$test_plan contains $test_target_count targets; expected 33."
 
 ruby Scripts/audit-module-boundaries.rb --self-test >/dev/null
 ruby Scripts/audit-module-boundaries.rb >/dev/null

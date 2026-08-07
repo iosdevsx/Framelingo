@@ -1,8 +1,6 @@
 # Tuist в Framelingo
 
-Tuist хранит устройство Xcode-проекта в обычных Swift-файлах и каждый раз собирает из них одинаковый workspace. Сам сгенерированный `Framelingo-Tuist.xcworkspace` в Git не попадает: если он устарел или сломался, его проще удалить и получить заново.
-
-Сейчас идёт переходный период. Старый `Framelingo.xcodeproj` остаётся рабочим эталоном, а новый workspace называется `Framelingo-Tuist.xcworkspace`. Основная macOS-сборка и полный тест-план уже работают через Tuist. Команды для iPhone и iPad заведены заранее, но честно завершаются ошибкой до появления отдельного mobile composition root из change `add-ios-app-composition`.
+Tuist хранит устройство Xcode-проекта в обычных Swift-файлах и каждый раз собирает из них одинаковый workspace. Сам сгенерированный `Framelingo-Tuist.xcworkspace` в Git не попадает: если он устарел или сломался, его проще удалить и получить заново. Checked-in Xcode-проекта больше нет; manifests являются единственным источником истины для macOS, iPhone и iPad продуктов.
 
 `AppTarget/Modules` подключён как синхронизированное дерево, как в InterviewTask:
 группирующие каталоги остаются обычными папками, а лежащие внутри них каталоги
@@ -19,7 +17,7 @@ mise run setup
 mise run doctor
 ```
 
-`setup` устанавливает закреплённый Tuist, разрешает зависимости и генерирует workspace. `doctor` ничего не чинит молча: он проверяет Xcode, SDK, симуляторы, 27 локальных пакетов, 33 тестовых таргета и архитектурный аудит. Если проверка падает, в сообщении есть конкретное действие.
+`setup` устанавливает закреплённый Tuist, разрешает зависимости и генерирует workspace. `doctor` ничего не чинит молча: он проверяет Xcode, SDK, симуляторы, 28 локальных пакетов, 33 тестовых таргета и архитектурный аудит. Если проверка падает, в сообщении есть конкретное действие.
 
 ## Обычная работа
 
@@ -121,7 +119,7 @@ mise run install
 mise run generate
 ```
 
-`clean` удаляет только сгенерированные `Framelingo-Tuist.*`, `Derived/` и `DerivedData/Tuist`. Исходники, старый Xcode-проект и пользовательские данные он не трогает.
+`clean` удаляет только сгенерированные `Framelingo-Tuist.*`, `Derived/` и `DerivedData/Tuist`. Исходники и пользовательские данные он не трогает.
 
 Если этого мало:
 
@@ -146,4 +144,4 @@ mise run generate 2>&1 | tee DerivedData/tuist-generate.log
 
 Единственный workflow `.github/workflows/ci.yml` устанавливает закреплённый Tuist через Mise, генерирует workspace с чистого checkout, запускает аудиты, Debug/Release, полный тест-план и проверяет неподписанный macOS archive. Job `macOS` обязательный: ошибка любого шага делает CI красным. При падении сохраняются полные логи и `.xcresult` на семь дней.
 
-Публикация релиза через Tuist намеренно ещё не включена. Для неё сначала нужно утвердить production environment, bundle ids и набор секретов для Developer ID, notarization, Sparkle и доступа к release-репозиторию. Текущий `Scripts/archive-release.sh` продолжает работать со старым Xcode-проектом и не считается частью нового CD-пути. Переключать публикацию до проверки защищённого dry run нельзя.
+`Scripts/archive-release.sh` генерирует актуальный Tuist workspace, собирает из него подписанный архив, нотарифицирует приложение и публикует Sparkle update. Это защищённый ручной workflow: ему нужны Developer ID, notarization credentials, Sparkle key и доступ к release-репозиторию. CI ограничивается credential-free архивом и не получает release-секреты.

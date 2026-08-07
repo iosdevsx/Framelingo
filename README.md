@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="Framelingo/Assets.xcassets/AppIcon.appiconset/appicon.png" width="128" height="128" alt="Framelingo icon">
+  <img src="AppTarget/Resources/Assets.xcassets/AppIcon.appiconset/appicon.png" width="128" height="128" alt="Framelingo icon">
 
   # Framelingo
 
@@ -83,7 +83,8 @@ mise run test
 Подробный список команд, устройство generated-файлов и разбор проблем есть в [`docs/tuist.md`](docs/tuist.md).
 
 > [!NOTE]
-> Пока идёт проверка parity, старый `Framelingo.xcodeproj` остаётся в репозитории как контрольная сборка. Новая разработка проекта ведётся через Tuist; сгенерированные `Framelingo-Tuist.*` коммитить не нужно.
+> Tuist manifests являются единственным источником истины для product workspace.
+> Сгенерированные `Framelingo-Tuist.*` коммитить не нужно.
 
 ## Локальные модели
 
@@ -152,8 +153,7 @@ runtime-сценарии генерируются для
 
 `ProjectSession` уже владеет открытым проектом и его эффектами; `MacApp` и
 `IOSApp` являются отдельными product composition roots. Tuist генерирует общий
-workspace для macOS, iPhone и iPad. Checked-in Xcode-проект пока остаётся только
-parity-эталоном до окончательного cutover.
+workspace для macOS, iPhone и iPad.
 
 ## Тесты
 
