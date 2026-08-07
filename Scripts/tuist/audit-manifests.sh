@@ -4,17 +4,16 @@ set -eu
 . "$(dirname -- "$0")/common.sh"
 
 require_command git "Git is required to audit generated-file ownership."
-require_command rg "ripgrep is required to audit manifest declarations."
 
 [ -f Project.swift ] || fail "Project.swift is missing."
 [ -f Workspace.swift ] || fail "Workspace.swift is missing."
 [ -f Tuist.swift ] || fail "Tuist.swift is missing."
 
-if rg -q '\.package\(path:' Project.swift Tuist/ProjectDescriptionHelpers; then
+if grep -Eq '\.package\(path:' Project.swift Tuist/ProjectDescriptionHelpers/*.swift; then
     fail "Local modules must be discovered through the synchronized AppTarget tree, not XCLocalSwiftPackageReference entries."
 fi
 
-membership_exclusion_count=$(rg -c '"Modules/.+"' Tuist/ProjectDescriptionHelpers/FramelingoPackages.swift)
+membership_exclusion_count=$(grep -Ec '"Modules/.+"' Tuist/ProjectDescriptionHelpers/FramelingoPackages.swift)
 [ "$membership_exclusion_count" = "27" ] || fail "Found $membership_exclusion_count package membership exclusions; expected 27."
 
 flat_package_count=$(find AppTarget/Modules -mindepth 2 -maxdepth 2 -name Package.swift | wc -l | tr -d ' ')
@@ -23,18 +22,18 @@ flat_package_count=$(find AppTarget/Modules -mindepth 2 -maxdepth 2 -name Packag
 grouped_package_count=$(find AppTarget/Modules -mindepth 3 -maxdepth 3 -name Package.swift | wc -l | tr -d ' ')
 [ "$grouped_package_count" = "27" ] || fail "Found $grouped_package_count grouped packages; expected 27."
 
-rg -q 'buildableFolders:' Tuist/ProjectDescriptionHelpers/FramelingoTargets.swift || \
+grep -Eq 'buildableFolders:' Tuist/ProjectDescriptionHelpers/FramelingoTargets.swift || \
     fail "The app target must expose AppTarget through an Xcode synchronized folder."
 
 for project_file in Framelingo.xcodeproj/project.pbxproj Framelingo-Tuist.xcodeproj/project.pbxproj; do
     [ -f "$project_file" ] || continue
 
-    if rg -q 'XCLocalSwiftPackageReference|packageReferences =|package = .*XCLocalSwiftPackageReference' "$project_file"; then
+    if grep -Eq 'XCLocalSwiftPackageReference|packageReferences =|package = .*XCLocalSwiftPackageReference' "$project_file"; then
         fail "$project_file contains explicit local-package references; packages must be discovered from the synchronized Modules tree."
     fi
 done
 
-if rg -n 'sources:[[:space:]]*\[[^]]*AppTarget/Modules/' Project.swift Tuist/ProjectDescriptionHelpers; then
+if grep -En 'sources:[[:space:]]*\[[^]]*AppTarget/Modules/' Project.swift Tuist/ProjectDescriptionHelpers/*.swift; then
     fail "Tuist must depend on package products, not compile package sources directly."
 fi
 
