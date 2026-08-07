@@ -11,7 +11,10 @@ plan_targets = plan.fetch("testTargets").map { |entry| entry.fetch("target") }
 
 manifest_containers = {}
 manifest_names = Dir.glob(File.join(root, "AppTarget/Modules/*/*/Package.swift")).flat_map do |path|
-  names = File.read(path).scan(/\.testTarget\s*\(\s*name:\s*"([^"]+)"/m).flatten
+  manifest = File.read(path)
+  next [] unless manifest.include?(".macOS(")
+
+  names = manifest.scan(/\.testTarget\s*\(\s*name:\s*"([^"]+)"/m).flatten
   relative_package_path = File.dirname(path).delete_prefix("#{root}/")
   names.each { |name| manifest_containers[name] = "container:#{relative_package_path}" }
   names
