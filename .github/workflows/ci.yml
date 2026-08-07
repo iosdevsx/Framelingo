@@ -85,10 +85,23 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          ruby Scripts/audit-module-boundaries.rb --self-test 2>&1 | tee DerivedData/Tuist/Logs/module-audit-self-test.log
-          ruby Scripts/audit-module-boundaries.rb 2>&1 | tee DerivedData/Tuist/Logs/module-audit.log
+          mise run architecture:check -- \
+            --json-report DerivedData/Tuist/Logs/architecture-audit.json \
+            --text-report DerivedData/Tuist/Logs/architecture-audit.txt \
+            --github-annotations 2>&1 | tee DerivedData/Tuist/Logs/module-audit.log
           ./Scripts/tuist/audit-manifests.sh 2>&1 | tee DerivedData/Tuist/Logs/manifest-audit.log
           ruby Scripts/tuist/audit-test-inventory.rb 2>&1 | tee DerivedData/Tuist/Logs/test-inventory-before.log
+
+      - name: Upload architecture audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-audit-${{ github.run_attempt }}
+          path: |
+            DerivedData/Tuist/Logs/architecture-audit.json
+            DerivedData/Tuist/Logs/architecture-audit.txt
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Build generated macOS Debug
         shell: bash

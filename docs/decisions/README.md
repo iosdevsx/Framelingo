@@ -20,6 +20,7 @@ ADR фиксирует одно значимое архитектурное ре
 - [ADR-0002: ProjectSession owns the active project](0002-project-session-ownership.md)
 - [ADR-0003: Tuist generates product workspaces](0003-tuist-generated-workspace.md)
 - [ADR-0004: Retire the legacy Xcode project](0004-retire-legacy-xcode-project.md)
+- [ADR-0005: Declarative architecture policy from SwiftPM manifests](0005-declarative-architecture-policy.md)
 
 Для нового решения скопируйте [template.md](template.md), выберите следующий
 номер и используйте короткое имя файла в kebab-case.

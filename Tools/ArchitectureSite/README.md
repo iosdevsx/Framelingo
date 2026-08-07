@@ -11,9 +11,27 @@ Run this from the repository root:
 mise run architecture:export
 ```
 
-The exporter reads Swift package manifests and the documented runtime scenarios,
-then updates both the canonical snapshot under `docs/architecture/` and the site
-snapshot at `Tools/ArchitectureSite/app/architecture-data.json`.
+The exporter and architecture guardrails share
+`Scripts/architecture/package_graph.rb`, so the generated view and policy check
+use the same deterministic local/external identities and direct edges. The
+exporter combines that graph with documented runtime scenarios, then updates the
+canonical snapshot under `docs/architecture/` and the site snapshot at
+`Tools/ArchitectureSite/app/architecture-data.json`.
+
+The snapshot tracks package topology, test targets, and runtime scenarios. It
+does not track Swift source-file contents or counts, so ordinary file additions
+and edits do not require regeneration.
+
+Validate current manifests against the versioned policy and the source-level
+boundary rules with:
+
+```bash
+mise run architecture:check
+```
+
+The generated JSON explains current topology; it is not enforcement input. The
+check always reads current manifests, so a changed edge cannot hide behind a
+stale snapshot.
 
 ## Run locally
 

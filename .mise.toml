@@ -43,7 +43,11 @@ run = "ruby Scripts/audit-documentation.rb"
 
 [tasks."architecture:test"]
 description = "Test architecture snapshot and PR diff tooling"
-run = "ruby Scripts/architecture/test-architecture-diff.rb"
+run = "ruby Scripts/architecture/test-export-site-data.rb && ruby Scripts/architecture/test-architecture-diff.rb"
+
+[tasks."architecture:check"]
+description = "Run architecture self-tests and the aggregate boundary audit"
+run = "sh Scripts/architecture/check.sh"
 
 [tasks.clean]
 description = "Remove only repository-local generated output"

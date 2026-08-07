@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "source": "Framelingo package manifests and documented composition paths",
   "modules": [
     {
@@ -20,8 +20,7 @@
       ],
       "tests": [
         "IOSAppTests"
-      ],
-      "sourceFiles": 10
+      ]
     },
     {
       "name": "MacApp",
@@ -54,8 +53,7 @@
       ],
       "tests": [
         "MacAppTests"
-      ],
-      "sourceFiles": 13
+      ]
     },
     {
       "name": "ExportFeature",
@@ -70,8 +68,7 @@
       ],
       "tests": [
         "ExportFeatureTests"
-      ],
-      "sourceFiles": 10
+      ]
     },
     {
       "name": "HomeFeature",
@@ -83,8 +80,7 @@
       ],
       "tests": [
         "HomeFeatureImplTests"
-      ],
-      "sourceFiles": 5
+      ]
     },
     {
       "name": "PlayerFeature",
@@ -96,8 +92,7 @@
       ],
       "tests": [
         "PlayerFeatureImplTests"
-      ],
-      "sourceFiles": 5
+      ]
     },
     {
       "name": "ProjectFeature",
@@ -120,8 +115,7 @@
       ],
       "tests": [
         "ProjectFeatureImplTests"
-      ],
-      "sourceFiles": 10
+      ]
     },
     {
       "name": "SettingsFeature",
@@ -136,8 +130,7 @@
       ],
       "tests": [
         "SettingsFeatureImplTests"
-      ],
-      "sourceFiles": 5
+      ]
     },
     {
       "name": "ShortsFeature",
@@ -150,8 +143,7 @@
       ],
       "tests": [
         "ShortsFeatureTests"
-      ],
-      "sourceFiles": 6
+      ]
     },
     {
       "name": "SubtitleEditorFeature",
@@ -163,8 +155,7 @@
       ],
       "tests": [
         "SubtitleEditorFeatureImplTests"
-      ],
-      "sourceFiles": 10
+      ]
     },
     {
       "name": "TimelineFeature",
@@ -178,8 +169,7 @@
       ],
       "tests": [
         "TimelineFeatureImplTests"
-      ],
-      "sourceFiles": 8
+      ]
     },
     {
       "name": "ProjectPreparation",
@@ -192,8 +182,7 @@
       "tests": [
         "ProjectPreparationAPITests",
         "ProjectPreparationImplTests"
-      ],
-      "sourceFiles": 3
+      ]
     },
     {
       "name": "ProjectSession",
@@ -214,8 +203,7 @@
       "tests": [
         "ProjectSessionAPITests",
         "ProjectSessionImplTests"
-      ],
-      "sourceFiles": 15
+      ]
     },
     {
       "name": "TranscriptionPipeline",
@@ -230,8 +218,7 @@
       "tests": [
         "TranscriptionPipelineAPITests",
         "TranscriptionPipelineImplTests"
-      ],
-      "sourceFiles": 5
+      ]
     },
     {
       "name": "TranslationPipeline",
@@ -244,8 +231,7 @@
       "tests": [
         "TranslationPipelineAPITests",
         "TranslationPipelineImplTests"
-      ],
-      "sourceFiles": 3
+      ]
     },
     {
       "name": "Media",
@@ -255,8 +241,7 @@
       ],
       "tests": [
         "MediaImplTests"
-      ],
-      "sourceFiles": 17
+      ]
     },
     {
       "name": "Project",
@@ -270,8 +255,7 @@
       ],
       "tests": [
         "ProjectImplTests"
-      ],
-      "sourceFiles": 12
+      ]
     },
     {
       "name": "Settings",
@@ -282,8 +266,7 @@
       ],
       "tests": [
         "SettingsImplTests"
-      ],
-      "sourceFiles": 6
+      ]
     },
     {
       "name": "Shorts",
@@ -295,8 +278,7 @@
       ],
       "tests": [
         "ShortsImplTests"
-      ],
-      "sourceFiles": 15
+      ]
     },
     {
       "name": "SpeakerAnalysis",
@@ -306,8 +288,7 @@
       ],
       "tests": [
         "SpeakerAnalysisImplTests"
-      ],
-      "sourceFiles": 23
+      ]
     },
     {
       "name": "Subtitles",
@@ -317,8 +298,7 @@
       ],
       "tests": [
         "SubtitlesImplTests"
-      ],
-      "sourceFiles": 31
+      ]
     },
     {
       "name": "Timeline",
@@ -328,8 +308,7 @@
       ],
       "tests": [
         "TimelineImplTests"
-      ],
-      "sourceFiles": 11
+      ]
     },
     {
       "name": "AppUpdate",
@@ -339,8 +318,7 @@
       ],
       "tests": [
         "AppUpdateImplTests"
-      ],
-      "sourceFiles": 3
+      ]
     },
     {
       "name": "FFmpeg",
@@ -350,8 +328,7 @@
       ],
       "tests": [
         "FFmpegTests"
-      ],
-      "sourceFiles": 1
+      ]
     },
     {
       "name": "SpeechToText",
@@ -363,8 +340,7 @@
       ],
       "tests": [
         "SpeechToTextImplTests"
-      ],
-      "sourceFiles": 42
+      ]
     },
     {
       "name": "Translation",
@@ -374,8 +350,7 @@
       ],
       "tests": [
         "TranslationImplTests"
-      ],
-      "sourceFiles": 8
+      ]
     },
     {
       "name": "VideoExport",
@@ -392,8 +367,7 @@
       "tests": [
         "VideoExportImplTests",
         "VideoExportTests"
-      ],
-      "sourceFiles": 7
+      ]
     },
     {
       "name": "VideoRendering",
@@ -407,8 +381,7 @@
       ],
       "tests": [
         "VideoRenderingImplTests"
-      ],
-      "sourceFiles": 33
+      ]
     },
     {
       "name": "DesignSystem",
@@ -418,8 +391,7 @@
       ],
       "tests": [
         "DesignSystemImplTests"
-      ],
-      "sourceFiles": 28
+      ]
     },
     {
       "name": "FluidAudio",
@@ -429,8 +401,7 @@
       ],
       "tests": [
 
-      ],
-      "sourceFiles": null
+      ]
     },
     {
       "name": "Sparkle",
@@ -440,8 +411,7 @@
       ],
       "tests": [
 
-      ],
-      "sourceFiles": null
+      ]
     }
   ],
   "runtimeScenarios": [

@@ -5,12 +5,12 @@ require "json"
 require "optparse"
 require "pathname"
 require "tempfile"
+require_relative "package_graph"
 
 SCRIPT_DIRECTORY = Pathname.new(__dir__).realpath
 REPOSITORY_ROOT = SCRIPT_DIRECTORY.join("../..").realpath
 DEFAULT_OUTPUT = REPOSITORY_ROOT.join("docs/architecture/framelingo-architecture.json")
 SITE_OUTPUT = REPOSITORY_ROOT.join("Tools/ArchitectureSite/app/architecture-data.json")
-CATEGORY_ORDER = %w[Composition Features Workflows Core Infrastructure UI External].freeze
 
 options = {
   repository_root: REPOSITORY_ROOT,
@@ -38,63 +38,8 @@ else
   [repository_root.join("docs/architecture/framelingo-architecture.json")]
 end
 
-def package_category(package_file, repository_root)
-  relative = package_file.relative_path_from(repository_root.join("AppTarget/Modules"))
-  relative.each_filename.first
-end
-
-def package_name(source, package_file)
-  match = source.match(/Package\(\s*name:\s*"([^"]+)"/m)
-  raise "Could not read package name from #{package_file}" unless match
-
-  match[1]
-end
-
-def package_dependencies(source)
-  local = source.scan(/\.package\(\s*path:\s*"([^"]+)"/m).flatten.map do |path|
-    File.basename(path)
-  end
-  remote = source.scan(/\.package\(\s*url:\s*"([^"]+)"/m).flatten.map do |url|
-    File.basename(url, ".git")
-  end
-  (local + remote).uniq.sort
-end
-
-def test_targets(source)
-  source.scan(/\.testTarget\(\s*name:\s*"([^"]+)"/m).flatten.uniq.sort
-end
-
-package_files = Dir.glob(repository_root.join("AppTarget/Modules/**/Package.swift")).map do |path|
-  Pathname.new(path)
-end.reject { |path| path.each_filename.include?(".build") }
-
-modules = package_files.map do |package_file|
-  source = package_file.read
-  package_directory = package_file.dirname
-  {
-    "name" => package_name(source, package_file),
-    "category" => package_category(package_file, repository_root),
-    "dependencies" => package_dependencies(source),
-    "tests" => test_targets(source),
-    "sourceFiles" => Dir.glob(package_directory.join("Sources/**/*.swift")).length
-  }
-end
-
-known_names = modules.map { |record| record.fetch("name") }
-external_names = modules.flat_map { |record| record.fetch("dependencies") }.uniq - known_names
-external_names.each do |name|
-  modules << {
-    "name" => name,
-    "category" => "External",
-    "dependencies" => [],
-    "tests" => [],
-    "sourceFiles" => nil
-  }
-end
-
-modules.sort_by! do |record|
-  [CATEGORY_ORDER.index(record.fetch("category")) || CATEGORY_ORDER.length, record.fetch("name")]
-end
+graph = FramelingoArchitecture::PackageGraphReader.new(repository_root).read
+modules = graph.snapshot_modules
 
 runtime_scenarios = JSON.parse(runtime_scenarios_path.read)
 unless runtime_scenarios.is_a?(Array) && runtime_scenarios.all? { |scenario| scenario["steps"].is_a?(Array) }
@@ -114,7 +59,7 @@ runtime_scenarios.each do |scenario|
 end
 
 snapshot = {
-  "schemaVersion" => 1,
+  "schemaVersion" => 2,
   "source" => "Framelingo package manifests and documented composition paths",
   "modules" => modules,
   "runtimeScenarios" => runtime_scenarios

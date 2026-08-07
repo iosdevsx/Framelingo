@@ -14,7 +14,6 @@ export type ModuleRecord = {
   category: ModuleCategory;
   dependencies: string[];
   tests: string[];
-  sourceFiles: number | null;
 };
 
 export type RuntimeStep = {

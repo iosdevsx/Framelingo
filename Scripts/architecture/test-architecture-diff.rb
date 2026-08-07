@@ -69,8 +69,7 @@ class ArchitectureDiffTest < Minitest::Test
       "name" => name,
       "category" => "Core",
       "dependencies" => dependencies,
-      "tests" => tests,
-      "sourceFiles" => 1
+      "tests" => tests
     }
   end
 

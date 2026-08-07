@@ -162,9 +162,8 @@ module ArchitectureDiff
 
   def module_change(base_record, head_record)
     change = {}
-    %w[category sourceFiles].each do |field|
-      next if base_record[field] == head_record[field]
-      change[field] = { "from" => base_record[field], "to" => head_record[field] }
+    unless base_record["category"] == head_record["category"]
+      change["category"] = { "from" => base_record["category"], "to" => head_record["category"] }
     end
     %w[dependencies tests].each do |field|
       before = Set.new(base_record.fetch(field, []))

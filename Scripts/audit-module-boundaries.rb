@@ -1,18 +1,14 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "fileutils"
+require "optparse"
+require "pathname"
+require_relative "architecture/architecture_policy"
+require_relative "architecture/package_graph"
+
 PRODUCT_COMPOSERS = ["MacApp", "IOSApp"].freeze
 MODULES_RELATIVE_ROOT = "AppTarget/Modules".freeze
-MODULE_GROUPS = {
-  "MacApp" => "Composition",
-  "IOSApp" => "Composition",
-  "ProjectFeature" => "Features",
-  "SubtitleEditorFeature" => "Features",
-  "ProjectPreparation" => "Workflows",
-  "ProjectSession" => "Workflows",
-  "TranscriptionPipeline" => "Workflows",
-  "TranslationPipeline" => "Workflows"
-}.freeze
 APPLICATION_RETIREMENT_PATTERNS = {
   /^\s*(?:@testable\s+)?import\s+Application(?:Impl)?\s*$/ => "removed Application module import",
   /\.package\s*\(\s*path:\s*"\.\.\/Application"/ => "removed Application package dependency",
@@ -241,6 +237,43 @@ def audit_mac_shell_document_ownership(source, label)
   ["#{label}: product shell must retain navigation identity and summary, not an editable Project"]
 end
 
+def source_rule_id(message)
+  case message
+  when /API target .* (?:depends on|imports) .*Impl/
+    "ARCH-SOURCE-001"
+  when /(?:ordinary Impl|non-product target).* (?:depends on foreign Impl|imports .*Impl)/
+    "ARCH-SOURCE-002"
+  when /product source outside Composition.*imports .*Impl/
+    "ARCH-SOURCE-003"
+  when /retired|removed/
+    "ARCH-SOURCE-004"
+  when /must not|must live|must receive|authority|owner|own mutable|retains migrated/
+    "ARCH-SOURCE-005"
+  else
+    "ARCH-SOURCE-006"
+  end
+end
+
+def source_violation(failure)
+  path, message = failure.split(": ", 2)
+  FramelingoArchitecture::Violation.new(
+    rule_id: source_rule_id(message.to_s),
+    path: path,
+    mod: path.to_s.split("/")[3],
+    message: message || failure,
+    observed: failure,
+    expected: "Source and manifest declarations respect the repository API/Impl and ownership boundaries",
+    remediation: "Move the dependency, import, or effect ownership to its documented API or product-composition boundary."
+  )
+end
+
+def write_report(path, contents)
+  return unless path
+
+  FileUtils.mkdir_p(File.dirname(path))
+  File.write(path, contents)
+end
+
 def run_self_test
   fixtures = {
     "accepted API-only dependency" => [
@@ -402,13 +435,72 @@ def run_self_test
     failures << "#{name}: expected #{expected_count} failure(s), got #{actual_count}" unless actual_count == expected_count
   end
 
+  foreign_impl_failure = audit_import(
+    "import TimelineFeatureImpl\n",
+    "#{MODULES_RELATIVE_ROOT}/Features/Consumer/Sources/Impl/Test.swift",
+    :impl,
+    "ConsumerImpl"
+  ).first
+  foreign_impl_message = foreign_impl_failure.to_s.split(": ", 2).last
+  unless foreign_impl_failure && source_rule_id(foreign_impl_message) == "ARCH-SOURCE-002"
+    failures << "foreign Impl source violation does not retain its stable rule identifier"
+  end
+
   abort failures.join("\n") unless failures.empty?
   puts "Module-boundary audit self-tests passed."
 end
 
 repository_root = File.expand_path("..", __dir__)
 modules_root = File.join(repository_root, MODULES_RELATIVE_ROOT)
-run_self_test if ARGV.delete("--self-test")
+if ARGV.delete("--self-test")
+  run_self_test
+  exit 0
+end
+
+options = {
+  policy: File.join(repository_root, "Scripts/architecture/policy.yml"),
+  json_report: nil,
+  text_report: nil,
+  github_annotations: false
+}
+OptionParser.new do |parser|
+  parser.banner = "Usage: audit-module-boundaries.rb [options]"
+  parser.on("--policy PATH", "Use an architecture policy at PATH") { |path| options[:policy] = File.expand_path(path) }
+  parser.on("--json-report PATH", "Write a structured audit report") { |path| options[:json_report] = File.expand_path(path) }
+  parser.on("--text-report PATH", "Write the terminal audit report") { |path| options[:text_report] = File.expand_path(path) }
+  parser.on("--github-annotations", "Emit GitHub workflow error annotations") { options[:github_annotations] = true }
+end.parse!
+
+graph = nil
+policy_result = begin
+  graph = FramelingoArchitecture::PackageGraphReader.new(repository_root).read
+  policy = FramelingoArchitecture::ArchitecturePolicy.load(options.fetch(:policy), graph: graph)
+  FramelingoArchitecture::ArchitecturePolicyEvaluator.new(graph, policy).evaluate
+rescue FramelingoArchitecture::GraphError => error
+  FramelingoArchitecture::EvaluationResult.new(
+    counts: {
+      "policySchemaVersion" => "n/a", "policyEvaluations" => 0, "layers" => 0,
+      "classifiedPackages" => 0, "localPackages" => 0, "externalPackages" => 0,
+      "localEdges" => 0, "externalEdges" => 0
+    },
+    violations: [FramelingoArchitecture::Violation.new(
+      rule_id: error.rule_id, path: error.path, mod: nil, message: error.message,
+      observed: error.observed, expected: error.expected, remediation: error.remediation
+    )]
+  )
+rescue FramelingoArchitecture::PolicyError => error
+  FramelingoArchitecture::EvaluationResult.new(
+    counts: {
+      "policySchemaVersion" => "invalid", "policyEvaluations" => 1, "layers" => 0,
+      "classifiedPackages" => 0,
+      "localPackages" => graph ? graph.local_packages.length : 0,
+      "externalPackages" => graph ? graph.external_packages.length : 0,
+      "localEdges" => graph ? graph.local_edges.length : 0,
+      "externalEdges" => graph ? graph.external_edges.length : 0
+    },
+    violations: [error.violation]
+  )
+end
 
 failures = []
 Dir.glob(File.join(modules_root, "*", "*", "Package.swift")).sort.each do |manifest_path|
@@ -483,7 +575,11 @@ Dir.glob(File.join(modules_root, "*", "Application", "Sources", "**", "*.swift")
 end
 
 EXTRACTED_PIPELINES.each do |pipeline|
-  package_root = File.join(modules_root, MODULE_GROUPS.fetch(pipeline), pipeline)
+  package_root = Dir.glob(File.join(modules_root, "*", pipeline)).sort.first
+  unless package_root
+    failures << "#{MODULES_RELATIVE_ROOT}: required extracted pipeline package #{pipeline} is missing"
+    next
+  end
   manifest_path = File.join(package_root, "Package.swift")
   failures.concat(
     audit_pipeline_independence(
@@ -503,10 +599,14 @@ EXTRACTED_PIPELINES.each do |pipeline|
   end
 end
 
-unless failures.empty?
-  warn "Module-boundary audit failed:"
-  failures.each { |failure| warn "- #{failure}" }
-  exit 1
+result = policy_result.with_violations(failures.map { |failure| source_violation(failure) })
+text_report = FramelingoArchitecture::ResultRenderer.text(result)
+json_report = FramelingoArchitecture::ResultRenderer.json(result)
+print text_report
+write_report(options[:text_report], text_report)
+write_report(options[:json_report], json_report)
+if options[:github_annotations]
+  annotations = FramelingoArchitecture::ResultRenderer.github_annotations(result)
+  puts annotations unless annotations.empty?
 end
-
-puts "Module-boundary audit passed (product composers: #{PRODUCT_COMPOSERS.join(', ')})."
+exit 1 unless result.passed?

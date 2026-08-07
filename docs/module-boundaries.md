@@ -23,7 +23,21 @@ There is no Application umbrella or global AppState. Settings, project catalog, 
 Run the checks locally with:
 
 ```sh
-ruby Scripts/audit-module-boundaries.rb --self-test
+mise run architecture:check
 ```
 
-To register a future product root such as `MacApp` or `IOSApp`, add its exact target name to `PRODUCT_COMPOSERS` in the audit script and keep all concrete implementation selection inside that target. The allow-list is intentionally explicit; an `Impl` suffix alone never grants composition privileges.
+The aggregate command runs graph/policy fixtures, the source-audit regression
+suite, and then `Scripts/audit-module-boundaries.rb`. The aggregate audit reads
+current manifests through `Scripts/architecture/package_graph.rb` and evaluates
+the versioned [architecture policy](architecture-policy.md) exactly once.
+
+The YAML policy owns path classification, local layer directions, external
+permissions, cycles, and direct fan-out budgets. The Ruby boundary audit remains
+authoritative for target/source facts that package edges cannot express: API
+targets depending on Impl products, ordinary targets importing foreign Impl,
+product-composer source locations, retired symbols, and effect ownership.
+`Scripts/tuist/audit-manifests.sh` remains an independent SwiftPM-to-Tuist
+inventory and generated-workspace ownership check; graph policy does not repeat
+it.
+
+To register a future product root such as `MacApp` or `IOSApp`, add its exact target name to `PRODUCT_COMPOSERS` in the audit script and keep all concrete implementation selection inside that target. The allow-list is intentionally explicit; an `Impl` suffix alone never grants composition privileges. Also classify its package path and dependency budget in `Scripts/architecture/policy.yml`.

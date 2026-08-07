@@ -36,7 +36,6 @@ const appTarget: ModuleRecord = {
   category: "Composition",
   dependencies: modules.filter((module) => module.category === "Composition").map((module) => module.name),
   tests: [],
-  sourceFiles: null,
 };
 const graphNodes = [appTarget, ...modules];
 const graphModuleByName = new Map(graphNodes.map((module) => [module.name, module]));
@@ -444,9 +443,7 @@ export default function Home() {
                   <p><CategoryDot category={selected.category} /> {selected.category}</p>
                   <h2>{selected.name}</h2>
                   <span className="module-description">
-                    {selected.sourceFiles === null
-                      ? "External package"
-                      : `${selected.sourceFiles} Swift source files`}
+                    {selected.category === "External" ? "External package" : "Local Swift package"}
                   </span>
                 </div>
               </div>

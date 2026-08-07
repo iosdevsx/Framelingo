@@ -10,9 +10,9 @@
 |---|---|
 | Что делает продукт и как его запустить | [README проекта](../README.md) |
 | Как собрать, протестировать и диагностировать workspace | [Tuist в Framelingo](tuist.md) и [Mise tasks](../.mise.toml) |
-| Какие пакеты существуют и от чего зависят | `Package.swift` каждого пакета и [сгенерированный снимок](architecture/framelingo-architecture.json) |
+| Какие пакеты существуют и от чего зависят | `Package.swift` каждого пакета, общий reader `Scripts/architecture/package_graph.rb` и [сгенерированный снимок](architecture/framelingo-architecture.json) |
 | Как проходит runtime-сценарий | [Architecture Site](../Tools/ArchitectureSite/README.md) и `Scripts/architecture/runtime-scenarios.json` |
-| Какие зависимости между слоями разрешены | [Границы модулей](module-boundaries.md) и `Scripts/audit-module-boundaries.rb` |
+| Какие зависимости между слоями разрешены | [Architecture policy](architecture-policy.md), `Scripts/architecture/policy.yml` и [границы модулей](module-boundaries.md) |
 | Чем владеет конкретный пакет | `README.md` рядом с его `Package.swift` |
 | Почему принято важное архитектурное решение | [ADR](decisions/README.md) |
 | Какие правила всегда должен соблюдать агент | [AGENTS.md](../AGENTS.md) |
