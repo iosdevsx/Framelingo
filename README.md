@@ -121,25 +121,6 @@ Framelingo поддерживает два движка распознавани
 связываются через API-контракты; concrete implementations выбираются в одном
 macOS composition root.
 
-```text
-AppTarget/
-├── FramelingoApp.swift                           # тонкий @main target
-└── Modules/
-    ├── Composition/    MacApp
-    ├── Core/           Media, Project, Settings, Shorts, SpeakerAnalysis,
-    │                   Subtitles, Timeline
-    ├── Workflows/      ProjectPreparation, ProjectSession,
-    │                   TranscriptionPipeline, TranslationPipeline
-    ├── Features/       Home, Project, Settings, Export, SubtitleEditor,
-    │                   Timeline, Player и Shorts feature-пакеты
-    ├── Infrastructure/AppUpdate, FFmpeg, SpeechToText, Translation,
-    │                   VideoExport, VideoRendering
-    └── UI/             DesignSystem
-
-Framelingo/              # неизменённый behavioral baseline миграции
-BundledTools/Whisper/    # ресурс macOS-приложения
-```
-
 Папки внутри `Modules` нужны только для навигации и отражают ответственность
 пакета. Конечные каталоги (`Media`, `ProjectFeature`, `FFmpeg` и остальные) —
 настоящие SPM-пакеты со своим `Package.swift`. Xcode находит их прямо в
