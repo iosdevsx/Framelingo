@@ -4,12 +4,18 @@ import SwiftUI
 struct TimelineResizeHandle: NSViewRepresentable {
     @Binding var height: Double
     let totalHeight: Double
+    var minimumHeight = 150.0
+    var maximumHeight = 420.0
+    var reservedHeight = 280.0
     let onCommit: (Double) -> Void
 
     func makeNSView(context: Context) -> TimelineResizeHandleNSView {
         let view = TimelineResizeHandleNSView()
         view.height = $height
         view.totalHeight = totalHeight
+        view.minimumHeight = minimumHeight
+        view.maximumHeight = maximumHeight
+        view.reservedHeight = reservedHeight
         view.onCommit = onCommit
         return view
     }
@@ -17,6 +23,9 @@ struct TimelineResizeHandle: NSViewRepresentable {
     func updateNSView(_ nsView: TimelineResizeHandleNSView, context: Context) {
         nsView.height = $height
         nsView.totalHeight = totalHeight
+        nsView.minimumHeight = minimumHeight
+        nsView.maximumHeight = maximumHeight
+        nsView.reservedHeight = reservedHeight
         nsView.onCommit = onCommit
         nsView.needsDisplay = true
     }
@@ -25,6 +34,9 @@ struct TimelineResizeHandle: NSViewRepresentable {
 final class TimelineResizeHandleNSView: NSView {
     var height: Binding<Double>?
     var totalHeight = 0.0
+    var minimumHeight = 150.0
+    var maximumHeight = 420.0
+    var reservedHeight = 280.0
     var onCommit: (Double) -> Void = { _ in }
 
     private var dragStartY: CGFloat?
@@ -75,8 +87,8 @@ final class TimelineResizeHandleNSView: NSView {
         dragStartY = nil
     }
 
-    private func clampedHeight(_ proposedHeight: Double) -> Double {
-        let maxHeight = max(150, totalHeight - 280)
-        return min(max(proposedHeight, 150), min(420, maxHeight))
+    func clampedHeight(_ proposedHeight: Double) -> Double {
+        let availableHeight = max(minimumHeight, totalHeight - reservedHeight)
+        return min(max(proposedHeight, minimumHeight), min(maximumHeight, availableHeight))
     }
 }

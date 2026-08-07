@@ -2,6 +2,7 @@ import Shorts
 import SpeakerAnalysis
 import Subtitles
 import Timeline
+import TimelineFeature
 import AppKit
 import QuartzCore
 import SwiftUI
@@ -44,6 +45,7 @@ struct SubtitleTimelineView: View {
     let durationMs: Int
     let waveformPeaks: [Double]
     let speakers: [Speaker]
+    let presentation: SubtitleTimelinePresentation
     @Binding var zoomFactor: Double
     @Binding var scrollToPlayheadRequest: Int
     @Binding var showsWaveform: Bool
@@ -79,8 +81,8 @@ struct SubtitleTimelineView: View {
 
                 let allSubtitles = displaySubtitles
 
-                if allSubtitles.isEmpty {
-                    emptyState("No subtitles yet. Generate or import subtitles first.")
+                if !hasTimelineContent(allSubtitles) {
+                    emptyState(emptyTimelineMessage)
                         .frame(width: geometry.size.width, height: geometry.size.height)
                 } else if effectiveDurationMs <= 0 {
                     emptyState("Timeline duration is unavailable.")
@@ -102,19 +104,20 @@ struct SubtitleTimelineView: View {
                         range: visibleRange
                     ))
                     let shortsTrackHeight = shortsOverlay == nil ? 0 : ShortsTimelineStrip.stripHeight
+                    let visibleCueTrackHeight = presentation.showsCueTrack ? cueTrackHeight : 0
                     let visibleWaveformHeight = SubtitleTimelineTrackLayout.resolvedWaveformHeight(
                         isVisible: showsWaveform,
                         preferredHeight: waveformHeight,
                         availableHeight: geometry.size.height,
                         rulerHeight: rulerHeight,
                         shortsHeight: shortsTrackHeight,
-                        cueHeight: cueTrackHeight
+                        cueHeight: visibleCueTrackHeight
                     )
                     let trackLayout = SubtitleTimelineTrackLayout(
                         rulerHeight: rulerHeight,
                         shortsHeight: shortsTrackHeight,
                         waveformHeight: visibleWaveformHeight,
-                        cueHeight: cueTrackHeight
+                        cueHeight: visibleCueTrackHeight
                     )
                     let contentHeight = max(geometry.size.height, trackLayout.minimumContentHeight)
 
@@ -127,7 +130,7 @@ struct SubtitleTimelineView: View {
                         visibleSubtitles: visibleSubtitles,
                         contentHeight: contentHeight,
                         visibleWaveformHeight: visibleWaveformHeight,
-                        blockHeight: cueTrackHeight,
+                        blockHeight: visibleCueTrackHeight,
                         blockTopY: trackLayout.cueTopY,
                         waveformTopY: trackLayout.waveformTopY,
                         shortsTopY: trackLayout.shortsTopY
@@ -163,13 +166,13 @@ struct SubtitleTimelineView: View {
             )
             .help(showsWaveform ? "Hide waveform" : "Show waveform")
 
-            Text("Timeline")
+            Text(presentationTitle)
                 .font(.system(size: 12, weight: .semibold))
 
             Text("·")
                 .foregroundStyle(.white.opacity(0.28))
 
-            Text("\(displaySubtitles.count) cues")
+            Text(presentationSummary)
                 .font(.system(size: 11))
                 .foregroundStyle(.white.opacity(0.55))
 
@@ -247,29 +250,31 @@ struct SubtitleTimelineView: View {
                     .padding(.top, waveformTopY)
                     .opacity(showsWaveform ? 1 : 0)
 
-                    ForEach(visibleSubtitles) { segment in
-                        let blockWidth = max(CGFloat(segment.endMs - segment.startMs) * pxPerMs, 12)
-                        SubtitleTimelineBlockView(
-                            segment: segment,
-                            isSelected: selectedSegmentID == segment.id,
-                            isEditing: editingSegmentID == segment.id,
-                            editingText: editingTextBinding(for: segment),
-                            focusedEditorID: $focusedTimelineEditorID,
-                            isActive: currentTimeMs >= segment.startMs && currentTimeMs <= segment.endMs,
-                            blockHeight: blockHeight,
-                            speakerColor: speakerColor(for: segment),
-                            onBeginEditing: {
-                                beginEditing(segment)
-                            },
-                            onCommitEditing: commitTimelineTextEdit
-                        )
-                        .frame(width: blockWidth, height: blockHeight)
-                        .position(
-                            x: CGFloat(segment.startMs) * pxPerMs + blockWidth / 2,
-                            y: blockTopY + blockHeight / 2
-                        )
-                        .id(segment.id)
-                        .allowsHitTesting(editingSegmentID == segment.id)
+                    if presentation.showsCueTrack {
+                        ForEach(visibleSubtitles) { segment in
+                            let blockWidth = max(CGFloat(segment.endMs - segment.startMs) * pxPerMs, 12)
+                            SubtitleTimelineBlockView(
+                                segment: segment,
+                                isSelected: selectedSegmentID == segment.id,
+                                isEditing: editingSegmentID == segment.id,
+                                editingText: editingTextBinding(for: segment),
+                                focusedEditorID: $focusedTimelineEditorID,
+                                isActive: currentTimeMs >= segment.startMs && currentTimeMs <= segment.endMs,
+                                blockHeight: blockHeight,
+                                speakerColor: speakerColor(for: segment),
+                                onBeginEditing: {
+                                    beginEditing(segment)
+                                },
+                                onCommitEditing: commitTimelineTextEdit
+                            )
+                            .frame(width: blockWidth, height: blockHeight)
+                            .position(
+                                x: CGFloat(segment.startMs) * pxPerMs + blockWidth / 2,
+                                y: blockTopY + blockHeight / 2
+                            )
+                            .id(segment.id)
+                            .allowsHitTesting(editingSegmentID == segment.id)
+                        }
                     }
 
                     Rectangle()
@@ -292,45 +297,47 @@ struct SubtitleTimelineView: View {
                         .frame(width: 1, height: 1)
                         .allowsHitTesting(false)
 
-                    SubtitleTimelineInteractionOverlay(
-                        segments: visibleSubtitles,
-                        pxPerMs: pxPerMs,
-                        durationMs: durationMs,
-                        editingSegmentID: editingSegmentID,
-                        rulerHeight: rulerHeight,
-                        blockTopY: blockTopY,
-                        blockHeight: blockHeight,
-                        handleWidth: handleWidth,
-                        onRulerSeek: { milliseconds in
-                            endTimelineTextEdit()
-                            onSeek(milliseconds)
-                        },
-                        onSelect: { id in
-                            suppressNextSelectionScroll = true
-                            selectedSegmentID = id
-                        },
-                        onBlockClick: { segment in
-                            suppressNextSelectionScroll = true
-                            endTimelineTextEdit()
-                            selectedSegmentID = segment.id
-                            onSeek(segment.startMs)
-                        },
-                        onBlockDoubleClick: { segment in
-                            beginEditing(segment)
-                        },
-                        onEndEditing: commitTimelineTextEdit,
-                        onDragChanged: { id, edge, deltaX in
-                            updateDraftSegment(
-                                id: id,
-                                deltaX: deltaX,
-                                edge: edge,
-                                pxPerMs: pxPerMs,
-                                durationMs: durationMs
-                            )
-                        },
-                        onDragEnded: commitDraftSubtitles
-                    )
-                    .frame(width: width, height: contentHeight)
+                    if presentation.showsCueTrack {
+                        SubtitleTimelineInteractionOverlay(
+                            segments: visibleSubtitles,
+                            pxPerMs: pxPerMs,
+                            durationMs: durationMs,
+                            editingSegmentID: editingSegmentID,
+                            rulerHeight: rulerHeight,
+                            blockTopY: blockTopY,
+                            blockHeight: blockHeight,
+                            handleWidth: handleWidth,
+                            onRulerSeek: { milliseconds in
+                                endTimelineTextEdit()
+                                onSeek(milliseconds)
+                            },
+                            onSelect: { id in
+                                suppressNextSelectionScroll = true
+                                selectedSegmentID = id
+                            },
+                            onBlockClick: { segment in
+                                suppressNextSelectionScroll = true
+                                endTimelineTextEdit()
+                                selectedSegmentID = segment.id
+                                onSeek(segment.startMs)
+                            },
+                            onBlockDoubleClick: { segment in
+                                beginEditing(segment)
+                            },
+                            onEndEditing: commitTimelineTextEdit,
+                            onDragChanged: { id, edge, deltaX in
+                                updateDraftSegment(
+                                    id: id,
+                                    deltaX: deltaX,
+                                    edge: edge,
+                                    pxPerMs: pxPerMs,
+                                    durationMs: durationMs
+                                )
+                            },
+                            onDragEnded: commitDraftSubtitles
+                        )
+                        .frame(width: width, height: contentHeight)
+                    }
 
                     TimelineEditingFocusBoundary(
                         editingSegmentID: editingSegmentID,
@@ -417,6 +424,39 @@ struct SubtitleTimelineView: View {
 
     private var displaySubtitles: [SubtitleSegment] {
         draftSubtitles ?? subtitles
+    }
+
+    private func hasTimelineContent(_ subtitles: [SubtitleSegment]) -> Bool {
+        switch presentation.content {
+        case .subtitles:
+            return !subtitles.isEmpty
+        case .shorts:
+            // An empty Shorts strip must remain interactive so the first clip
+            // can be created by dragging on the source timeline.
+            return true
+        }
+    }
+
+    private var emptyTimelineMessage: String {
+        switch presentation.content {
+        case .subtitles:
+            return "No subtitles yet. Generate or import subtitles first."
+        case .shorts:
+            return "No shorts yet. Drag on the timeline or create one from the panel."
+        }
+    }
+
+    private var presentationTitle: String {
+        presentation.content == .shorts ? "Shorts timeline" : "Timeline"
+    }
+
+    private var presentationSummary: String {
+        switch presentation.content {
+        case .subtitles:
+            return "\(displaySubtitles.count) cues"
+        case .shorts:
+            return "\(shortsOverlay?.shorts.count ?? 0) clips"
+        }
     }
 
     private var timelineBackground: Color {
@@ -1100,4 +1140,3 @@ private final class MouseOverlayView: NSView {
         true
     }
 }
-

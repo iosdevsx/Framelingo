@@ -19,6 +19,7 @@ public enum TimelineFeatureAssembly {
                         durationMs: request.state.durationMs,
                         waveformPeaks: request.state.waveformPeaks,
                         speakers: request.state.speakers,
+                        presentation: request.state.presentation,
                         zoomFactor: request.bindings.zoomFactor,
                         scrollToPlayheadRequest: request.bindings.scrollToPlayheadRequest,
                         showsWaveform: request.bindings.showsWaveform,

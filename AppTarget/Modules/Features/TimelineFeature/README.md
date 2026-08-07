@@ -13,6 +13,8 @@
 
 Если передан `TimelineShortsOverlay`, между ruler и waveform появляется `ShortsTimelineStrip`. На нём можно создать шорт drag-жестом, сдвинуть диапазон или изменить его границы. При включённом snap края прилипают к ближайшим границам subtitle cue.
 
+`SubtitleTimelinePresentation` меняет только представление общей временной шкалы. Значение по умолчанию сохраняет полный subtitle-режим. В Shorts оно задаёт контекстный заголовок и скрывает cue-блоки с их edit-overlay, но сохраняет waveform, данные cue для snapping, playhead и действия над диапазонами.
+
 `EditTimelineView` показывает клипы `EditTimeline`, привязанные к ним субтитры, playhead и выделенный диапазон cut. В этом режиме можно выбрать клип и сделать seek, но сами клипы здесь не перестраиваются.
 
 `timelineKeyboardCommands` даёт сфокусированному таймлайну стрелки для покадрового шага и Delete, если внешний владелец передал действие удаления.
@@ -29,7 +31,7 @@ Edit-режим получает готовый `EditTimeline`, субтитры
 
 ## Тесты
 
-`TimelineFeatureImplTests` проверяет layout дорожек: положение shorts strip, waveform и cue при скрытой/показанной волне, а также уменьшение waveform при небольшой высоте. Drag-жесты, snapping, keyboard commands и edit timeline в тестах этого пакета пока не покрыты.
+`TimelineFeatureImplTests` проверяет layout дорожек, уменьшение waveform при небольшой высоте и presentation defaults для subtitle/Shorts. Drag-жесты, snapping, keyboard commands и edit timeline в тестах этого пакета пока не покрыты.
 
 ```sh
 swift test --package-path AppTarget/Modules/Features/TimelineFeature

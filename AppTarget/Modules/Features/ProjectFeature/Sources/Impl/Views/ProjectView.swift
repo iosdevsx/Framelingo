@@ -25,6 +25,7 @@ struct ProjectView: View {
     @State private var pendingSubtitleExportKind: SubtitleExportKind?
     @State private var accessedMediaURL: URL?
     @State private var timelineHeight = 180.0
+    @State private var shortsTimelineHeight = 150.0
     @Binding var projectMode: ProjectWorkspaceMode
     let components: ProjectFeatureComponents
     let subtitleEditorActions: SubtitleEditorActions
@@ -32,6 +33,7 @@ struct ProjectView: View {
     let subtitleExportOptionsActions: SubtitleExportOptionsActions
     @State private var editPlaybackClipID: UUID?
     @AppStorage("Framelingo.timelineHeight") private var persistedTimelineHeight = 180.0
+    @AppStorage("Framelingo.shortsTimelineHeight") private var persistedShortsTimelineHeight = 150.0
     @AppStorage("Framelingo.subtitleLayout") private var subtitleLayout: SubtitleLayoutMode = .split
     @State private var subtitleTimelineZoom = 1.0
     @State private var editTimelineZoom = 1.0
@@ -56,6 +58,7 @@ struct ProjectView: View {
         }
         .onAppear {
             timelineHeight = persistedTimelineHeight
+            shortsTimelineHeight = min(max(persistedShortsTimelineHeight, 110), 240)
             viewModel.loadSelectedProject()
             viewModel.prepareProjectForEditing()
             configurePlayerIfNeeded()
@@ -188,7 +191,9 @@ struct ProjectView: View {
             Divider()
 
             GeometryReader { geometry in
-                let currentTimelineHeight = clampedTimelineHeight(for: geometry.size.height)
+                let currentTimelineHeight = projectMode == .shorts
+                    ? clampedShortsTimelineHeight(for: geometry.size.height)
+                    : clampedTimelineHeight(for: geometry.size.height)
 
                 Group {
                     switch projectMode {
@@ -318,7 +323,7 @@ struct ProjectView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .frame(minHeight: 220)
 
-            timelineResizeHandle(totalHeight: geometry.size.height)
+            timelineResizeHandle(totalHeight: geometry.size.height, usesShortsHeight: true)
 
             unifiedTimelineToolbar(project)
 
@@ -336,13 +341,11 @@ struct ProjectView: View {
                     onCreate: {
                         present(shortsEditing.addShort(startMs: $0, endMs: $1, title: nil))
                     }
-                    )
+                    ),
+                    presentation: .shorts
                 )
             )
             .frame(height: timelineHeight)
-
-            // Inspector sits below the shared timeline, per the design mock.
-            components.shorts.makeInspector(shortsRequest)
         }
         .clipped()
     }
@@ -496,11 +499,28 @@ struct ProjectView: View {
         return min(max(timelineHeight, 150), min(420, maxHeight))
     }
 
-    private func timelineResizeHandle(totalHeight: Double) -> some View {
+    private func clampedShortsTimelineHeight(for totalHeight: Double) -> Double {
+        let maxHeight = max(110, totalHeight - 420)
+        return min(max(shortsTimelineHeight, 110), min(240, maxHeight))
+    }
+
+    private func timelineResizeHandle(
+        totalHeight: Double,
+        usesShortsHeight: Bool = false
+    ) -> some View {
         TimelineResizeHandle(
-            height: $timelineHeight,
+            height: usesShortsHeight ? $shortsTimelineHeight : $timelineHeight,
             totalHeight: totalHeight,
-            onCommit: { persistedTimelineHeight = $0 }
+            minimumHeight: usesShortsHeight ? 110 : 150,
+            maximumHeight: usesShortsHeight ? 240 : 420,
+            reservedHeight: usesShortsHeight ? 420 : 280,
+            onCommit: {
+                if usesShortsHeight {
+                    persistedShortsTimelineHeight = $0
+                } else {
+                    persistedTimelineHeight = $0
+                }
+            }
         )
         .frame(height: 7)
     }
@@ -842,7 +862,8 @@ struct ProjectView: View {
 
     private func subtitleTimelineRequest(
         project: Project,
-        shortsOverlay: TimelineShortsOverlay? = nil
+        shortsOverlay: TimelineShortsOverlay? = nil,
+        presentation: SubtitleTimelinePresentation = .subtitleEditor
     ) -> SubtitleTimelineRequest {
         let subtitleEditing = viewModel.subtitleEditingPort
         let history = viewModel.historyPort
@@ -864,7 +885,8 @@ struct ProjectView: View {
                 durationMs: viewModel.timelineDurationMs(for: project),
                 waveformPeaks: viewModel.waveformPeaks,
                 speakers: project.speakers,
-                shortsOverlay: shortsOverlay
+                shortsOverlay: shortsOverlay,
+                presentation: presentation
             ),
             bindings: SubtitleTimelineBindings(
                 subtitles: subtitlesBinding(project),

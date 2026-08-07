@@ -4,6 +4,31 @@ import Subtitles
 import SwiftUI
 import Timeline
 
+public struct SubtitleTimelinePresentation: Equatable, Sendable {
+    public enum Content: Equatable, Sendable {
+        case subtitles
+        case shorts
+    }
+
+    public let content: Content
+    public let showsCueTrack: Bool
+
+    public init(content: Content, showsCueTrack: Bool) {
+        self.content = content
+        self.showsCueTrack = showsCueTrack
+    }
+
+    public static let subtitleEditor = SubtitleTimelinePresentation(
+        content: .subtitles,
+        showsCueTrack: true
+    )
+
+    public static let shorts = SubtitleTimelinePresentation(
+        content: .shorts,
+        showsCueTrack: false
+    )
+}
+
 @MainActor
 public struct TimelineKeyboardActions {
     private let stepAction: (Int) -> Void
@@ -27,19 +52,22 @@ public struct SubtitleTimelineState {
     public let waveformPeaks: [Double]
     public let speakers: [Speaker]
     public let shortsOverlay: TimelineShortsOverlay?
+    public let presentation: SubtitleTimelinePresentation
 
     public init(
         currentTimeMs: Int,
         durationMs: Int,
         waveformPeaks: [Double],
         speakers: [Speaker],
-        shortsOverlay: TimelineShortsOverlay? = nil
+        shortsOverlay: TimelineShortsOverlay? = nil,
+        presentation: SubtitleTimelinePresentation = .subtitleEditor
     ) {
         self.currentTimeMs = currentTimeMs
         self.durationMs = durationMs
         self.waveformPeaks = waveformPeaks
         self.speakers = speakers
         self.shortsOverlay = shortsOverlay
+        self.presentation = presentation
     }
 }
 

@@ -17,16 +17,6 @@ public enum ShortsFeatureAssembly {
                         onTogglePlayback: request.togglePlayback
                     )
                 )
-            },
-            makeInspector: { request in
-                AnyView(
-                    ShortsInspectorHost(
-                        state: request.state,
-                        actions: request.actions,
-                        player: request.player,
-                        onSeek: request.seek
-                    )
-                )
             }
         )
     }
