@@ -72,11 +72,11 @@ case "${1:-}" in
         done
         ;;
     build)
-        require_generated_workspace
         platform=${2:-macos}
         configuration=${CONFIGURATION:-Debug}
         case "$platform" in
             macos)
+                require_generated_workspace
                 destination="platform=macOS,arch=arm64"
                 print_invocation "$configuration" "$destination"
                 xcodebuild build \
@@ -103,10 +103,10 @@ case "${1:-}" in
         esac
         ;;
     test)
-        require_generated_workspace
         platform=${2:-macos}
         case "$platform" in
             macos)
+                require_generated_workspace
                 destination="platform=macOS,arch=arm64"
                 result_bundle="$derived_data/Test/Results/Framelingo.xcresult"
                 prepare_output_path "$result_bundle"
@@ -136,9 +136,9 @@ case "${1:-}" in
         esac
         ;;
     focused)
-        require_generated_workspace
         test_identifier=${2:-}
         [ -n "$test_identifier" ] || fail "Pass a test identifier, for example: mise run test:focused -- SubtitlesImplTests"
+        require_generated_workspace
         destination="platform=macOS,arch=arm64"
         print_invocation "Debug" "$destination"
         xcodebuild test \
@@ -152,10 +152,10 @@ case "${1:-}" in
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=
         ;;
     archive)
-        require_generated_workspace
         platform=${2:-macos}
         case "$platform" in
             macos)
+                require_generated_workspace
                 archive_path="$derived_data/Archives/Framelingo-macOS.xcarchive"
                 prepare_output_path "$archive_path"
                 destination="generic/platform=macOS"
