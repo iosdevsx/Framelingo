@@ -23,3 +23,14 @@ npm run dev
 ```
 
 Use `npm run build` to validate the production bundle.
+
+## Automatic refresh after merge
+
+`.github/workflows/refresh-architecture-site.yml` runs after a pull request is
+merged into `main`. It regenerates both snapshots, validates the site, and
+commits changed JSON files back to `main` as `github-actions[bot]`.
+
+The workflow uses `GITHUB_TOKEN` by default. If branch protection does not allow
+GitHub Actions to push directly to `main`, add a repository secret named
+`ARCHITECTURE_BOT_TOKEN` containing a fine-grained token with Contents read/write
+permission and allow that bot identity through the branch rule.
