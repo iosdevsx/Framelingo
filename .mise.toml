@@ -33,6 +33,10 @@ run = "./Scripts/tuist/project.sh edit"
 description = "Export the project dependency graph"
 run = "./Scripts/tuist/project.sh graph"
 
+[tasks."architecture:export"]
+description = "Export package topology and documented runtime pipelines"
+run = "ruby Scripts/architecture/export-site-data.rb"
+
 [tasks.clean]
 description = "Remove only repository-local generated output"
 run = "./Scripts/tuist/project.sh clean"

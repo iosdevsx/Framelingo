@@ -125,3 +125,83 @@ jobs:
             DerivedData/Tuist/Test/Results/Framelingo.xcresult
           if-no-files-found: warn
           retention-days: 7
+
+  ios:
+    name: iOS
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select exact Xcode 26.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          XCODE_APP=""
+          for candidate in /Applications/Xcode_26.3.app /Applications/Xcode-26.3.app; do
+            if [[ -d "$candidate" ]]; then
+              XCODE_APP="$candidate"
+              break
+            fi
+          done
+          if [[ -z "$XCODE_APP" ]]; then
+            echo "Xcode 26.3 is not installed on this runner." >&2
+            ls -1d /Applications/Xcode*.app 2>/dev/null || true
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_APP"
+          [[ "$(xcodebuild -version | sed -n '1s/^Xcode //p')" == "26.3" ]]
+          xcodebuild -version
+
+      - name: Install pinned Mise tools
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+
+      - name: Restore iOS build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            DerivedData/Tuist/SourcePackages
+            DerivedData/Tuist/Test-iOS/Build
+          key: tuist-ios-${{ runner.os }}-${{ runner.arch }}-xcode-26.3-${{ hashFiles('.mise.toml', '.xcode-version', '.package.resolved', 'Tuist.swift', 'Project.swift', 'Workspace.swift', 'Tuist/**/*.swift', 'Tuist/Config/*.xcconfig', 'AppTarget/Modules/**/Package.swift', 'AppTarget/Modules/**/Package.resolved') }}
+          restore-keys: |
+            tuist-ios-${{ runner.os }}-${{ runner.arch }}-xcode-26.3-
+
+      - name: Prepare iOS logs
+        run: mkdir -p DerivedData/Tuist/Logs
+
+      - name: Install dependencies and generate workspace
+        shell: bash
+        run: |
+          set -o pipefail
+          mise run install 2>&1 | tee DerivedData/Tuist/Logs/install-ios.log
+          mise run generate 2>&1 | tee DerivedData/Tuist/Logs/generate-ios.log
+
+      - name: Select supported iOS Simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available
+          xcrun simctl list devices available | grep -q "iPhone 17 Pro"
+          echo "TUIST_IOS_DESTINATION=platform=iOS Simulator,name=iPhone 17 Pro,OS=latest" >> "$GITHUB_ENV"
+
+      - name: Audit, clean-build, and test iOS
+        shell: bash
+        run: |
+          set -o pipefail
+          mise run verify:ios 2>&1 | tee DerivedData/Tuist/Logs/verify-ios.log
+
+      - name: Upload iOS diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ci-diagnostics-${{ github.run_attempt }}
+          path: |
+            DerivedData/Tuist/Logs
+            DerivedData/Tuist/Test-iOS/Logs/Test/*.xcresult
+          if-no-files-found: warn
+          retention-days: 7
