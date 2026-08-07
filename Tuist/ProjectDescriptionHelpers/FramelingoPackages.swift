@@ -1,0 +1,68 @@
+public enum FramelingoPackages {
+    /// One public product per package. Referencing products (without package
+    /// pointers) lets the shared Xcode test plan discover package test targets
+    /// while packages stay nested in the synchronized Modules tree.
+    public static let testDiscoveryProducts: [String] = [
+        "MacApp",
+        "MediaImpl",
+        "ProjectImpl",
+        "SettingsImpl",
+        "ShortsImpl",
+        "SpeakerAnalysisImpl",
+        "SubtitlesImpl",
+        "TimelineImpl",
+        "ExportFeatureImpl",
+        "HomeFeatureImpl",
+        "PlayerFeatureImpl",
+        "ProjectFeatureImpl",
+        "SettingsFeatureImpl",
+        "ShortsFeatureImpl",
+        "SubtitleEditorFeatureImpl",
+        "TimelineFeatureImpl",
+        "AppUpdateImpl",
+        "FFmpeg",
+        "SpeechToTextImpl",
+        "TranslationImpl",
+        "VideoExportImpl",
+        "VideoRenderingImpl",
+        "DesignSystemImpl",
+        "ProjectPreparationImpl",
+        "ProjectSessionImpl",
+        "TranscriptionPipelineImpl",
+        "TranslationPipelineImpl",
+    ]
+
+    /// Package directories that Xcode should discover inside the synchronized
+    /// AppTarget folder, but must not compile as app-target sources/resources.
+    public static let appTargetMembershipExclusions: [String] = [
+        "Resources",
+        "Modules/Composition/MacApp",
+        "Modules/Composition/IOSApp",
+        "Modules/Core/Media",
+        "Modules/Core/Project",
+        "Modules/Core/Settings",
+        "Modules/Core/Shorts",
+        "Modules/Core/SpeakerAnalysis",
+        "Modules/Core/Subtitles",
+        "Modules/Core/Timeline",
+        "Modules/Features/ExportFeature",
+        "Modules/Features/HomeFeature",
+        "Modules/Features/PlayerFeature",
+        "Modules/Features/ProjectFeature",
+        "Modules/Features/SettingsFeature",
+        "Modules/Features/ShortsFeature",
+        "Modules/Features/SubtitleEditorFeature",
+        "Modules/Features/TimelineFeature",
+        "Modules/Infrastructure/AppUpdate",
+        "Modules/Infrastructure/FFmpeg",
+        "Modules/Infrastructure/SpeechToText",
+        "Modules/Infrastructure/Translation",
+        "Modules/Infrastructure/VideoExport",
+        "Modules/Infrastructure/VideoRendering",
+        "Modules/UI/DesignSystem",
+        "Modules/Workflows/ProjectPreparation",
+        "Modules/Workflows/ProjectSession",
+        "Modules/Workflows/TranscriptionPipeline",
+        "Modules/Workflows/TranslationPipeline",
+    ]
+}

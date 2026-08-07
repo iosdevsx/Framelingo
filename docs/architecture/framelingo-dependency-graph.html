@@ -1,0 +1,1576 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Framelingo dependency graph</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
+</head>
+<body>
+<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="Framelingo dependency graph" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;Framelingo dependency graph&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, &quot;Segoe UI&quot;, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --radius: var(--border-radius-lg, 12.5px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
+
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html &gt; body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: 5px;
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: superellipse(1.5);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: superellipse(1.5);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget &gt; :not(.card) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: superellipse(1.5);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: superellipse(1.5);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+    [aria-pressed=&quot;true&quot;],
+    [aria-selected=&quot;true&quot;],
+    .is-selected
+  ) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: 16px !important;
+  height: 16px !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div id=&quot;framelingo-dependency-graph&quot;&gt;
+  &lt;style&gt;
+    #framelingo-dependency-graph {
+      display: grid;
+      gap: 14px;
+      width: 100%;
+      color: var(--foreground);
+    }
+    #framelingo-dependency-graph .fdg-heading {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px 16px;
+    }
+    #framelingo-dependency-graph .fdg-heading h2 {
+      margin: 0;
+    }
+    #framelingo-dependency-graph .fdg-metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      color: var(--muted-foreground);
+    }
+    #framelingo-dependency-graph .fdg-metrics strong {
+      color: var(--foreground);
+      font-weight: 500;
+    }
+    #framelingo-dependency-graph .fdg-controls {
+      align-items: end;
+    }
+    #framelingo-dependency-graph .fdg-control {
+      display: grid;
+      gap: 6px;
+      min-width: min(100%, 260px);
+    }
+    #framelingo-dependency-graph .fdg-detail {
+      min-height: 2.8em;
+      color: var(--muted-foreground);
+    }
+    #framelingo-dependency-graph .fdg-detail strong {
+      color: var(--foreground);
+      font-weight: 500;
+    }
+    #framelingo-dependency-graph .fdg-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      color: var(--muted-foreground);
+    }
+    #framelingo-dependency-graph .fdg-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    #framelingo-dependency-graph .fdg-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      background: color-mix(in srgb, var(--fdg-color) 22%, transparent);
+      border: 1px solid color-mix(in srgb, var(--fdg-color) 48%, var(--border));
+    }
+    #framelingo-dependency-graph .fdg-diagram {
+      position: relative;
+      width: 100%;
+      min-height: 720px;
+    }
+    #framelingo-dependency-graph .fdg-svg {
+      display: block;
+      width: 100%;
+      overflow: visible;
+    }
+    #framelingo-dependency-graph .fdg-group-label {
+      fill: var(--muted-foreground);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+    #framelingo-dependency-graph .fdg-edge {
+      fill: none;
+      stroke: var(--border);
+      stroke-width: 1;
+      opacity: 0.24;
+      transition: opacity 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
+    }
+    #framelingo-dependency-graph .fdg-edge.is-dimmed {
+      opacity: 0.035;
+    }
+    #framelingo-dependency-graph .fdg-edge.is-dependency {
+      stroke: var(--viz-series-2);
+      stroke-width: 2;
+      opacity: 0.9;
+    }
+    #framelingo-dependency-graph .fdg-edge.is-dependent {
+      stroke: var(--viz-series-3);
+      stroke-width: 2;
+      opacity: 0.9;
+    }
+    #framelingo-dependency-graph .fdg-node {
+      cursor: pointer;
+      outline: none;
+    }
+    #framelingo-dependency-graph .fdg-node rect {
+      fill: color-mix(in srgb, var(--fdg-color) 14%, var(--background));
+      stroke: color-mix(in srgb, var(--fdg-color) 42%, var(--border));
+      stroke-width: 1;
+      transition: opacity 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
+    }
+    #framelingo-dependency-graph .fdg-node text {
+      fill: var(--foreground);
+      font-size: 12px;
+      font-weight: 400;
+      pointer-events: none;
+    }
+    #framelingo-dependency-graph .fdg-node.is-dimmed {
+      opacity: 0.28;
+    }
+    #framelingo-dependency-graph .fdg-node.is-selected rect {
+      stroke: var(--primary);
+      stroke-width: 2.5;
+    }
+    #framelingo-dependency-graph .fdg-node.is-dependency rect {
+      stroke: var(--viz-series-2);
+      stroke-width: 2;
+    }
+    #framelingo-dependency-graph .fdg-node.is-dependent rect {
+      stroke: var(--viz-series-3);
+      stroke-width: 2;
+    }
+    #framelingo-dependency-graph .fdg-node:focus-visible rect {
+      stroke: var(--ring);
+      stroke-width: 3;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #framelingo-dependency-graph .fdg-edge,
+      #framelingo-dependency-graph .fdg-node rect {
+        transition: none;
+      }
+    }
+    @media (max-width: 440px) {
+      #framelingo-dependency-graph .fdg-legend {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  &lt;/style&gt;
+
+  &lt;div class=&quot;fdg-heading&quot;&gt;
+    &lt;h2&gt;Зависимости Framelingo&lt;/h2&gt;
+    &lt;div class=&quot;fdg-metrics text-small&quot; aria-label=&quot;Сводка графа&quot;&gt;
+      &lt;span&gt;&lt;strong&gt;27&lt;/strong&gt; локальных пакетов&lt;/span&gt;
+      &lt;span&gt;&lt;strong&gt;117&lt;/strong&gt; внутренних связей&lt;/span&gt;
+      &lt;span&gt;&lt;strong&gt;0&lt;/strong&gt; циклов&lt;/span&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;viz-controls fdg-controls&quot;&gt;
+    &lt;label class=&quot;form-label fdg-control&quot; for=&quot;fdg-focus&quot;&gt;
+      Фокус модуля
+      &lt;select id=&quot;fdg-focus&quot; class=&quot;form-select&quot;&gt;
+        &lt;option value=&quot;&quot;&gt;Весь граф&lt;/option&gt;
+      &lt;/select&gt;
+    &lt;/label&gt;
+  &lt;/div&gt;
+
+  &lt;div id=&quot;fdg-detail&quot; class=&quot;fdg-detail text-small&quot; aria-live=&quot;polite&quot;&gt;
+    Стрелка &lt;strong&gt;A → B&lt;/strong&gt; означает: модуль A зависит от модуля B. Выберите узел, чтобы отделить прямые зависимости от потребителей.
+  &lt;/div&gt;
+
+  &lt;div class=&quot;fdg-legend text-small&quot; aria-label=&quot;Категории модулей&quot;&gt;
+    &lt;span class=&quot;fdg-legend-item&quot;&gt;&lt;span class=&quot;fdg-swatch&quot; style=&quot;--fdg-color: var(--viz-series-1)&quot;&gt;&lt;/span&gt;Composition / app&lt;/span&gt;
+    &lt;span class=&quot;fdg-legend-item&quot;&gt;&lt;span class=&quot;fdg-swatch&quot; style=&quot;--fdg-color: var(--viz-series-2)&quot;&gt;&lt;/span&gt;Features&lt;/span&gt;
+    &lt;span class=&quot;fdg-legend-item&quot;&gt;&lt;span class=&quot;fdg-swatch&quot; style=&quot;--fdg-color: var(--viz-series-3)&quot;&gt;&lt;/span&gt;Workflows&lt;/span&gt;
+    &lt;span class=&quot;fdg-legend-item&quot;&gt;&lt;span class=&quot;fdg-swatch&quot; style=&quot;--fdg-color: var(--viz-series-4)&quot;&gt;&lt;/span&gt;Core&lt;/span&gt;
+    &lt;span class=&quot;fdg-legend-item&quot;&gt;&lt;span class=&quot;fdg-swatch&quot; style=&quot;--fdg-color: var(--viz-series-5)&quot;&gt;&lt;/span&gt;Infrastructure&lt;/span&gt;
+    &lt;span class=&quot;fdg-legend-item&quot;&gt;&lt;span class=&quot;fdg-swatch&quot; style=&quot;--fdg-color: var(--viz-series-6)&quot;&gt;&lt;/span&gt;UI / external&lt;/span&gt;
+  &lt;/div&gt;
+
+  &lt;div id=&quot;fdg-diagram&quot; class=&quot;fdg-diagram&quot;&gt;
+    &lt;svg id=&quot;fdg-svg&quot; class=&quot;fdg-svg&quot; role=&quot;img&quot; aria-labelledby=&quot;fdg-svg-title fdg-svg-desc&quot;&gt;
+      &lt;title id=&quot;fdg-svg-title&quot;&gt;Граф пакетных зависимостей Framelingo&lt;/title&gt;
+      &lt;desc id=&quot;fdg-svg-desc&quot;&gt;Приложение Framelingo, композиционный пакет MacApp, feature, workflow, core, infrastructure, UI и внешние зависимости.&lt;/desc&gt;
+    &lt;/svg&gt;
+  &lt;/div&gt;
+
+  &lt;script&gt;
+    (() =&gt; {
+      const root = document.getElementById(&#x27;framelingo-dependency-graph&#x27;);
+      const svg = root.querySelector(&#x27;#fdg-svg&#x27;);
+      const diagram = root.querySelector(&#x27;#fdg-diagram&#x27;);
+      const select = root.querySelector(&#x27;#fdg-focus&#x27;);
+      const detail = root.querySelector(&#x27;#fdg-detail&#x27;);
+      const ns = &#x27;http://www.w3.org/2000/svg&#x27;;
+
+      const groups = [
+        { id: &#x27;app&#x27;, label: &#x27;APP TARGET&#x27;, color: &#x27;--viz-series-1&#x27;, nodes: [&#x27;Framelingo.app&#x27;] },
+        { id: &#x27;composition&#x27;, label: &#x27;COMPOSITION&#x27;, color: &#x27;--viz-series-1&#x27;, nodes: [&#x27;MacApp&#x27;] },
+        { id: &#x27;features&#x27;, label: &#x27;FEATURES&#x27;, color: &#x27;--viz-series-2&#x27;, nodes: [&#x27;ExportFeature&#x27;, &#x27;HomeFeature&#x27;, &#x27;PlayerFeature&#x27;, &#x27;ProjectFeature&#x27;, &#x27;SettingsFeature&#x27;, &#x27;ShortsFeature&#x27;, &#x27;SubtitleEditorFeature&#x27;, &#x27;TimelineFeature&#x27;] },
+        { id: &#x27;workflows&#x27;, label: &#x27;WORKFLOWS&#x27;, color: &#x27;--viz-series-3&#x27;, nodes: [&#x27;ProjectPreparation&#x27;, &#x27;ProjectSession&#x27;, &#x27;TranscriptionPipeline&#x27;, &#x27;TranslationPipeline&#x27;] },
+        { id: &#x27;core&#x27;, label: &#x27;CORE&#x27;, color: &#x27;--viz-series-4&#x27;, nodes: [&#x27;Media&#x27;, &#x27;Project&#x27;, &#x27;Settings&#x27;, &#x27;Shorts&#x27;, &#x27;SpeakerAnalysis&#x27;, &#x27;Subtitles&#x27;, &#x27;Timeline&#x27;] },
+        { id: &#x27;infrastructure&#x27;, label: &#x27;INFRASTRUCTURE&#x27;, color: &#x27;--viz-series-5&#x27;, nodes: [&#x27;AppUpdate&#x27;, &#x27;FFmpeg&#x27;, &#x27;SpeechToText&#x27;, &#x27;Translation&#x27;, &#x27;VideoExport&#x27;, &#x27;VideoRendering&#x27;] },
+        { id: &#x27;ui&#x27;, label: &#x27;UI&#x27;, color: &#x27;--viz-series-6&#x27;, nodes: [&#x27;DesignSystem&#x27;] },
+        { id: &#x27;external&#x27;, label: &#x27;EXTERNAL&#x27;, color: &#x27;--viz-series-6&#x27;, nodes: [&#x27;FluidAudio&#x27;, &#x27;Sparkle&#x27;] }
+      ];
+
+      const internal = {
+        &#x27;MacApp&#x27;: [&#x27;AppUpdate&#x27;, &#x27;DesignSystem&#x27;, &#x27;ExportFeature&#x27;, &#x27;HomeFeature&#x27;, &#x27;Media&#x27;, &#x27;PlayerFeature&#x27;, &#x27;Project&#x27;, &#x27;ProjectFeature&#x27;, &#x27;ProjectPreparation&#x27;, &#x27;ProjectSession&#x27;, &#x27;Settings&#x27;, &#x27;SettingsFeature&#x27;, &#x27;ShortsFeature&#x27;, &#x27;SpeakerAnalysis&#x27;, &#x27;SpeechToText&#x27;, &#x27;SubtitleEditorFeature&#x27;, &#x27;Subtitles&#x27;, &#x27;Timeline&#x27;, &#x27;TimelineFeature&#x27;, &#x27;TranscriptionPipeline&#x27;, &#x27;Translation&#x27;, &#x27;TranslationPipeline&#x27;, &#x27;VideoExport&#x27;, &#x27;VideoRendering&#x27;],
+        &#x27;Media&#x27;: [],
+        &#x27;Project&#x27;: [&#x27;Shorts&#x27;, &#x27;SpeakerAnalysis&#x27;, &#x27;Subtitles&#x27;, &#x27;Timeline&#x27;, &#x27;VideoRendering&#x27;],
+        &#x27;Settings&#x27;: [&#x27;SpeechToText&#x27;, &#x27;Subtitles&#x27;],
+        &#x27;Shorts&#x27;: [&#x27;Subtitles&#x27;, &#x27;Timeline&#x27;, &#x27;VideoRendering&#x27;],
+        &#x27;SpeakerAnalysis&#x27;: [],
+        &#x27;Subtitles&#x27;: [&#x27;SpeakerAnalysis&#x27;],
+        &#x27;Timeline&#x27;: [&#x27;Subtitles&#x27;],
+        &#x27;ExportFeature&#x27;: [&#x27;DesignSystem&#x27;, &#x27;Media&#x27;, &#x27;Project&#x27;, &#x27;Subtitles&#x27;, &#x27;VideoExport&#x27;, &#x27;VideoRendering&#x27;],
+        &#x27;HomeFeature&#x27;: [&#x27;Media&#x27;, &#x27;Project&#x27;, &#x27;Subtitles&#x27;],
+        &#x27;PlayerFeature&#x27;: [&#x27;Project&#x27;, &#x27;Subtitles&#x27;, &#x27;VideoRendering&#x27;],
+        &#x27;ProjectFeature&#x27;: [&#x27;DesignSystem&#x27;, &#x27;ExportFeature&#x27;, &#x27;PlayerFeature&#x27;, &#x27;Project&#x27;, &#x27;ProjectPreparation&#x27;, &#x27;ProjectSession&#x27;, &#x27;Shorts&#x27;, &#x27;ShortsFeature&#x27;, &#x27;SubtitleEditorFeature&#x27;, &#x27;Subtitles&#x27;, &#x27;Timeline&#x27;, &#x27;TimelineFeature&#x27;, &#x27;VideoExport&#x27;, &#x27;VideoRendering&#x27;],
+        &#x27;SettingsFeature&#x27;: [&#x27;DesignSystem&#x27;, &#x27;Project&#x27;, &#x27;Settings&#x27;, &#x27;SpeechToText&#x27;, &#x27;Subtitles&#x27;, &#x27;VideoRendering&#x27;],
+        &#x27;ShortsFeature&#x27;: [&#x27;DesignSystem&#x27;, &#x27;Shorts&#x27;, &#x27;Subtitles&#x27;, &#x27;VideoRendering&#x27;],
+        &#x27;SubtitleEditorFeature&#x27;: [&#x27;DesignSystem&#x27;, &#x27;SpeakerAnalysis&#x27;, &#x27;Subtitles&#x27;],
+        &#x27;TimelineFeature&#x27;: [&#x27;DesignSystem&#x27;, &#x27;Shorts&#x27;, &#x27;SpeakerAnalysis&#x27;, &#x27;Subtitles&#x27;, &#x27;Timeline&#x27;],
+        &#x27;AppUpdate&#x27;: [&#x27;Sparkle&#x27;],
+        &#x27;FFmpeg&#x27;: [],
+        &#x27;SpeechToText&#x27;: [&#x27;SpeakerAnalysis&#x27;, &#x27;Subtitles&#x27;, &#x27;FluidAudio&#x27;],
+        &#x27;Translation&#x27;: [&#x27;Subtitles&#x27;],
+        &#x27;VideoExport&#x27;: [&#x27;Media&#x27;, &#x27;Project&#x27;, &#x27;Shorts&#x27;, &#x27;SpeakerAnalysis&#x27;, &#x27;Subtitles&#x27;, &#x27;Timeline&#x27;, &#x27;VideoRendering&#x27;],
+        &#x27;VideoRendering&#x27;: [&#x27;FFmpeg&#x27;, &#x27;Media&#x27;, &#x27;SpeakerAnalysis&#x27;, &#x27;Subtitles&#x27;, &#x27;Timeline&#x27;],
+        &#x27;DesignSystem&#x27;: [],
+        &#x27;ProjectPreparation&#x27;: [&#x27;Media&#x27;, &#x27;Project&#x27;, &#x27;VideoRendering&#x27;],
+        &#x27;ProjectSession&#x27;: [&#x27;Project&#x27;, &#x27;ProjectPreparation&#x27;, &#x27;Shorts&#x27;, &#x27;SpeakerAnalysis&#x27;, &#x27;SpeechToText&#x27;, &#x27;Subtitles&#x27;, &#x27;Timeline&#x27;, &#x27;TranscriptionPipeline&#x27;, &#x27;TranslationPipeline&#x27;, &#x27;VideoExport&#x27;, &#x27;VideoRendering&#x27;],
+        &#x27;TranscriptionPipeline&#x27;: [&#x27;Project&#x27;, &#x27;SpeakerAnalysis&#x27;, &#x27;SpeechToText&#x27;, &#x27;Subtitles&#x27;, &#x27;VideoRendering&#x27;],
+        &#x27;TranslationPipeline&#x27;: [&#x27;Project&#x27;, &#x27;Subtitles&#x27;, &#x27;Translation&#x27;],
+        &#x27;Framelingo.app&#x27;: [&#x27;MacApp&#x27;],
+        &#x27;FluidAudio&#x27;: [],
+        &#x27;Sparkle&#x27;: []
+      };
+
+      const nodes = groups.flatMap(group =&gt; group.nodes.map(name =&gt; ({ name, group })));
+      const edges = Object.entries(internal).flatMap(([source, targets]) =&gt; targets.map(target =&gt; ({ source, target })));
+      let selected = &#x27;&#x27;;
+      let positions = new Map();
+      let nodeElements = new Map();
+      let edgeElements = [];
+
+      const appendSVG = (tag, attrs = {}) =&gt; {
+        const element = document.createElementNS(ns, tag);
+        Object.entries(attrs).forEach(([key, value]) =&gt; element.setAttribute(key, String(value)));
+        return element;
+      };
+
+      const dependentsOf = name =&gt; edges.filter(edge =&gt; edge.target === name).map(edge =&gt; edge.source).sort();
+      const dependenciesOf = name =&gt; (internal[name] || []).slice().sort();
+
+      groups.forEach(group =&gt; {
+        const optgroup = document.createElement(&#x27;optgroup&#x27;);
+        optgroup.label = group.label;
+        group.nodes.forEach(name =&gt; {
+          const option = document.createElement(&#x27;option&#x27;);
+          option.value = name;
+          option.textContent = name;
+          optgroup.appendChild(option);
+        });
+        select.appendChild(optgroup);
+      });
+
+      const updateSelection = name =&gt; {
+        selected = name;
+        select.value = name;
+        const deps = new Set(name ? dependenciesOf(name) : []);
+        const users = new Set(name ? dependentsOf(name) : []);
+
+        nodeElements.forEach((element, nodeName) =&gt; {
+          element.classList.toggle(&#x27;is-selected&#x27;, nodeName === name);
+          element.classList.toggle(&#x27;is-dependency&#x27;, deps.has(nodeName));
+          element.classList.toggle(&#x27;is-dependent&#x27;, users.has(nodeName));
+          element.classList.toggle(&#x27;is-dimmed&#x27;, Boolean(name) &amp;&amp; nodeName !== name &amp;&amp; !deps.has(nodeName) &amp;&amp; !users.has(nodeName));
+        });
+
+        edgeElements.forEach(({ edge, element }) =&gt; {
+          const dependency = edge.source === name;
+          const dependent = edge.target === name;
+          element.classList.toggle(&#x27;is-dependency&#x27;, dependency);
+          element.classList.toggle(&#x27;is-dependent&#x27;, dependent);
+          element.classList.toggle(&#x27;is-dimmed&#x27;, Boolean(name) &amp;&amp; !dependency &amp;&amp; !dependent);
+        });
+
+        if (!name) {
+          detail.innerHTML = &#x27;Стрелка &lt;strong&gt;A → B&lt;/strong&gt; означает: модуль A зависит от модуля B. Выберите узел, чтобы отделить прямые зависимости от потребителей.&#x27;;
+          return;
+        }
+
+        const depText = dependenciesOf(name).length ? dependenciesOf(name).join(&#x27;, &#x27;) : &#x27;нет&#x27;;
+        const userText = dependentsOf(name).length ? dependentsOf(name).join(&#x27;, &#x27;) : &#x27;нет&#x27;;
+        detail.innerHTML = `&lt;strong&gt;${name}&lt;/strong&gt; · зависимости: ${depText}&lt;br&gt;Потребители: ${userText}`;
+      };
+
+      const draw = () =&gt; {
+        const width = Math.max(320, Math.round(diagram.getBoundingClientRect().width));
+        const side = width &lt; 440 ? 12 : 18;
+        const gapX = width &lt; 440 ? 8 : 12;
+        const gapY = 10;
+        const labelHeight = 24;
+        const nodeHeight = width &lt; 440 ? 42 : 36;
+        const desiredNodeWidth = width &gt;= 900 ? 146 : width &gt;= 600 ? 134 : 140;
+        const maxCols = Math.max(2, Math.floor((width - side * 2 + gapX) / (desiredNodeWidth + gapX)));
+        const nodeWidth = Math.min(desiredNodeWidth, (width - side * 2 - gapX * (maxCols - 1)) / maxCols);
+        const sectionGap = 22;
+        let y = 12;
+        positions = new Map();
+
+        groups.forEach(group =&gt; {
+          const cols = Math.min(maxCols, group.nodes.length);
+          const rows = Math.ceil(group.nodes.length / cols);
+          const usedWidth = cols * nodeWidth + (cols - 1) * gapX;
+          const startX = (width - usedWidth) / 2;
+          const labelY = y + 12;
+          y += labelHeight;
+
+          group.nodes.forEach((name, index) =&gt; {
+            const row = Math.floor(index / cols);
+            const col = index % cols;
+            const itemsInRow = Math.min(cols, group.nodes.length - row * cols);
+            const rowWidth = itemsInRow * nodeWidth + (itemsInRow - 1) * gapX;
+            const rowStartX = (width - rowWidth) / 2;
+            positions.set(name, {
+              x: rowStartX + col * (nodeWidth + gapX),
+              y: y + row * (nodeHeight + gapY),
+              width: nodeWidth,
+              height: nodeHeight,
+              color: group.color,
+              labelY
+            });
+          });
+          y += rows * nodeHeight + Math.max(0, rows - 1) * gapY + sectionGap;
+        });
+
+        const height = y + 8;
+        svg.setAttribute(&#x27;viewBox&#x27;, `0 0 ${width} ${height}`);
+        svg.setAttribute(&#x27;height&#x27;, String(height));
+        diagram.style.minHeight = `${height}px`;
+        svg.querySelectorAll(&#x27;:scope &gt; g&#x27;).forEach(element =&gt; element.remove());
+
+        const edgeLayer = appendSVG(&#x27;g&#x27;, { &#x27;aria-hidden&#x27;: &#x27;true&#x27; });
+        const labelLayer = appendSVG(&#x27;g&#x27;, { &#x27;aria-hidden&#x27;: &#x27;true&#x27; });
+        const nodeLayer = appendSVG(&#x27;g&#x27;);
+        svg.append(edgeLayer, labelLayer, nodeLayer);
+
+        const defs = appendSVG(&#x27;defs&#x27;);
+        const marker = appendSVG(&#x27;marker&#x27;, { id: &#x27;fdg-arrow&#x27;, viewBox: &#x27;0 0 10 10&#x27;, refX: &#x27;9&#x27;, refY: &#x27;5&#x27;, markerWidth: &#x27;5&#x27;, markerHeight: &#x27;5&#x27;, orient: &#x27;auto-start-reverse&#x27; });
+        const markerPath = appendSVG(&#x27;path&#x27;, { d: &#x27;M 0 0 L 10 5 L 0 10 z&#x27;, fill: &#x27;var(--border)&#x27; });
+        marker.appendChild(markerPath);
+        defs.appendChild(marker);
+        svg.insertBefore(defs, edgeLayer);
+
+        groups.forEach(group =&gt; {
+          const first = positions.get(group.nodes[0]);
+          const text = appendSVG(&#x27;text&#x27;, { x: side, y: first.labelY, class: &#x27;fdg-group-label&#x27; });
+          text.textContent = group.label;
+          labelLayer.appendChild(text);
+        });
+
+        edgeElements = edges.map(edge =&gt; {
+          const source = positions.get(edge.source);
+          const target = positions.get(edge.target);
+          const sx = source.x + source.width / 2;
+          const sy = source.y + source.height;
+          const tx = target.x + target.width / 2;
+          const targetBelow = target.y &gt;= source.y;
+          const ty = targetBelow ? target.y : target.y + target.height;
+          const sourceY = targetBelow ? sy : source.y;
+          const bend = Math.max(28, Math.abs(ty - sourceY) * 0.42);
+          const c1y = targetBelow ? sourceY + bend : sourceY - bend;
+          const c2y = targetBelow ? ty - bend : ty + bend;
+          const path = appendSVG(&#x27;path&#x27;, {
+            d: `M ${sx} ${sourceY} C ${sx} ${c1y}, ${tx} ${c2y}, ${tx} ${ty}`,
+            class: &#x27;fdg-edge&#x27;,
+            &#x27;marker-end&#x27;: &#x27;url(#fdg-arrow)&#x27;
+          });
+          edgeLayer.appendChild(path);
+          return { edge, element: path };
+        });
+
+        nodeElements = new Map();
+        nodes.forEach(node =&gt; {
+          const position = positions.get(node.name);
+          const group = appendSVG(&#x27;g&#x27;, {
+            class: &#x27;fdg-node&#x27;,
+            role: &#x27;button&#x27;,
+            &#x27;aria-label&#x27;: `${node.name}: ${dependenciesOf(node.name).length} зависимостей, ${dependentsOf(node.name).length} потребителей`,
+            transform: `translate(${position.x} ${position.y})`,
+            style: `--fdg-color: var(${position.color})`
+          });
+          const rect = appendSVG(&#x27;rect&#x27;, { width: position.width, height: position.height, rx: 7 });
+          const text = appendSVG(&#x27;text&#x27;, { x: position.width / 2, y: nodeHeight / 2, &#x27;text-anchor&#x27;: &#x27;middle&#x27; });
+          const parts = node.name.replace(/([a-z0-9])([A-Z])/g, &#x27;$1 $2&#x27;).split(&#x27; &#x27;);
+          const shouldWrap = node.name.length * 6.2 &gt; position.width - 12 &amp;&amp; parts.length &gt; 1;
+          if (shouldWrap) {
+            let bestIndex = 1;
+            let bestBalance = Infinity;
+            for (let index = 1; index &lt; parts.length; index += 1) {
+              const firstLength = parts.slice(0, index).join(&#x27;&#x27;).length;
+              const secondLength = parts.slice(index).join(&#x27;&#x27;).length;
+              const balance = Math.max(firstLength, secondLength);
+              if (balance &lt; bestBalance) {
+                bestBalance = balance;
+                bestIndex = index;
+              }
+            }
+            const firstLine = appendSVG(&#x27;tspan&#x27;, { x: position.width / 2, dy: &#x27;-0.25em&#x27; });
+            firstLine.textContent = parts.slice(0, bestIndex).join(&#x27;&#x27;);
+            const secondLine = appendSVG(&#x27;tspan&#x27;, { x: position.width / 2, dy: &#x27;1.15em&#x27; });
+            secondLine.textContent = parts.slice(bestIndex).join(&#x27;&#x27;);
+            text.append(firstLine, secondLine);
+          } else {
+            text.setAttribute(&#x27;dominant-baseline&#x27;, &#x27;central&#x27;);
+            text.textContent = node.name;
+          }
+          group.append(rect, text);
+          group.addEventListener(&#x27;click&#x27;, () =&gt; updateSelection(selected === node.name ? &#x27;&#x27; : node.name));
+          group.addEventListener(&#x27;keydown&#x27;, event =&gt; {
+            if (event.key === &#x27;Enter&#x27; || event.key === &#x27; &#x27;) {
+              event.preventDefault();
+              updateSelection(selected === node.name ? &#x27;&#x27; : node.name);
+            }
+          });
+          nodeLayer.appendChild(group);
+          nodeElements.set(node.name, group);
+        });
+
+        updateSelection(selected);
+      };
+
+      select.addEventListener(&#x27;change&#x27;, event =&gt; updateSelection(event.target.value));
+      const observer = new ResizeObserver(draw);
+      observer.observe(diagram);
+      draw();
+    })();
+  &lt;/script&gt;
+&lt;/div&gt;
+
+&lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+
+  const getTrigger = (target) =&gt;
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest(&quot;[data-tooltip]&quot;)
+      : null;
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handleLeave = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    document.removeEventListener(&quot;pointerover&quot;, handlePointerOpen);
+    document.removeEventListener(&quot;pointerout&quot;, handleLeave);
+    document.removeEventListener(&quot;focusin&quot;, handleFocusIn);
+    document.removeEventListener(&quot;focusout&quot;, handleLeave);
+    document.removeEventListener(&quot;keydown&quot;, handleKeyDown);
+    document.removeEventListener(&quot;contextmenu&quot;, handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener(&quot;pointerover&quot;, handlePointerOpen);
+  document.addEventListener(&quot;pointerout&quot;, handleLeave);
+  document.addEventListener(&quot;focusin&quot;, handleFocusIn);
+  document.addEventListener(&quot;focusout&quot;, handleLeave);
+  document.addEventListener(&quot;keydown&quot;, handleKeyDown);
+  document.addEventListener(&quot;contextmenu&quot;, handleContextMenu);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-lucide&quot; async src=&quot;https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+</body>
+</html>

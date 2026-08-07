@@ -1,0 +1,984 @@
+{
+  "schemaVersion": 2,
+  "source": "Framelingo package manifests and documented composition paths",
+  "modules": [
+    {
+      "name": "IOSApp",
+      "category": "Composition",
+      "dependencies": [
+        "HomeFeature",
+        "PlayerFeature",
+        "Project",
+        "ProjectPreparation",
+        "ProjectSession",
+        "SpeechToText",
+        "SubtitleEditorFeature",
+        "Subtitles",
+        "TranscriptionPipeline",
+        "TranslationPipeline",
+        "VideoExport"
+      ],
+      "tests": [
+        "IOSAppTests"
+      ]
+    },
+    {
+      "name": "MacApp",
+      "category": "Composition",
+      "dependencies": [
+        "AppUpdate",
+        "DesignSystem",
+        "ExportFeature",
+        "HomeFeature",
+        "Media",
+        "PlayerFeature",
+        "Project",
+        "ProjectFeature",
+        "ProjectPreparation",
+        "ProjectSession",
+        "Settings",
+        "SettingsFeature",
+        "ShortsFeature",
+        "SpeakerAnalysis",
+        "SpeechToText",
+        "SubtitleEditorFeature",
+        "Subtitles",
+        "Timeline",
+        "TimelineFeature",
+        "TranscriptionPipeline",
+        "Translation",
+        "TranslationPipeline",
+        "VideoExport",
+        "VideoRendering"
+      ],
+      "tests": [
+        "MacAppTests"
+      ]
+    },
+    {
+      "name": "ExportFeature",
+      "category": "Features",
+      "dependencies": [
+        "DesignSystem",
+        "Media",
+        "Project",
+        "Subtitles",
+        "VideoExport",
+        "VideoRendering"
+      ],
+      "tests": [
+        "ExportFeatureTests"
+      ]
+    },
+    {
+      "name": "HomeFeature",
+      "category": "Features",
+      "dependencies": [
+        "Media",
+        "Project",
+        "Subtitles"
+      ],
+      "tests": [
+        "HomeFeatureImplTests"
+      ]
+    },
+    {
+      "name": "PlayerFeature",
+      "category": "Features",
+      "dependencies": [
+        "Project",
+        "Subtitles",
+        "VideoRendering"
+      ],
+      "tests": [
+        "PlayerFeatureImplTests"
+      ]
+    },
+    {
+      "name": "ProjectFeature",
+      "category": "Features",
+      "dependencies": [
+        "DesignSystem",
+        "ExportFeature",
+        "PlayerFeature",
+        "Project",
+        "ProjectPreparation",
+        "ProjectSession",
+        "Shorts",
+        "ShortsFeature",
+        "SubtitleEditorFeature",
+        "Subtitles",
+        "Timeline",
+        "TimelineFeature",
+        "VideoExport",
+        "VideoRendering"
+      ],
+      "tests": [
+        "ProjectFeatureImplTests"
+      ]
+    },
+    {
+      "name": "SettingsFeature",
+      "category": "Features",
+      "dependencies": [
+        "DesignSystem",
+        "Project",
+        "Settings",
+        "SpeechToText",
+        "Subtitles",
+        "VideoRendering"
+      ],
+      "tests": [
+        "SettingsFeatureImplTests"
+      ]
+    },
+    {
+      "name": "ShortsFeature",
+      "category": "Features",
+      "dependencies": [
+        "DesignSystem",
+        "Shorts",
+        "Subtitles",
+        "VideoRendering"
+      ],
+      "tests": [
+        "ShortsFeatureTests"
+      ]
+    },
+    {
+      "name": "SubtitleEditorFeature",
+      "category": "Features",
+      "dependencies": [
+        "DesignSystem",
+        "SpeakerAnalysis",
+        "Subtitles"
+      ],
+      "tests": [
+        "SubtitleEditorFeatureImplTests"
+      ]
+    },
+    {
+      "name": "TimelineFeature",
+      "category": "Features",
+      "dependencies": [
+        "DesignSystem",
+        "Shorts",
+        "SpeakerAnalysis",
+        "Subtitles",
+        "Timeline"
+      ],
+      "tests": [
+        "TimelineFeatureImplTests"
+      ]
+    },
+    {
+      "name": "ProjectPreparation",
+      "category": "Workflows",
+      "dependencies": [
+        "Media",
+        "Project",
+        "VideoRendering"
+      ],
+      "tests": [
+        "ProjectPreparationAPITests",
+        "ProjectPreparationImplTests"
+      ]
+    },
+    {
+      "name": "ProjectSession",
+      "category": "Workflows",
+      "dependencies": [
+        "Project",
+        "ProjectPreparation",
+        "Shorts",
+        "SpeakerAnalysis",
+        "SpeechToText",
+        "Subtitles",
+        "Timeline",
+        "TranscriptionPipeline",
+        "TranslationPipeline",
+        "VideoExport",
+        "VideoRendering"
+      ],
+      "tests": [
+        "ProjectSessionAPITests",
+        "ProjectSessionImplTests"
+      ]
+    },
+    {
+      "name": "TranscriptionPipeline",
+      "category": "Workflows",
+      "dependencies": [
+        "Project",
+        "SpeakerAnalysis",
+        "SpeechToText",
+        "Subtitles",
+        "VideoRendering"
+      ],
+      "tests": [
+        "TranscriptionPipelineAPITests",
+        "TranscriptionPipelineImplTests"
+      ]
+    },
+    {
+      "name": "TranslationPipeline",
+      "category": "Workflows",
+      "dependencies": [
+        "Project",
+        "Subtitles",
+        "Translation"
+      ],
+      "tests": [
+        "TranslationPipelineAPITests",
+        "TranslationPipelineImplTests"
+      ]
+    },
+    {
+      "name": "Media",
+      "category": "Core",
+      "dependencies": [
+
+      ],
+      "tests": [
+        "MediaImplTests"
+      ]
+    },
+    {
+      "name": "Project",
+      "category": "Core",
+      "dependencies": [
+        "Shorts",
+        "SpeakerAnalysis",
+        "Subtitles",
+        "Timeline",
+        "VideoRendering"
+      ],
+      "tests": [
+        "ProjectImplTests"
+      ]
+    },
+    {
+      "name": "Settings",
+      "category": "Core",
+      "dependencies": [
+        "SpeechToText",
+        "Subtitles"
+      ],
+      "tests": [
+        "SettingsImplTests"
+      ]
+    },
+    {
+      "name": "Shorts",
+      "category": "Core",
+      "dependencies": [
+        "Subtitles",
+        "Timeline",
+        "VideoRendering"
+      ],
+      "tests": [
+        "ShortsImplTests"
+      ]
+    },
+    {
+      "name": "SpeakerAnalysis",
+      "category": "Core",
+      "dependencies": [
+        "FluidAudio"
+      ],
+      "tests": [
+        "SpeakerAnalysisImplTests"
+      ]
+    },
+    {
+      "name": "Subtitles",
+      "category": "Core",
+      "dependencies": [
+        "SpeakerAnalysis"
+      ],
+      "tests": [
+        "SubtitlesImplTests"
+      ]
+    },
+    {
+      "name": "Timeline",
+      "category": "Core",
+      "dependencies": [
+        "Subtitles"
+      ],
+      "tests": [
+        "TimelineImplTests"
+      ]
+    },
+    {
+      "name": "AppUpdate",
+      "category": "Infrastructure",
+      "dependencies": [
+        "Sparkle"
+      ],
+      "tests": [
+        "AppUpdateImplTests"
+      ]
+    },
+    {
+      "name": "FFmpeg",
+      "category": "Infrastructure",
+      "dependencies": [
+
+      ],
+      "tests": [
+        "FFmpegTests"
+      ]
+    },
+    {
+      "name": "SpeechToText",
+      "category": "Infrastructure",
+      "dependencies": [
+        "FluidAudio",
+        "SpeakerAnalysis",
+        "Subtitles"
+      ],
+      "tests": [
+        "SpeechToTextImplTests"
+      ]
+    },
+    {
+      "name": "Translation",
+      "category": "Infrastructure",
+      "dependencies": [
+        "Subtitles"
+      ],
+      "tests": [
+        "TranslationImplTests"
+      ]
+    },
+    {
+      "name": "VideoExport",
+      "category": "Infrastructure",
+      "dependencies": [
+        "Media",
+        "Project",
+        "Shorts",
+        "SpeakerAnalysis",
+        "Subtitles",
+        "Timeline",
+        "VideoRendering"
+      ],
+      "tests": [
+        "VideoExportImplTests",
+        "VideoExportTests"
+      ]
+    },
+    {
+      "name": "VideoRendering",
+      "category": "Infrastructure",
+      "dependencies": [
+        "FFmpeg",
+        "Media",
+        "SpeakerAnalysis",
+        "Subtitles",
+        "Timeline"
+      ],
+      "tests": [
+        "VideoRenderingImplTests"
+      ]
+    },
+    {
+      "name": "DesignSystem",
+      "category": "UI",
+      "dependencies": [
+
+      ],
+      "tests": [
+        "DesignSystemImplTests"
+      ]
+    },
+    {
+      "name": "FluidAudio",
+      "category": "External",
+      "dependencies": [
+
+      ],
+      "tests": [
+
+      ]
+    },
+    {
+      "name": "Sparkle",
+      "category": "External",
+      "dependencies": [
+
+      ],
+      "tests": [
+
+      ]
+    }
+  ],
+  "runtimeScenarios": [
+    {
+      "id": "open-project",
+      "title": "Open project",
+      "subtitle": "Recent project → active editing workspace",
+      "outcome": "The selected project becomes the single session snapshot and the project screen opens.",
+      "steps": [
+        {
+          "id": "home-selection",
+          "label": "Select recent project",
+          "component": "HomeViewModel.selectProject(_:)",
+          "contract": "Home project selection",
+          "implementation": "HomeViewModel",
+          "module": "HomeFeature",
+          "category": "Features",
+          "kind": "UI intent",
+          "asyncBoundary": true,
+          "stateMutation": "Clears or publishes HomeViewModel.errorMessage.",
+          "errors": [
+            "Could not open project"
+          ],
+          "source": "AppTarget/Modules/Features/HomeFeature/Sources/Impl/ViewModels/HomeViewModel.swift"
+        },
+        {
+          "id": "catalog-open",
+          "label": "Load persisted project",
+          "component": "ProjectCatalogManaging.open(id:)",
+          "contract": "ProjectCatalogManaging",
+          "implementation": "DefaultProjectCatalog",
+          "module": "Project",
+          "category": "Core",
+          "kind": "Persistence",
+          "asyncBoundary": true,
+          "stateMutation": "Refreshes the catalog snapshot and remembered media URL.",
+          "errors": [
+            "Repository load failure",
+            "Catalog open failure"
+          ],
+          "source": "AppTarget/Modules/Core/Project/Sources/Impl/Catalog/DefaultProjectCatalog.swift"
+        },
+        {
+          "id": "workspace-open",
+          "label": "Route into workspace",
+          "component": "MacAppWorkspaceRuntime.open(_:)",
+          "contract": "HomeProjectOpening",
+          "implementation": "MacAppWorkspaceRuntime",
+          "module": "MacApp",
+          "category": "Composition",
+          "kind": "Composition",
+          "asyncBoundary": false,
+          "stateMutation": "Updates shell selection and forwards the project to the session.",
+          "errors": [
+
+          ],
+          "source": "AppTarget/Modules/Composition/MacApp/Sources/Navigation/MacAppNavigationGraph.swift"
+        },
+        {
+          "id": "session-open",
+          "label": "Install session snapshot",
+          "component": "ProjectSessionWorkspace.open(_:)",
+          "contract": "ProjectSessionWorkspace",
+          "implementation": "DefaultProjectSession",
+          "module": "ProjectSession",
+          "category": "Workflows",
+          "kind": "State owner",
+          "asyncBoundary": false,
+          "stateMutation": "Installs ProjectSessionSnapshot and resets interaction/effect state.",
+          "errors": [
+
+          ],
+          "source": "AppTarget/Modules/Workflows/ProjectSession/Sources/Impl/DefaultProjectSession.swift"
+        }
+      ]
+    },
+    {
+      "id": "prepare-project",
+      "title": "Prepare project",
+      "subtitle": "Media metadata + waveform before editing",
+      "outcome": "The session receives video geometry, duration and waveform peaks; waveform failure can degrade gracefully.",
+      "steps": [
+        {
+          "id": "prepare-effect",
+          "label": "Start preparation effect",
+          "component": "ProjectSessionPreparing.prepare()",
+          "contract": "ProjectSessionPreparing",
+          "implementation": "DefaultProjectSession",
+          "module": "ProjectSession",
+          "category": "Workflows",
+          "kind": "Workflow trigger",
+          "asyncBoundary": true,
+          "stateMutation": "Sets preparation to running and installs derived-media state.",
+          "errors": [
+            "No active project",
+            "Capability unavailable"
+          ],
+          "source": "AppTarget/Modules/Workflows/ProjectSession/Sources/Impl/DefaultProjectSession+Effects.swift"
+        },
+        {
+          "id": "metadata",
+          "label": "Read video metadata",
+          "component": "MediaMetadataProviding",
+          "contract": "MediaMetadataProviding",
+          "implementation": "AVFoundation media metadata provider",
+          "module": "Media",
+          "category": "Core",
+          "kind": "Service",
+          "asyncBoundary": true,
+          "stateMutation": "May fill duration and publishes projectChanged.",
+          "errors": [
+            "Metadata unavailable (non-fatal)"
+          ],
+          "source": "AppTarget/Modules/Workflows/ProjectPreparation/Sources/Impl/DefaultProjectPreparer.swift"
+        },
+        {
+          "id": "waveform",
+          "label": "Build waveform cache",
+          "component": "WaveformLoading.loadWaveform(_:)",
+          "contract": "WaveformLoading",
+          "implementation": "Default waveform loader",
+          "module": "Media",
+          "category": "Core",
+          "kind": "Derived media",
+          "asyncBoundary": true,
+          "stateMutation": "Produces waveform peaks for ProjectSessionEffectState.",
+          "errors": [
+            "Waveform unavailable",
+            "Temporary cleanup failed"
+          ],
+          "source": "AppTarget/Modules/Workflows/ProjectPreparation/Sources/Impl/DefaultProjectPreparer.swift"
+        },
+        {
+          "id": "prepare-ffmpeg",
+          "label": "Extract temporary audio",
+          "component": "FFmpegService.extractAudio(_:)",
+          "contract": "FFmpegService",
+          "implementation": "VideoRenderingAssembly default service",
+          "module": "VideoRendering",
+          "category": "Infrastructure",
+          "kind": "Process boundary",
+          "asyncBoundary": true,
+          "stateMutation": "Creates then removes a temporary waveform WAV file.",
+          "errors": [
+            "FFmpeg unavailable",
+            "Audio extraction failed"
+          ],
+          "source": "AppTarget/Modules/Workflows/ProjectPreparation/Sources/Impl/DefaultProjectPreparer.swift"
+        },
+        {
+          "id": "prepare-result",
+          "label": "Commit derived media",
+          "component": "ProjectPreparationOutput",
+          "contract": "ProjectPreparing",
+          "implementation": "DefaultProjectPreparer",
+          "module": "ProjectPreparation",
+          "category": "Workflows",
+          "kind": "Workflow result",
+          "asyncBoundary": false,
+          "stateMutation": "Updates the session project, peaks, source info and ready/degraded outcome.",
+          "errors": [
+            "Cancellation and cleanup failed"
+          ],
+          "source": "AppTarget/Modules/Workflows/ProjectPreparation/Sources/Impl/DefaultProjectPreparer.swift"
+        }
+      ]
+    },
+    {
+      "id": "transcribe",
+      "title": "Transcribe",
+      "subtitle": "Video → timed, speaker-aligned subtitle segments",
+      "outcome": "Subtitles, word timings, detected language and speaker assignments are saved back to the project.",
+      "steps": [
+        {
+          "id": "transcribe-effect",
+          "label": "Start transcription effect",
+          "component": "ProjectSessionTranscribing.transcribe()",
+          "contract": "ProjectSessionTranscribing",
+          "implementation": "DefaultProjectSession",
+          "module": "ProjectSession",
+          "category": "Workflows",
+          "kind": "Workflow trigger",
+          "asyncBoundary": true,
+          "stateMutation": "Cancels replacing autosave and marks transcription running.",
+          "errors": [
+            "No active project",
+            "Capability unavailable"
+          ],
+          "source": "AppTarget/Modules/Workflows/ProjectSession/Sources/Impl/DefaultProjectSession+Effects.swift"
+        },
+        {
+          "id": "extract-audio",
+          "label": "Extract edit-aware audio",
+          "component": "FFmpegService.extractAudio(_:clips:)",
+          "contract": "FFmpegService",
+          "implementation": "VideoRenderingAssembly default service",
+          "module": "VideoRendering",
+          "category": "Infrastructure",
+          "kind": "Process boundary",
+          "asyncBoundary": true,
+          "stateMutation": "Sets project status to extractingAudio and creates a temporary WAV.",
+          "errors": [
+            "Audio rendering failed",
+            "Empty edit timeline"
+          ],
+          "source": "AppTarget/Modules/Workflows/TranscriptionPipeline/Sources/Impl/DefaultTranscriptionPipeline.swift"
+        },
+        {
+          "id": "resolve-stt",
+          "label": "Resolve STT provider",
+          "component": "SpeechToTextProviderResolving.resolve(_:)",
+          "contract": "SpeechToTextProviderResolving",
+          "implementation": "Configured Whisper / Parakeet resolver",
+          "module": "SpeechToText",
+          "category": "Infrastructure",
+          "kind": "Provider selection",
+          "asyncBoundary": false,
+          "stateMutation": "Chooses the configured local speech provider.",
+          "errors": [
+            "Provider configuration invalid",
+            "Model unavailable"
+          ],
+          "source": "AppTarget/Modules/Workflows/TranscriptionPipeline/Sources/Impl/DefaultTranscriptionPipeline.swift"
+        },
+        {
+          "id": "speech-provider",
+          "label": "Recognize speech",
+          "component": "SpeechToTextProvider.transcribe(_:)",
+          "contract": "SpeechToTextProvider",
+          "implementation": "Whisper or Parakeet provider",
+          "module": "SpeechToText",
+          "category": "Infrastructure",
+          "kind": "Provider",
+          "asyncBoundary": true,
+          "stateMutation": "Produces subtitle segments, words, language and media duration.",
+          "errors": [
+            "Transcription provider failed",
+            "Cancellation"
+          ],
+          "source": "AppTarget/Modules/Workflows/TranscriptionPipeline/Sources/Impl/DefaultTranscriptionPipeline.swift"
+        },
+        {
+          "id": "diarization",
+          "label": "Detect speakers",
+          "component": "SpeakerDiarizationEngine.diarize(_:)",
+          "contract": "SpeakerDiarizationEngine",
+          "implementation": "FluidAudio diarization engine",
+          "module": "SpeakerAnalysis",
+          "category": "Core",
+          "kind": "Analysis",
+          "asyncBoundary": true,
+          "stateMutation": "Produces speaker regions; failure can become a warning.",
+          "errors": [
+            "Diarization unavailable (warning)"
+          ],
+          "source": "AppTarget/Modules/Workflows/TranscriptionPipeline/Sources/Impl/DefaultTranscriptionPipeline.swift"
+        },
+        {
+          "id": "alignment",
+          "label": "Align cues to speakers",
+          "component": "SubtitleAlignmentEngine",
+          "contract": "SubtitleAlignmentEngine",
+          "implementation": "Word-level alignment engine",
+          "module": "SpeakerAnalysis",
+          "category": "Core",
+          "kind": "Analysis",
+          "asyncBoundary": true,
+          "stateMutation": "Adds speaker assignments and labels to subtitle state.",
+          "errors": [
+            "Alignment unavailable (warning)"
+          ],
+          "source": "AppTarget/Modules/Workflows/TranscriptionPipeline/Sources/Impl/DefaultTranscriptionPipeline.swift"
+        },
+        {
+          "id": "save-transcription",
+          "label": "Publish and persist",
+          "component": "ProjectRepository.saveProject(_:)",
+          "contract": "ProjectRepository",
+          "implementation": "LocalProjectRepository",
+          "module": "Project",
+          "category": "Core",
+          "kind": "Persistence",
+          "asyncBoundary": true,
+          "stateMutation": "Publishes projectChanged, sets ready or failed, then saves JSON.",
+          "errors": [
+            "Project save failed",
+            "Temporary cleanup failed"
+          ],
+          "source": "AppTarget/Modules/Workflows/TranscriptionPipeline/Sources/Impl/DefaultTranscriptionPipeline.swift"
+        }
+      ]
+    },
+    {
+      "id": "translate",
+      "title": "Translate",
+      "subtitle": "Subtitle segments → translated text",
+      "outcome": "Translated text is merged by segment index and the ready project is persisted.",
+      "steps": [
+        {
+          "id": "translate-effect",
+          "label": "Start translation effect",
+          "component": "ProjectSessionTranslating.translate()",
+          "contract": "ProjectSessionTranslating",
+          "implementation": "DefaultProjectSession",
+          "module": "ProjectSession",
+          "category": "Workflows",
+          "kind": "Workflow trigger",
+          "asyncBoundary": true,
+          "stateMutation": "Marks translation running and protects against stale results.",
+          "errors": [
+            "No active project",
+            "No subtitles",
+            "Capability unavailable"
+          ],
+          "source": "AppTarget/Modules/Workflows/ProjectSession/Sources/Impl/DefaultProjectSession+Effects.swift"
+        },
+        {
+          "id": "translation-pipeline",
+          "label": "Publish translating state",
+          "component": "TranslatingProject.translate(_:)",
+          "contract": "TranslatingProject",
+          "implementation": "DefaultTranslationPipeline",
+          "module": "TranslationPipeline",
+          "category": "Workflows",
+          "kind": "Workflow",
+          "asyncBoundary": true,
+          "stateMutation": "Sets project status to translating and saves it.",
+          "errors": [
+            "No subtitles",
+            "Cancellation"
+          ],
+          "source": "AppTarget/Modules/Workflows/TranslationPipeline/Sources/Impl/DefaultTranslationPipeline.swift"
+        },
+        {
+          "id": "translation-provider",
+          "label": "Translate subtitle batch",
+          "component": "TranslationOrchestrating.translateSubtitles(_:)",
+          "contract": "TranslationOrchestrating",
+          "implementation": "Mock translation service",
+          "module": "Translation",
+          "category": "Infrastructure",
+          "kind": "Provider",
+          "asyncBoundary": true,
+          "stateMutation": "Returns translated text without owning project state.",
+          "errors": [
+            "Translation provider failed"
+          ],
+          "source": "AppTarget/Modules/Workflows/TranslationPipeline/Sources/Impl/DefaultTranslationPipeline.swift"
+        },
+        {
+          "id": "merge-translation",
+          "label": "Merge translated segments",
+          "component": "DefaultTranslationPipeline",
+          "contract": "TranslationPipelineOutput",
+          "implementation": "Index-preserving segment merge",
+          "module": "TranslationPipeline",
+          "category": "Workflows",
+          "kind": "State transform",
+          "asyncBoundary": false,
+          "stateMutation": "Writes translatedText and sets project status to ready.",
+          "errors": [
+            "Segment count mismatch"
+          ],
+          "source": "AppTarget/Modules/Workflows/TranslationPipeline/Sources/Impl/DefaultTranslationPipeline.swift"
+        },
+        {
+          "id": "save-translation",
+          "label": "Publish and persist",
+          "component": "ProjectRepository.saveProject(_:)",
+          "contract": "ProjectRepository",
+          "implementation": "LocalProjectRepository",
+          "module": "Project",
+          "category": "Core",
+          "kind": "Persistence",
+          "asyncBoundary": true,
+          "stateMutation": "Publishes ready/failed state and saves the project JSON.",
+          "errors": [
+            "Project save failed"
+          ],
+          "source": "AppTarget/Modules/Workflows/TranslationPipeline/Sources/Impl/DefaultTranslationPipeline.swift"
+        }
+      ]
+    },
+    {
+      "id": "export-subtitles",
+      "title": "Export subtitles",
+      "subtitle": "Session cues → SRT, VTT or TXT file",
+      "outcome": "Sorted subtitles are formatted with speaker options and written to the selected destination.",
+      "steps": [
+        {
+          "id": "subtitle-export-effect",
+          "label": "Start subtitle export",
+          "component": "ProjectSessionExporting.exportSubtitles(_:to:)",
+          "contract": "ProjectSessionExporting",
+          "implementation": "DefaultProjectSession",
+          "module": "ProjectSession",
+          "category": "Workflows",
+          "kind": "Workflow trigger",
+          "asyncBoundary": true,
+          "stateMutation": "Marks export running and tracks the destination URL.",
+          "errors": [
+            "No active project",
+            "Capability unavailable"
+          ],
+          "source": "AppTarget/Modules/Workflows/ProjectSession/Sources/Impl/DefaultProjectSession+Effects.swift"
+        },
+        {
+          "id": "format-subtitles",
+          "label": "Format subtitle document",
+          "component": "SubtitleExportService.export(_:kind:)",
+          "contract": "SubtitleExportService",
+          "implementation": "FileSubtitleExportService",
+          "module": "Subtitles",
+          "category": "Core",
+          "kind": "Formatter",
+          "asyncBoundary": true,
+          "stateMutation": "Sorts cues and chooses original/translated text plus speaker labels.",
+          "errors": [
+            "Empty subtitles",
+            "Invalid export content"
+          ],
+          "source": "AppTarget/Modules/Core/Subtitles/Sources/Impl/Export/FileSubtitleExportService.swift"
+        },
+        {
+          "id": "write-subtitles",
+          "label": "Write destination file",
+          "component": "FileManager.createFile(_:contents:)",
+          "contract": "Filesystem",
+          "implementation": "FileManager",
+          "module": "Subtitles",
+          "category": "Core",
+          "kind": "Output",
+          "asyncBoundary": false,
+          "stateMutation": "Replaces the destination file with UTF-8 SRT, VTT or TXT data.",
+          "errors": [
+            "Export failed",
+            "Destination cannot be replaced"
+          ],
+          "source": "AppTarget/Modules/Core/Subtitles/Sources/Impl/Export/FileSubtitleExportService.swift"
+        },
+        {
+          "id": "subtitle-export-result",
+          "label": "Publish export result",
+          "component": "ProjectSessionEffectsState.export",
+          "contract": "ProjectSessionSnapshot",
+          "implementation": "DefaultProjectSession",
+          "module": "ProjectSession",
+          "category": "Workflows",
+          "kind": "UI state",
+          "asyncBoundary": false,
+          "stateMutation": "Publishes completed URL or a user-facing failure.",
+          "errors": [
+            "Subtitle export operation failed"
+          ],
+          "source": "AppTarget/Modules/Workflows/ProjectSession/Sources/Impl/DefaultProjectSession+Effects.swift"
+        }
+      ]
+    },
+    {
+      "id": "export-video",
+      "title": "Export video",
+      "subtitle": "Project timeline → subtitled MP4",
+      "outcome": "The queue renders ASS subtitles through FFmpeg, reports progress and leaves the finished MP4 at the chosen URL.",
+      "steps": [
+        {
+          "id": "enqueue-video",
+          "label": "Enqueue export request",
+          "component": "ProjectSessionExporting.enqueueVideoExport(_:)",
+          "contract": "VideoExportQueue",
+          "implementation": "VideoExportQueueImpl",
+          "module": "ProjectSession",
+          "category": "Workflows",
+          "kind": "Workflow trigger",
+          "asyncBoundary": false,
+          "stateMutation": "Autosaves export settings and marks the session export as queued.",
+          "errors": [
+            "No active project",
+            "Capability unavailable"
+          ],
+          "source": "AppTarget/Modules/Workflows/ProjectSession/Sources/Impl/DefaultProjectSession+Effects.swift"
+        },
+        {
+          "id": "queue-video",
+          "label": "Serialize export jobs",
+          "component": "VideoExportQueue.enqueue(_:)",
+          "contract": "VideoExportQueue",
+          "implementation": "VideoExportQueueImpl",
+          "module": "VideoExport",
+          "category": "Infrastructure",
+          "kind": "Queue",
+          "asyncBoundary": true,
+          "stateMutation": "Publishes queued/preparing/progress/completed job snapshots.",
+          "errors": [
+            "Lost request"
+          ],
+          "source": "AppTarget/Modules/Infrastructure/VideoExport/Sources/Impl/VideoExportQueueImpl.swift"
+        },
+        {
+          "id": "validate-video",
+          "label": "Validate media and timeline",
+          "component": "VideoExportWorker.run(_:)",
+          "contract": "VideoExportRequest",
+          "implementation": "VideoExportWorker actor",
+          "module": "VideoExport",
+          "category": "Infrastructure",
+          "kind": "Worker actor",
+          "asyncBoundary": true,
+          "stateMutation": "Creates an isolated temporary working directory.",
+          "errors": [
+            "Original video missing",
+            "No subtitles",
+            "Empty edit timeline"
+          ],
+          "source": "AppTarget/Modules/Infrastructure/VideoExport/Sources/Impl/VideoExportWorker.swift"
+        },
+        {
+          "id": "generate-ass",
+          "label": "Generate ASS subtitles",
+          "component": "SubtitleScriptGenerating.generateASS(_:)",
+          "contract": "SubtitleScriptGenerating",
+          "implementation": "VideoRendering subtitle script generator",
+          "module": "VideoRendering",
+          "category": "Infrastructure",
+          "kind": "Formatter",
+          "asyncBoundary": false,
+          "stateMutation": "Writes subtitles.ass inside the working directory.",
+          "errors": [
+            "ASS generation failed"
+          ],
+          "source": "AppTarget/Modules/Infrastructure/VideoExport/Sources/Impl/VideoExportWorker.swift"
+        },
+        {
+          "id": "render-video",
+          "label": "Render with FFmpeg",
+          "component": "FFmpegService.burnSubtitles(_:)",
+          "contract": "FFmpegService",
+          "implementation": "VideoRenderingAssembly default service",
+          "module": "VideoRendering",
+          "category": "Infrastructure",
+          "kind": "Process boundary",
+          "asyncBoundary": true,
+          "stateMutation": "Writes MP4 output and streams processed-time progress.",
+          "errors": [
+            "FFmpeg not found",
+            "Rendering failed",
+            "Output file missing"
+          ],
+          "source": "AppTarget/Modules/Infrastructure/VideoExport/Sources/Impl/VideoExportWorker.swift"
+        },
+        {
+          "id": "finish-video",
+          "label": "Finalize job snapshot",
+          "component": "VideoExportQueueImpl.finish(_:)",
+          "contract": "VideoExportJob",
+          "implementation": "VideoExportQueueImpl",
+          "module": "VideoExport",
+          "category": "Infrastructure",
+          "kind": "UI state",
+          "asyncBoundary": false,
+          "stateMutation": "Sets succeeded/failed, stores diagnostics and starts the next job.",
+          "errors": [
+            "Temporary cleanup failed",
+            "Sidecar export failed"
+          ],
+          "source": "AppTarget/Modules/Infrastructure/VideoExport/Sources/Impl/VideoExportQueueImpl.swift"
+        }
+      ]
+    }
+  ]
+}

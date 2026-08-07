@@ -1,0 +1,81 @@
+schema_version: 1
+
+layers:
+  Composition:
+    paths:
+      - "AppTarget/Modules/Composition/*"
+    allowed_local: [Core, Features, Infrastructure, UI, Workflows]
+    allowed_external: []
+    fan_out:
+      local: 12
+      external: 0
+  Features:
+    paths:
+      - "AppTarget/Modules/Features/*"
+    allowed_local: [Core, Features, Infrastructure, UI, Workflows]
+    allowed_external: []
+    fan_out:
+      local: 6
+      external: 0
+  Workflows:
+    paths:
+      - "AppTarget/Modules/Workflows/*"
+    allowed_local: [Core, Infrastructure, Workflows]
+    allowed_external: []
+    fan_out:
+      local: 5
+      external: 0
+  Core:
+    paths:
+      - "AppTarget/Modules/Core/*"
+    allowed_local: [Core]
+    allowed_external: []
+    fan_out:
+      local: 5
+      external: 0
+  Infrastructure:
+    paths:
+      - "AppTarget/Modules/Infrastructure/*"
+    allowed_local: [Core, Infrastructure]
+    allowed_external: []
+    fan_out:
+      local: 5
+      external: 0
+  UI:
+    paths:
+      - "AppTarget/Modules/UI/*"
+    allowed_local: []
+    allowed_external: []
+    fan_out:
+      local: 0
+      external: 0
+
+packages:
+  AppUpdate:
+    allowed_external: [Sparkle]
+    external_fan_out: 1
+  MacApp:
+    local_fan_out: 24
+  ProjectFeature:
+    local_fan_out: 14
+  ProjectSession:
+    local_fan_out: 11
+  SpeakerAnalysis:
+    allowed_external: [FluidAudio]
+    external_fan_out: 1
+  SpeechToText:
+    allowed_external: [FluidAudio]
+    external_fan_out: 1
+  VideoExport:
+    local_fan_out: 7
+
+exceptions:
+  - source: Project
+    target: VideoRendering
+    rationale: "Project persists rendering configuration whose public value types currently live in VideoRendering."
+  - source: Settings
+    target: SpeechToText
+    rationale: "Settings exposes the selected transcription engine and model identifiers owned by SpeechToText."
+  - source: Shorts
+    target: VideoRendering
+    rationale: "Shorts stores framing and render-layout values currently owned by VideoRendering."

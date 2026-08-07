@@ -1,0 +1,248 @@
+{
+  "configurations" : [
+    {
+      "id" : "1D106965-6348-4124-BB5F-8A837DF45CE7",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Framelingo-Tuist.xcodeproj",
+        "identifier" : "590FE301EF9DD3C38EB06A00",
+        "name" : "FramelingoTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Infrastructure\/AppUpdate",
+        "identifier" : "AppUpdateImplTests",
+        "name" : "AppUpdateImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/UI\/DesignSystem",
+        "identifier" : "DesignSystemImplTests",
+        "name" : "DesignSystemImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Features\/ExportFeature",
+        "identifier" : "ExportFeatureTests",
+        "name" : "ExportFeatureTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Infrastructure\/FFmpeg",
+        "identifier" : "FFmpegTests",
+        "name" : "FFmpegTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Features\/HomeFeature",
+        "identifier" : "HomeFeatureImplTests",
+        "name" : "HomeFeatureImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Composition\/MacApp",
+        "identifier" : "MacAppTests",
+        "name" : "MacAppTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Core\/Media",
+        "identifier" : "MediaImplTests",
+        "name" : "MediaImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Features\/PlayerFeature",
+        "identifier" : "PlayerFeatureImplTests",
+        "name" : "PlayerFeatureImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Core\/Project",
+        "identifier" : "ProjectImplTests",
+        "name" : "ProjectImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Features\/ProjectFeature",
+        "identifier" : "ProjectFeatureImplTests",
+        "name" : "ProjectFeatureImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Workflows\/ProjectPreparation",
+        "identifier" : "ProjectPreparationAPITests",
+        "name" : "ProjectPreparationAPITests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Workflows\/ProjectPreparation",
+        "identifier" : "ProjectPreparationImplTests",
+        "name" : "ProjectPreparationImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Workflows\/ProjectSession",
+        "identifier" : "ProjectSessionAPITests",
+        "name" : "ProjectSessionAPITests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Workflows\/ProjectSession",
+        "identifier" : "ProjectSessionImplTests",
+        "name" : "ProjectSessionImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Core\/Settings",
+        "identifier" : "SettingsImplTests",
+        "name" : "SettingsImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Features\/SettingsFeature",
+        "identifier" : "SettingsFeatureImplTests",
+        "name" : "SettingsFeatureImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Core\/Shorts",
+        "identifier" : "ShortsImplTests",
+        "name" : "ShortsImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Features\/ShortsFeature",
+        "identifier" : "ShortsFeatureTests",
+        "name" : "ShortsFeatureTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Core\/SpeakerAnalysis",
+        "identifier" : "SpeakerAnalysisImplTests",
+        "name" : "SpeakerAnalysisImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Infrastructure\/SpeechToText",
+        "identifier" : "SpeechToTextImplTests",
+        "name" : "SpeechToTextImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Features\/SubtitleEditorFeature",
+        "identifier" : "SubtitleEditorFeatureImplTests",
+        "name" : "SubtitleEditorFeatureImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Core\/Subtitles",
+        "identifier" : "SubtitlesImplTests",
+        "name" : "SubtitlesImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Core\/Timeline",
+        "identifier" : "TimelineImplTests",
+        "name" : "TimelineImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Features\/TimelineFeature",
+        "identifier" : "TimelineFeatureImplTests",
+        "name" : "TimelineFeatureImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Workflows\/TranscriptionPipeline",
+        "identifier" : "TranscriptionPipelineAPITests",
+        "name" : "TranscriptionPipelineAPITests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Workflows\/TranscriptionPipeline",
+        "identifier" : "TranscriptionPipelineImplTests",
+        "name" : "TranscriptionPipelineImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Infrastructure\/Translation",
+        "identifier" : "TranslationImplTests",
+        "name" : "TranslationImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Workflows\/TranslationPipeline",
+        "identifier" : "TranslationPipelineAPITests",
+        "name" : "TranslationPipelineAPITests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Workflows\/TranslationPipeline",
+        "identifier" : "TranslationPipelineImplTests",
+        "name" : "TranslationPipelineImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Infrastructure\/VideoExport",
+        "identifier" : "VideoExportTests",
+        "name" : "VideoExportTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Infrastructure\/VideoExport",
+        "identifier" : "VideoExportImplTests",
+        "name" : "VideoExportImplTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:AppTarget\/Modules\/Infrastructure\/VideoRendering",
+        "identifier" : "VideoRenderingImplTests",
+        "name" : "VideoRenderingImplTests"
+      }
+    }
+  ],
+  "version" : 1
+}

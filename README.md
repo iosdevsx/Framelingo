@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="Framelingo/Assets.xcassets/AppIcon.appiconset/appicon.png" width="128" height="128" alt="Framelingo icon">
+  <img src="AppTarget/Resources/Assets.xcassets/AppIcon.appiconset/appicon.png" width="128" height="128" alt="Framelingo icon">
 
   # Framelingo
 
@@ -49,7 +49,7 @@
 
 - Mac с процессором Apple Silicon (`arm64`)
 - macOS 15.6 или новее
-- Xcode 26.3 или совместимая более новая версия — только для сборки из исходников
+- Xcode 26.3 — точная версия закреплена для воспроизводимой сборки из исходников
 - Свободное место для моделей: комплект Parakeet занимает примерно 1 ГБ; размер Whisper зависит от выбранной модели
 
 ## Установка
@@ -65,20 +65,26 @@
 ```bash
 git clone https://github.com/iosdevsx/Framelingo.git
 cd Framelingo
-open Framelingo.xcodeproj
+mise trust
+mise run setup
 ```
 
-В Xcode выберите схему **Framelingo** и запустите проект клавишами `⌘R`. Зависимости FluidAudio и Sparkle загрузятся через Swift Package Manager автоматически. FFmpegKit и arm64‑сборка `whisper-cli` уже находятся в репозитории.
+После этого откройте `Framelingo-Tuist.xcworkspace`, выберите схему **Framelingo-Tuist** и запустите проект клавишами `⌘R`. Зависимости FluidAudio и Sparkle загрузятся через Swift Package Manager автоматически. FFmpegKit и arm64‑сборка `whisper-cli` уже находятся в репозитории.
 
-Собрать проект из терминала можно так:
+Собрать и проверить проект из терминала можно так:
 
 ```bash
-xcodebuild \
-  -project Framelingo.xcodeproj \
-  -scheme Framelingo \
-  -destination 'platform=macOS,arch=arm64' \
-  build
+mise run doctor
+mise run generate
+mise run build:macos
+mise run test
 ```
+
+Подробный список команд, устройство generated-файлов и разбор проблем есть в [`docs/tuist.md`](docs/tuist.md).
+
+> [!NOTE]
+> Tuist manifests являются единственным источником истины для product workspace.
+> Сгенерированные `Framelingo-Tuist.*` коммитить не нужно.
 
 ## Локальные модели
 
@@ -104,21 +110,66 @@ Framelingo поддерживает два движка распознавани
 - **SwiftUI + AppKit + AVFoundation** — интерфейс и воспроизведение видео
 - **whisper.cpp** — локальное мультиязычное распознавание речи
 - **FluidAudio / Parakeet** — ASR и диаризация спикеров
-- **FFmpegKit** — подготовка аудио и рендеринг итогового видео
+- **FFmpegKit** — локальный SPM-пакет `AppTarget/Modules/Infrastructure/FFmpeg`; подготовка аудио и рендеринг скрыты за API `VideoRendering`
 - **Sparkle** — безопасные автоматические обновления
 - **XCTest** — модульные тесты таймлайна, импорта, распознавания и экспорта
 
-## Структура проекта
+## Архитектура и структура проекта
 
-<img width="803" height="862" alt="Снимок экрана — 2026-08-07 в 12 40 19" src="https://github.com/user-attachments/assets/bbe4fc7e-63ba-4d35-a098-a8b8ed5d04fa" />
+Код разделён на независимые локальные Swift Package Manager-пакеты. Каждый
+логический модуль экспортирует API-продукт `<Module>` и реализацию
+`<Module>Impl` из `Sources/Api` и `Sources/Impl`. Доменные и сервисные пакеты
+связываются через API-контракты; concrete implementations выбираются в одном
+macOS composition root.
+
+Папки внутри `Modules` нужны только для навигации и отражают ответственность
+пакета. Конечные каталоги (`Media`, `ProjectFeature`, `FFmpeg` и остальные) —
+настоящие SPM-пакеты со своим `Package.swift`. Xcode находит их прямо в
+синхронизированном дереве `AppTarget`; отдельных ссылок на локальные пакеты в
+проекте нет. Имена SwiftPM packages/products от группировки не меняются.
+
+`DesignSystem` содержит отдельные `Tokens` (цвета, типографика, отступы,
+радиусы), `Components` и environment values. Feature-specific state и логика
+таймлайна туда не входят.
+
+Архитектура приложения остаётся MVVM. Настройки, каталог проектов, processing pipelines
+и очередь экспорта принадлежат профильным модулям. `ProjectSession` — единственный
+владелец открытого проекта, состояния редактора, истории, autosave и проектных эффектов.
+
+`MacAppComposition` собирает репозитории, провайдеры и сервисы через узкие
+API-протоколы и передаёт их в feature factories. Это позволяет
+подменять эффекты в тестах без service locator и не заставляет протоколизировать
+чистые детерминированные вычисления.
+
+`Timeline` и `TimelineFeature` намеренно разделены: первый пакет содержит
+platform-neutral модели и алгоритмы монтажа/маппинга/валидации, второй — одну
+интерактивную SwiftUI-реализацию, используемую в субтитрах, редакторе и Shorts.
+
+Разрешённые зависимости описаны в
+[`docs/module-boundaries.md`](docs/module-boundaries.md), а актуальные topology и
+runtime-сценарии генерируются для
+[`Architecture Site`](Tools/ArchitectureSite/README.md). Общая карта документации
+и источников истины находится в [`docs/index.md`](docs/index.md).
+
+`ProjectSession` уже владеет открытым проектом и его эффектами; `MacApp` и
+`IOSApp` являются отдельными product composition roots. Tuist генерирует общий
+workspace для macOS, iPhone и iPad.
 
 ## Тесты
 
+Проверить отдельный пакет независимо:
+
 ```bash
-xcodebuild test \
-  -project Framelingo.xcodeproj \
-  -scheme Framelingo \
-  -destination 'platform=macOS,arch=arm64'
+swift build --package-path AppTarget/Modules/Features/TimelineFeature
+swift test --package-path AppTarget/Modules/Features/TimelineFeature
+```
+
+Проверить macOS application target:
+
+```bash
+mise run generate
+mise run build:macos
+mise run test:macos
 ```
 
 ## Текущее состояние

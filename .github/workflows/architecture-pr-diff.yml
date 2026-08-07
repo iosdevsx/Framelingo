@@ -1,0 +1,114 @@
+name: Architecture PR Diff
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: architecture-pr-diff-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  diff:
+    name: Compare architecture
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout trusted base tools
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+
+      - name: Checkout pull request as data
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: head
+          persist-credentials: false
+
+      - name: Test trusted diff tooling
+        run: ruby base/Scripts/architecture/test-architecture-diff.rb
+
+      - name: Export base architecture
+        run: |
+          ruby base/Scripts/architecture/export-site-data.rb \
+            --repository-root "$GITHUB_WORKSPACE/base" \
+            --runtime-scenarios "$GITHUB_WORKSPACE/base/Scripts/architecture/runtime-scenarios.json" \
+            --output "$RUNNER_TEMP/architecture-base.json"
+
+      - name: Export pull request architecture
+        run: |
+          ruby base/Scripts/architecture/export-site-data.rb \
+            --repository-root "$GITHUB_WORKSPACE/head" \
+            --runtime-scenarios "$GITHUB_WORKSPACE/head/Scripts/architecture/runtime-scenarios.json" \
+            --output "$RUNNER_TEMP/architecture-head.json"
+
+      - name: Build architecture diff
+        env:
+          BASE_LABEL: ${{ github.event.pull_request.base.label }}
+          HEAD_LABEL: ${{ github.event.pull_request.head.label }}
+        run: |
+          ruby base/Scripts/architecture/diff-snapshots.rb \
+            --base "$RUNNER_TEMP/architecture-base.json" \
+            --head "$RUNNER_TEMP/architecture-head.json" \
+            --json "$RUNNER_TEMP/architecture-diff.json" \
+            --markdown "$RUNNER_TEMP/architecture-diff.md" \
+            --base-label "$BASE_LABEL" \
+            --head-label "$HEAD_LABEL"
+
+      - name: Upload architecture diff
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-diff-pr-${{ github.event.pull_request.number }}
+          path: |
+            ${{ runner.temp }}/architecture-base.json
+            ${{ runner.temp }}/architecture-head.json
+            ${{ runner.temp }}/architecture-diff.json
+            ${{ runner.temp }}/architecture-diff.md
+          if-no-files-found: error
+
+      - name: Create or update pull request comment
+        uses: actions/github-script@v7
+        env:
+          ARCHITECTURE_DIFF_MARKDOWN: ${{ runner.temp }}/architecture-diff.md
+        with:
+          script: |
+            const fs = require("fs");
+            const marker = "<!-- framelingo-architecture-diff -->";
+            const report = fs.readFileSync(process.env.ARCHITECTURE_DIFF_MARKDOWN, "utf8");
+            const runLink = `[Download complete diff artifact](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
+            const body = `${report}\n${runLink}`;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) =>
+              comment.user?.type === "Bot" && comment.body?.includes(marker)
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

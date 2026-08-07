@@ -1,0 +1,136 @@
+{
+  "id": "8A39B73E-6C7F-4B0A-BC12-CFEBC10E5964",
+  "name": "Legacy Cyrillic Project",
+  "createdAt": "2026-07-31T10:00:00Z",
+  "updatedAt": "2026-08-01T12:30:00Z",
+  "mediaFile": {
+    "id": "7646C594-0E3A-46F8-BC04-C63058418B02",
+    "originalURL": "file:///Users/example/Videos/%D0%98%D0%BD%D1%82%D0%B5%D1%80%D0%B2%D1%8C%D1%8E%20final.mov",
+    "fileName": "Интервью final.mov",
+    "fileExtension": "mov",
+    "sizeBytes": 42424242,
+    "durationMs": 120000
+  },
+  "sourceLanguage": "English",
+  "targetLanguage": "Russian",
+  "subtitles": [
+    {
+      "id": "4EB90C25-DA51-45E0-BB60-EA772DAAE983",
+      "index": 1,
+      "startMs": 1000,
+      "endMs": 3200,
+      "originalText": "Hello from the legacy project.",
+      "translatedText": "Привет из старого проекта.",
+      "speaker": "Interviewer",
+      "speakerId": 0,
+      "confidence": 0.94,
+      "warnings": []
+    },
+    {
+      "id": "29EB39C3-51B1-40F1-954F-E99D7FB44DA9",
+      "index": 2,
+      "startMs": 4000,
+      "endMs": 6500,
+      "originalText": "Paths may contain spaces and Cyrillic.",
+      "translatedText": "Пути могут содержать пробелы и кириллицу.",
+      "speakerId": 1,
+      "confidence": 0.87,
+      "warnings": ["tooLong"]
+    }
+  ],
+  "wordTimings": [
+    {
+      "id": "B232BC4A-2C71-474D-BEB3-D8C9FE56355D",
+      "text": "Hello",
+      "start": 1.0,
+      "end": 1.4,
+      "confidence": 0.95
+    }
+  ],
+  "speakers": [
+    {
+      "id": "speaker_1",
+      "name": "Interviewer",
+      "colorHex": "#0a84ff"
+    },
+    {
+      "id": "speaker_2",
+      "name": "Guest",
+      "colorHex": "#bf5af2"
+    }
+  ],
+  "speakerLabels": [
+    {
+      "id": 0,
+      "displayName": "Interviewer"
+    },
+    {
+      "id": 1,
+      "displayName": "Guest"
+    }
+  ],
+  "speakerSegments": [
+    {
+      "id": "F508F90A-8EA2-4D7D-BF0A-60480D5CEEC5",
+      "speakerId": 0,
+      "start": 0.9,
+      "end": 3.3,
+      "confidence": 0.91
+    }
+  ],
+  "status": {
+    "ready": {}
+  },
+  "videoExportSettings": {
+    "subtitleTextMode": "translatedFallbackToOriginal",
+    "fontName": "Arial",
+    "fontSize": 34,
+    "subtitlePosition": "bottom",
+    "textColor": "white",
+    "backgroundOpacity": 0.6,
+    "maxLines": 2,
+    "resolution": "p1080",
+    "frameRate": "fps30",
+    "codec": "h264",
+    "quality": "normal",
+    "preset": "medium"
+  },
+  "speakerExportOptions": {
+    "includeSpeakerLabels": true,
+    "speakerFormat": "squareBrackets"
+  },
+  "editTimeline": {
+    "clips": [
+      {
+        "id": "4681FC0E-14C0-440C-B6AC-CF4880B99ED0",
+        "sourceStartMs": 1000,
+        "sourceEndMs": 7000,
+        "timelineStartMs": 0,
+        "timelineEndMs": 6000
+      }
+    ],
+    "totalDurationMs": 6000
+  },
+  "shorts": [
+    {
+      "id": "5D5A6F76-9722-4A69-97EE-00A4156899A4",
+      "title": "Legacy Short",
+      "startMs": 500,
+      "endMs": 5500,
+      "reframing": "crop",
+      "cropOffsetX": 0.65,
+      "cropKeyframes": [],
+      "hookText": "LEGACY",
+      "platformOverride": "youtubeShorts"
+    }
+  ],
+  "shortsExportSettings": {
+    "platform": "youtubeShorts",
+    "reframing": "crop",
+    "burnSubtitlesIntoVideo": true,
+    "hookFontSize": 72,
+    "exportSRTSidecar": true,
+    "filenameTemplate": "{project} — {index} {title}",
+    "snapToCues": true
+  }
+}
