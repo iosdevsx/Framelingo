@@ -64,7 +64,7 @@ CONFIGURATION=Release mise run build:macos
 mise run test
 ```
 
-`test` и `test:macos` означают одно и то же: полный план `FramelingoComplete`, все 33 тестовых таргета и 385 тестов на текущем baseline. Результат всегда лежит в `DerivedData/Tuist/Test/Results/Framelingo.xcresult`.
+`test` и `test:macos` означают одно и то же: полный план `FramelingoComplete` со всеми 33 тестовыми таргетами. Результат всегда лежит в `DerivedData/Tuist/Test/Results/Framelingo.xcresult`.
 
 Один тест или один тестовый bundle запускается отдельно и не меняет поведение полной команды:
 
