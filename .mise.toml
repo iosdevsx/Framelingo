@@ -65,6 +65,10 @@ run = "./Scripts/tuist/project.sh test ios"
 description = "Run the mobile tests on an iPad simulator"
 run = "./Scripts/tuist/project.sh test ipados"
 
+[tasks."verify:ios"]
+description = "Audit, clean-build, and test the iOS app on a simulator"
+run = "./Scripts/tuist/project.sh verify-ios"
+
 [tasks."test:focused"]
 description = "Run one scheme or test identifier; pass arguments after --"
 run = "./Scripts/tuist/project.sh focused"

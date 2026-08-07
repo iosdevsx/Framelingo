@@ -36,6 +36,7 @@ public enum FramelingoPackages {
     /// AppTarget folder, but must not compile as app-target sources/resources.
     public static let appTargetMembershipExclusions: [String] = [
         "Modules/Composition/MacApp",
+        "Modules/Composition/IOSApp",
         "Modules/Core/Media",
         "Modules/Core/Project",
         "Modules/Core/Settings",

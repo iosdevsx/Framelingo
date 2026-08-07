@@ -3,6 +3,7 @@ import ProjectDescription
 public enum FramelingoTargets {
     public static let applicationName = "Framelingo"
     public static let testName = "FramelingoTests"
+    public static let iOSApplicationName = "FramelingoIOS"
 
     public static func macOSApplication() -> Target {
         .target(
@@ -72,4 +73,30 @@ public enum FramelingoTargets {
             settings: FramelingoSettings.macOSTests
         )
     }
+
+    public static func iOSApplication() -> Target {
+        .target(
+            name: iOSApplicationName,
+            destinations: FramelingoPlatform.universalIOSDestinations,
+            product: .app,
+            productName: "Framelingo",
+            bundleId: "com.somegreatapp.Framelingo.ios",
+            deploymentTargets: FramelingoPlatform.mobileDeploymentTargets,
+            infoPlist: .extendingDefault(with: [
+                "CFBundleDisplayName": "Framelingo",
+                "UILaunchScreen": [:],
+                "UISupportedInterfaceOrientations": [
+                    "UIInterfaceOrientationPortrait",
+                    "UIInterfaceOrientationLandscapeLeft",
+                    "UIInterfaceOrientationLandscapeRight",
+                ],
+            ]),
+            sources: ["AppTargetIOS/**"],
+            dependencies: [
+                .package(product: "IOSApp"),
+            ],
+            settings: FramelingoSettings.iOSApplication
+        )
+    }
+
 }

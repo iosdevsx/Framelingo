@@ -1,10 +1,11 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-PRODUCT_COMPOSERS = ["MacApp"].freeze
+PRODUCT_COMPOSERS = ["MacApp", "IOSApp"].freeze
 MODULES_RELATIVE_ROOT = "AppTarget/Modules".freeze
 MODULE_GROUPS = {
   "MacApp" => "Composition",
+  "IOSApp" => "Composition",
   "ProjectFeature" => "Features",
   "SubtitleEditorFeature" => "Features",
   "ProjectPreparation" => "Workflows",
@@ -136,7 +137,7 @@ def audit_import(source, label, role, target_name)
   source.scan(/^\s*(?:@testable\s+)?import\s+([A-Za-z0-9_]*Impl)\s*$/).each_with_object([]) do |match, failures|
     imported = match.first
     if role == :product && PRODUCT_COMPOSERS.include?(target_name)
-      next if label.start_with?("#{MODULES_RELATIVE_ROOT}/Composition/MacApp/Sources/Composition/")
+      next if label.start_with?("#{MODULES_RELATIVE_ROOT}/Composition/#{target_name}/Sources/Composition/")
     elsif role == :impl && PRODUCT_COMPOSERS.include?(target_name)
       next
     end
@@ -419,7 +420,7 @@ Dir.glob(File.join(modules_root, "*", "*", "Sources", "**", "*.swift")).sort.eac
   module_relative = source_path.delete_prefix("#{modules_root}/")
   parts = module_relative.split(File::SEPARATOR)
   package_name = parts[1]
-  role = if package_name == "MacApp"
+  role = if PRODUCT_COMPOSERS.include?(package_name)
     :product
   else
     parts[3] == "Api" ? :api : :impl

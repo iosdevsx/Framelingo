@@ -5,6 +5,8 @@ set -eu
 
 workspace="$TUIST_REPOSITORY_ROOT/Framelingo-Tuist.xcworkspace"
 scheme="Framelingo-Tuist"
+ios_scheme="Framelingo-iOS"
+ios_package="$TUIST_REPOSITORY_ROOT/AppTarget/Modules/Composition/IOSApp"
 derived_data="$TUIST_REPOSITORY_ROOT/DerivedData/Tuist"
 
 require_generated_workspace() {
@@ -27,10 +29,6 @@ print_invocation() {
     note "Scheme: $scheme"
     note "Configuration: $1"
     note "Destination: $2"
-}
-
-mobile_not_ready() {
-    fail "The universal iOS scheme does not exist yet. Complete add-ios-app-composition before claiming iPhone/iPad support."
 }
 
 case "${1:-}" in
@@ -91,13 +89,31 @@ case "${1:-}" in
                 ;;
             ios)
                 destination="${TUIST_IOS_DESTINATION:-platform=iOS Simulator,name=iPhone 17 Pro}"
+                scheme="$ios_scheme"
+                require_generated_workspace
                 print_invocation "$configuration" "$destination"
-                mobile_not_ready
+                xcodebuild build \
+                    -workspace "$workspace" \
+                    -scheme "$scheme" \
+                    -configuration "$configuration" \
+                    -destination "$destination" \
+                    -derivedDataPath "$derived_data/Build-iOS-$configuration" \
+                    -clonedSourcePackagesDirPath "$derived_data/SourcePackages" \
+                    CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=
                 ;;
             ipados)
                 destination="${TUIST_IPADOS_DESTINATION:-platform=iOS Simulator,name=iPad Pro 13-inch (M5)}"
+                scheme="$ios_scheme"
+                require_generated_workspace
                 print_invocation "$configuration" "$destination"
-                mobile_not_ready
+                xcodebuild build \
+                    -workspace "$workspace" \
+                    -scheme "$scheme" \
+                    -configuration "$configuration" \
+                    -destination "$destination" \
+                    -derivedDataPath "$derived_data/Build-iPadOS-$configuration" \
+                    -clonedSourcePackagesDirPath "$derived_data/SourcePackages" \
+                    CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=
                 ;;
             *) fail "Unknown build platform '$platform'. Use macos, ios, or ipados." ;;
         esac
@@ -124,16 +140,54 @@ case "${1:-}" in
                 ;;
             ios)
                 destination="${TUIST_IOS_DESTINATION:-platform=iOS Simulator,name=iPhone 17 Pro}"
+                scheme="IOSApp"
                 print_invocation "Debug" "$destination"
-                mobile_not_ready
+                (
+                    cd "$ios_package"
+                    xcodebuild test \
+                        -scheme "$scheme" \
+                        -configuration Debug \
+                        -destination "$destination" \
+                        -derivedDataPath "$derived_data/Test-iOS" \
+                        -clonedSourcePackagesDirPath "$derived_data/SourcePackages" \
+                        CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=
+                )
                 ;;
             ipados)
                 destination="${TUIST_IPADOS_DESTINATION:-platform=iOS Simulator,name=iPad Pro 13-inch (M5)}"
+                scheme="IOSApp"
                 print_invocation "Debug" "$destination"
-                mobile_not_ready
+                (
+                    cd "$ios_package"
+                    xcodebuild test \
+                        -scheme "$scheme" \
+                        -configuration Debug \
+                        -destination "$destination" \
+                        -derivedDataPath "$derived_data/Test-iPadOS" \
+                        -clonedSourcePackagesDirPath "$derived_data/SourcePackages" \
+                        CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=
+                )
                 ;;
             *) fail "Unknown test platform '$platform'. Use macos, ios, or ipados." ;;
         esac
+        ;;
+    verify-ios)
+        require_generated_workspace
+        destination="${TUIST_IOS_DESTINATION:-platform=iOS Simulator,name=iPhone 17 Pro}"
+        scheme="$ios_scheme"
+        ruby "$TUIST_REPOSITORY_ROOT/Scripts/audit-module-boundaries.rb" --self-test
+        ruby "$TUIST_REPOSITORY_ROOT/Scripts/audit-module-boundaries.rb"
+        ruby "$TUIST_REPOSITORY_ROOT/Scripts/audit-ios-app-boundaries.rb"
+        print_invocation "Debug clean build" "$destination"
+        xcodebuild clean build \
+            -workspace "$workspace" \
+            -scheme "$scheme" \
+            -configuration Debug \
+            -destination "$destination" \
+            -derivedDataPath "$derived_data/Verify-iOS" \
+            -clonedSourcePackagesDirPath "$derived_data/SourcePackages" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=
+        TUIST_IOS_DESTINATION="$destination" "$0" test ios
         ;;
     focused)
         test_identifier=${2:-}
@@ -173,13 +227,23 @@ case "${1:-}" in
                 ;;
             ios)
                 destination="generic/platform=iOS"
+                scheme="$ios_scheme"
+                require_generated_workspace
                 print_invocation "Release" "$destination"
-                mobile_not_ready
+                xcodebuild archive \
+                    -workspace "$workspace" \
+                    -scheme "$scheme" \
+                    -configuration Release \
+                    -destination "$destination" \
+                    -archivePath "$derived_data/Archives/Framelingo-iOS.xcarchive" \
+                    -derivedDataPath "$derived_data/Archive-iOS" \
+                    -clonedSourcePackagesDirPath "$derived_data/SourcePackages" \
+                    CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=
                 ;;
             *) fail "Unknown archive platform '$platform'. Use macos or ios." ;;
         esac
         ;;
     *)
-        fail "Usage: $0 {generate|generate-open|edit|graph|clean|build|test|archive|focused}"
+        fail "Usage: $0 {generate|generate-open|edit|graph|clean|build|test|verify-ios|archive|focused}"
         ;;
 esac

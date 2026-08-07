@@ -16,11 +16,13 @@ let project = Project(
     targets: [
         FramelingoTargets.macOSApplication(),
         FramelingoTargets.macOSTests(),
+        FramelingoTargets.iOSApplication(),
     ],
     schemes: [
         FramelingoSchemes.macOS(
             testPlan: .relativeToRoot("Tuist/TestPlans/FramelingoComplete.xctestplan")
         ),
+        FramelingoSchemes.iOS(),
     ],
     additionalFiles: [
         "README.md",

@@ -31,18 +31,25 @@ public struct ProjectVideoPreviewState {
 @MainActor
 public struct ProjectVideoPreviewActions {
     private let togglePlaybackAction: () -> Void
+    private let seekAction: (Int) -> Void
     private let updateSettingsAction: (VideoExportSettings, Bool) -> Void
 
     public init(
         togglePlayback: @escaping () -> Void,
+        seek: @escaping (Int) -> Void = { _ in },
         updateSettings: @escaping (VideoExportSettings, Bool) -> Void
     ) {
         self.togglePlaybackAction = togglePlayback
+        self.seekAction = seek
         self.updateSettingsAction = updateSettings
     }
 
     public func togglePlayback() {
         togglePlaybackAction()
+    }
+
+    public func seek(to milliseconds: Int) {
+        seekAction(milliseconds)
     }
 
     public func updateSettings(_ settings: VideoExportSettings, registerUndo: Bool) {

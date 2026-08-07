@@ -438,7 +438,7 @@ extension DefaultProjectSession {
         ProjectSessionEffectFailure(
             kind: kind,
             reason: reason,
-            diagnostic: error.map { String(describing: $0) }
+            diagnostic: error?.localizedDescription
         )
     }
 }

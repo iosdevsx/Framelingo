@@ -49,6 +49,25 @@ public enum FramelingoSettings {
         defaultSettings: .recommended
     )
 
+    public static let iOSApplication: Settings = .settings(
+        base: [
+            "CODE_SIGN_IDENTITY": "Apple Development",
+            "CODE_SIGN_STYLE": "Automatic",
+            "CURRENT_PROJECT_VERSION": "4",
+            "DEVELOPMENT_TEAM": "TWW7UPTWB8",
+            "ENABLE_PREVIEWS": "YES",
+            "IPHONEOS_DEPLOYMENT_TARGET": "18.0",
+            "MARKETING_VERSION": "2.0.1",
+            "SUPPORTED_PLATFORMS": "iphoneos iphonesimulator",
+            "SUPPORTS_MACCATALYST": "NO",
+            "SWIFT_APPROACHABLE_CONCURRENCY": "YES",
+            "SWIFT_EMIT_LOC_STRINGS": "YES",
+            "TARGETED_DEVICE_FAMILY": "1,2",
+        ],
+        configurations: configurations,
+        defaultSettings: .recommended
+    )
+
     public static let futureMobileApplication: SettingsDictionary = [
         "IPHONEOS_DEPLOYMENT_TARGET": "18.0",
         "SUPPORTED_PLATFORMS": "iphoneos iphonesimulator",
