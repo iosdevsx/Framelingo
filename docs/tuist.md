@@ -138,12 +138,12 @@ mise run generate 2>&1 | tee DerivedData/tuist-generate.log
 2. Добавьте тонкий `@main`, ресурсы, Info.plist, destinations и deployment target в helper из `Tuist/ProjectDescriptionHelpers`.
 3. Добавьте target в `Project.swift`, затем явную схему и test plan.
 4. Обновите `audit-manifests.sh` и `audit-test-inventory.rb`, чтобы новый продукт нельзя было случайно потерять при следующей генерации.
-5. Проверьте `doctor`, двойную чистую генерацию, Debug/Release, полный тест-план и credential-free archive. Только после этого переносите CI с shadow-режима в required.
+5. Проверьте `doctor`, двойную чистую генерацию, Debug/Release, полный тест-план и credential-free archive. После этого добавляйте новый target в обязательный CI.
 
 Для iOS нельзя переиспользовать `MacApp`, Sparkle или текущие macOS-only FFmpeg binaries. Это не ограничение Tuist, а реальная граница платформенного кода и бинарных slices.
 
 ## CI и выпуск приложения
 
-Обычный workflow `.github/workflows/ci.yml` пока собирает старый Xcode-проект и служит контрольной точкой. `.github/workflows/tuist-shadow.yml` независимо устанавливает закреплённый Tuist через Mise, генерирует workspace с чистого checkout, запускает аудиты, Debug/Release, все 385 тестов и проверяет неподписанный macOS archive. Его job называется `Generated macOS (shadow)` и помечен `continue-on-error`, поэтому на этапе сравнения он показывает проблему, но не подменяет действующий required check. При падении сохраняются полные логи и xcresult на семь дней.
+Единственный workflow `.github/workflows/ci.yml` устанавливает закреплённый Tuist через Mise, генерирует workspace с чистого checkout, запускает аудиты, Debug/Release, полный тест-план и проверяет неподписанный macOS archive. Job `macOS` обязательный: ошибка любого шага делает CI красным. При падении сохраняются полные логи и `.xcresult` на семь дней.
 
 Публикация релиза через Tuist намеренно ещё не включена. Для неё сначала нужно утвердить production environment, bundle ids и набор секретов для Developer ID, notarization, Sparkle и доступа к release-репозиторию. Текущий `Scripts/archive-release.sh` продолжает работать со старым Xcode-проектом и не считается частью нового CD-пути. Переключать публикацию до проверки защищённого dry run нельзя.

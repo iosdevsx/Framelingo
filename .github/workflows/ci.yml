@@ -4,16 +4,20 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  build-and-test:
-    name: Legacy Xcode project (parity reference)
+  macos:
+    name: macOS
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 75
 
     steps:
       - name: Checkout
@@ -35,39 +39,89 @@ jobs:
             ls -1d /Applications/Xcode*.app 2>/dev/null || true
             exit 1
           fi
-          echo "Using $XCODE_APP"
           sudo xcode-select -s "$XCODE_APP"
           [[ "$(xcodebuild -version | sed -n '1s/^Xcode //p')" == "26.3" ]]
           xcodebuild -version
 
-      - name: Cache SPM packages
+      - name: Install pinned Mise tools
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+
+      - name: Restore generated build cache
         uses: actions/cache@v4
         with:
-          path: DerivedData/SourcePackages
-          key: spm-${{ runner.os }}-${{ hashFiles('Framelingo.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          path: |
+            DerivedData/Tuist/SourcePackages
+            DerivedData/Tuist/Build-Debug/Build
+            DerivedData/Tuist/Build-Release/Build
+            DerivedData/Tuist/Test/Build
+          key: tuist-${{ runner.os }}-${{ runner.arch }}-xcode-26.3-${{ hashFiles('.mise.toml', '.xcode-version', '.package.resolved', 'Tuist.swift', 'Project.swift', 'Workspace.swift', 'Tuist/**/*.swift', 'Tuist/Config/*.xcconfig', 'AppTarget/Modules/**/Package.swift', 'AppTarget/Modules/**/Package.resolved') }}
           restore-keys: |
-            spm-${{ runner.os }}-
+            tuist-${{ runner.os }}-${{ runner.arch }}-xcode-26.3-
 
-      - name: Audit module boundaries
-        run: ruby Scripts/audit-module-boundaries.rb --self-test
+      - name: Prepare logs
+        run: mkdir -p DerivedData/Tuist/Logs
 
-      - name: Build and test
+      - name: Install project dependencies
+        shell: bash
         run: |
           set -o pipefail
-          xcodebuild test \
-            -scheme Framelingo \
-            -testPlan TestPlan \
-            -destination 'platform=macOS,arch=arm64' \
-            -derivedDataPath DerivedData \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY= \
-            | xcbeautify
+          mise run install 2>&1 | tee DerivedData/Tuist/Logs/install.log
 
-      - name: Upload test results on failure
+      - name: Doctor and generate
+        shell: bash
+        run: |
+          set -o pipefail
+          mise run doctor 2>&1 | tee DerivedData/Tuist/Logs/doctor.log
+          mise run doctor:test 2>&1 | tee DerivedData/Tuist/Logs/doctor-test.log
+          mise run generate 2>&1 | tee DerivedData/Tuist/Logs/generate.log
+
+      - name: Audit generated project
+        shell: bash
+        run: |
+          set -o pipefail
+          ruby Scripts/audit-module-boundaries.rb --self-test 2>&1 | tee DerivedData/Tuist/Logs/module-audit-self-test.log
+          ruby Scripts/audit-module-boundaries.rb 2>&1 | tee DerivedData/Tuist/Logs/module-audit.log
+          ./Scripts/tuist/audit-manifests.sh 2>&1 | tee DerivedData/Tuist/Logs/manifest-audit.log
+          ruby Scripts/tuist/audit-test-inventory.rb 2>&1 | tee DerivedData/Tuist/Logs/test-inventory-before.log
+
+      - name: Build generated macOS Debug
+        shell: bash
+        run: |
+          set -o pipefail
+          mise run build:macos 2>&1 | tee DerivedData/Tuist/Logs/build-debug.log
+
+      - name: Build generated macOS Release
+        shell: bash
+        env:
+          CONFIGURATION: Release
+        run: |
+          set -o pipefail
+          mise run build:macos 2>&1 | tee DerivedData/Tuist/Logs/build-release.log
+
+      - name: Run complete generated test plan
+        shell: bash
+        run: |
+          set -o pipefail
+          mise run test:macos 2>&1 | tee DerivedData/Tuist/Logs/test-macos.log
+          ruby Scripts/tuist/audit-test-inventory.rb DerivedData/Tuist/Test/Results/Framelingo.xcresult 2>&1 | tee DerivedData/Tuist/Logs/test-inventory-after.log
+
+      - name: Validate credential-free macOS archive
+        shell: bash
+        run: |
+          set -o pipefail
+          mise run archive:macos 2>&1 | tee DerivedData/Tuist/Logs/archive-macos.log
+          mise run archive:validate:macos 2>&1 | tee DerivedData/Tuist/Logs/archive-validation.log
+
+      - name: Upload Tuist diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: DerivedData/Logs/Test/*.xcresult
-          if-no-files-found: ignore
+          name: tuist-ci-diagnostics-${{ github.run_attempt }}
+          path: |
+            DerivedData/Tuist/Logs
+            DerivedData/Tuist/Test/Results/Framelingo.xcresult
+          if-no-files-found: warn
+          retention-days: 7
