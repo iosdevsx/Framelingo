@@ -27,3 +27,7 @@
 ## Тесты
 
 Тесты находятся в `Tests/MediaImplTests`. Они проверяют, что валидный кеш возвращается без вызова `audioProvider`, и что passthrough-подготовка сохраняет исходный URL, включая путь с пробелами и кириллицей. Чтение реального видео через AVFoundation и разбор WAV отдельными тестами пока не покрыты.
+
+```sh
+swift test --package-path AppTarget/Modules/Core/Media
+```

@@ -30,3 +30,7 @@ Edit-режим получает готовый `EditTimeline`, субтитры
 ## Тесты
 
 `TimelineFeatureImplTests` проверяет layout дорожек: положение shorts strip, waveform и cue при скрытой/показанной волне, а также уменьшение waveform при небольшой высоте. Drag-жесты, snapping, keyboard commands и edit timeline в тестах этого пакета пока не покрыты.
+
+```sh
+swift test --package-path AppTarget/Modules/Features/TimelineFeature
+```

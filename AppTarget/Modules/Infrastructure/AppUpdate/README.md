@@ -20,3 +20,7 @@
 ## Тесты
 
 Тесты находятся в `Tests/AppUpdateImplTests`. Сейчас они проверяют, что assembly действительно создаёт объект, соответствующий `AppUpdateChecking`, причём без запуска updater во время теста. Сетевой поиск обновлений тестами не выполняется.
+
+```sh
+swift test --package-path AppTarget/Modules/Infrastructure/AppUpdate
+```

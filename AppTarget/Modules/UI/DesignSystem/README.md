@@ -24,3 +24,7 @@
 ## Тесты
 
 Тесты лежат в `Tests/DesignSystemImplTests`. Они проверяют разбор шестизначного RGB в `Color(hex:)`, отказ на некорректной строке и то, что `SurfacePanel` сохраняет конкретный тип вложенного SwiftUI-view без стирания типа.
+
+```sh
+swift test --package-path AppTarget/Modules/UI/DesignSystem
+```

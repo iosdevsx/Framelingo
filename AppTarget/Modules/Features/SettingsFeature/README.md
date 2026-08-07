@@ -35,3 +35,7 @@
 ## Тесты
 
 `SettingsFeatureImplTests` проверяет два важных разделения ответственности: глобальные настройки сохраняются через `SettingsAccess` и показывают ошибку persistence, а стиль экспорта проекта обновляется через отдельный адаптер и не меняет глобальные настройки. Установка моделей, проверка FFmpeg и SwiftUI-экран отдельно не тестируются.
+
+```sh
+swift test --package-path AppTarget/Modules/Features/SettingsFeature
+```

@@ -30,3 +30,7 @@
 ## Тесты
 
 `ExportFeatureTests` проверяет публичные контракты: передачу настроек текстового экспорта, результаты Reveal/Copy и публикацию прогресса с маршрутизацией dismiss к владельцу. UI и полный прогон FFmpeg этими тестами не покрыты.
+
+```sh
+swift test --package-path AppTarget/Modules/Features/ExportFeature
+```

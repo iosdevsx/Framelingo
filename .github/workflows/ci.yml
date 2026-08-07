@@ -49,6 +49,9 @@ jobs:
           install: true
           cache: true
 
+      - name: Check repository documentation
+        run: mise run docs:check
+
       - name: Restore generated build cache
         uses: actions/cache@v4
         with:

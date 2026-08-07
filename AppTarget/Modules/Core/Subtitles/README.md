@@ -38,3 +38,7 @@ API зависит от `SpeakerAnalysis`: оттуда приходят speaker
 - совместимость старого JSON `SubtitleSegment` с новыми speaker-полями;
 - экспорт подписей спикеров и независимость текстового экспорта от оформления видео;
 - предупреждение о слишком высокой скорости чтения.
+
+```sh
+swift test --package-path AppTarget/Modules/Core/Subtitles
+```

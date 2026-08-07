@@ -26,3 +26,7 @@ API зависит от `SpeechToText`, потому что значение Whi
 - значения по умолчанию, повреждённый JSON и сохранение через отдельный suite `UserDefaults`;
 - чтение старого fixture-файла;
 - публикацию состояний менеджера, порядок быстрых сохранений и поведение при ошибках load/save.
+
+```sh
+swift test --package-path AppTarget/Modules/Core/Settings
+```

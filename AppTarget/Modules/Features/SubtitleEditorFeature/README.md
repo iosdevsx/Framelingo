@@ -30,3 +30,7 @@
 ## Тесты
 
 `SubtitleEditorFeatureImplTests` проверяет сохранение семантики document picker для success/cancel/failure и вычисляемые id в `SubtitleEditorFocus`. Поведение списка, валидация таймингов, debounce и import preview отдельными UI-тестами пока не покрыты.
+
+```sh
+swift test --package-path AppTarget/Modules/Features/SubtitleEditorFeature
+```

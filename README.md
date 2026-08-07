@@ -144,15 +144,16 @@ API-протоколы и передаёт их в feature factories. Это п�
 platform-neutral модели и алгоритмы монтажа/маппинга/валидации, второй — одну
 интерактивную SwiftUI-реализацию, используемую в субтитрах, редакторе и Shorts.
 
-Полный граф владения и разрешённых зависимостей описан в
-[`module-graph.md`](openspec/changes/modularize-codebase-with-spm/module-graph.md),
-а правила миграции — в OpenSpec change `modularize-codebase-with-spm`.
+Разрешённые зависимости описаны в
+[`docs/module-boundaries.md`](docs/module-boundaries.md), а актуальные topology и
+runtime-сценарии генерируются для
+[`Architecture Site`](Tools/ArchitectureSite/README.md). Общая карта документации
+и источников истины находится в [`docs/index.md`](docs/index.md).
 
-Следующие архитектурные шаги — переключение редактирования и эффектов на готовый ProjectSession,
-централизация Mac composition и добавление iOS composition. Tuist уже генерирует временный macOS workspace
-из `MacApp`; checked-in Xcode-проект остаётся только parity-эталоном до cutover. Доменные границы уже не завязаны на
-AppKit, но адаптация существующих SwiftUI/AppKit interaction seams под iOS
-будет отдельной задачей, а не скрытой частью модуляризации.
+`ProjectSession` уже владеет открытым проектом и его эффектами; `MacApp` и
+`IOSApp` являются отдельными product composition roots. Tuist генерирует общий
+workspace для macOS, iPhone и iPad. Checked-in Xcode-проект пока остаётся только
+parity-эталоном до окончательного cutover.
 
 ## Тесты
 

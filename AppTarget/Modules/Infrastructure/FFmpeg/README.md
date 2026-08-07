@@ -17,3 +17,7 @@
 ## Тесты
 
 Тест находится в `Tests/FFmpegTests` и проверяет, что значение `isEmbeddedBackendAvailable` соответствует платформе сборки. Работу отдельных кодеков и реальные медиаконвертации этот тест не запускает.
+
+```sh
+swift test --package-path AppTarget/Modules/Infrastructure/FFmpeg
+```

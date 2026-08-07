@@ -29,3 +29,7 @@
 ## Тесты
 
 `ShortsFeatureTests` сейчас содержит один contract-тест: выбранный шорт вычисляется из переданного массива и `selectedShortID`, без второго массива-состояния. Crop, preview, popover-компоненты и экспортный сценарий автоматическими тестами этого пакета пока не покрыты.
+
+```sh
+swift test --package-path AppTarget/Modules/Features/ShortsFeature
+```

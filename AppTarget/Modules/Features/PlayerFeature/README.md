@@ -26,3 +26,7 @@
 ## Тесты
 
 `PlayerFeatureImplTests` проверяет `TimelineFrameStepper`: шаг по NTSC 29.97 fps, переход к соседней границе из произвольной позиции и ограничение временем начала/конца. Визуальный preview тестами не покрыт.
+
+```sh
+swift test --package-path AppTarget/Modules/Features/PlayerFeature
+```
