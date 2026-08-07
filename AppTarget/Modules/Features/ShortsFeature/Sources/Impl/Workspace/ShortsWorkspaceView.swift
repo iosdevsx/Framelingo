@@ -23,7 +23,6 @@ struct ShortsWorkspaceView: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var exportRequest: ShortsExportRequest?
-    @State private var inspectorOpen = true
 
     var body: some View {
         let theme = ShortsTheme(dark: colorScheme == .dark)
@@ -58,26 +57,11 @@ struct ShortsWorkspaceView: View {
                     theme: theme,
                     state: state,
                     actions: actions,
+                    player: player,
                     onSeek: onSeek
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .layoutPriority(1)
-
-            if let short = state.selectedShort {
-                ShortsInspectorView(
-                    theme: theme,
-                    state: state,
-                    actions: actions,
-                    short: short,
-                    player: player,
-                    open: $inspectorOpen,
-                    onSeek: onSeek,
-                    onExport: {
-                        exportRequest = ShortsExportRequest(shortIDs: [short.id])
-                    }
-                )
-            }
         }
         .background(theme.bg)
         .popover(item: $exportRequest) { request in
@@ -90,15 +74,54 @@ struct ShortsWorkspaceView: View {
     }
 }
 
+/// Hosts the selected-short inspector. `ProjectView` places it below the
+/// shared timeline so the vertical order matches the design mock:
+/// stage → source timeline → inspector.
+struct ShortsInspectorHost: View {
+    let state: ShortsWorkspaceState
+    let actions: ShortsWorkspaceActions
+    let player: AVPlayer?
+    let onSeek: (Int) -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var open = true
+    @State private var exportRequest: ShortsExportRequest?
+
+    var body: some View {
+        if let short = state.selectedShort {
+            ShortsInspectorView(
+                theme: ShortsTheme(dark: colorScheme == .dark),
+                state: state,
+                actions: actions,
+                short: short,
+                player: player,
+                open: $open,
+                onSeek: onSeek,
+                onExport: {
+                    exportRequest = ShortsExportRequest(shortIDs: [short.id])
+                }
+            )
+            .popover(item: $exportRequest) { request in
+                ShortsExportOptionsPopover(
+                    settings: state.exportSettings,
+                    shorts: state.shorts.filter { request.shortIDs.contains($0.id) },
+                    actions: actions
+                )
+            }
+        }
+    }
+}
+
 // MARK: - Theme
 
-/// Visual tokens lifted from the design mock's `tokens(dark)`.
+/// Visual tokens from the design mock, with backgrounds mapped onto the
+/// system surfaces the rest of the app uses.
 struct ShortsTheme {
     let dark: Bool
 
-    var bg: Color { dark ? Color(red: 0.063, green: 0.063, blue: 0.071) : Color(red: 0.949, green: 0.949, blue: 0.961) }
-    var panel: Color { dark ? Color(red: 0.090, green: 0.090, blue: 0.102) : .white }
-    var panel2: Color { dark ? Color(red: 0.114, green: 0.114, blue: 0.129) : Color(red: 0.973, green: 0.973, blue: 0.980) }
+    var bg: Color { Color(nsColor: .windowBackgroundColor) }
+    var panel: Color { dark ? Color(white: 0.09) : .white }
+    var panel2: Color { dark ? Color(white: 0.11) : Color(white: 0.975) }
     var inset: Color { dark ? Color.white.opacity(0.04) : Color.black.opacity(0.03) }
     var line: Color { dark ? Color.white.opacity(0.07) : Color.black.opacity(0.08) }
     var line2: Color { dark ? Color.white.opacity(0.12) : Color.black.opacity(0.14) }
@@ -337,30 +360,20 @@ private struct ShortsStageView: View {
                     in: CGRect(origin: .zero, size: geometry.size).insetBy(dx: 20, dy: 8)
                 )
 
-                ZStack {
-                    RadialGradient(
-                        colors: [Color.accentColor.opacity(theme.dark ? 0.06 : 0.12), .clear],
-                        center: UnitPoint(x: 0.5, y: 0.42),
-                        startRadius: 0,
-                        endRadius: max(geometry.size.width, geometry.size.height) * 0.45
+                canvas(size: canvasRect.size)
+                    .frame(width: canvasRect.width, height: canvasRect.height)
+                    .compositingGroup()
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(theme.line2, lineWidth: 1)
                     )
-                    .allowsHitTesting(false)
-
-                    canvas(size: canvasRect.size)
-                        .frame(width: canvasRect.width, height: canvasRect.height)
-                        .compositingGroup()
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .stroke(theme.line2, lineWidth: 1)
-                        )
-                        .shadow(color: .black.opacity(theme.dark ? 0.5 : 0.28), radius: 30, y: 14)
-                        .overlay(alignment: .topTrailing) {
-                            captionStylePill
-                                .padding(12)
-                        }
-                        .position(x: canvasRect.midX, y: canvasRect.midY)
-                }
+                    .shadow(color: .black.opacity(theme.dark ? 0.4 : 0.22), radius: 24, y: 10)
+                    .overlay(alignment: .topTrailing) {
+                        captionStylePill
+                            .padding(12)
+                    }
+                    .position(x: canvasRect.midX, y: canvasRect.midY)
             }
 
             transport(short: short)
@@ -747,6 +760,7 @@ private struct ShortsLibraryRail: View {
     let theme: ShortsTheme
     let state: ShortsWorkspaceState
     let actions: ShortsWorkspaceActions
+    let player: AVPlayer?
     let onSeek: (Int) -> Void
 
     var body: some View {
@@ -770,6 +784,7 @@ private struct ShortsLibraryRail: View {
                             theme: theme,
                             state: state,
                             short: short,
+                            player: player,
                             isSelected: state.selectedShortID == short.id,
                             onSelect: {
                                 actions.selectShort(id: short.id)
@@ -848,6 +863,7 @@ private struct ShortsLibraryCard: View {
     let theme: ShortsTheme
     let state: ShortsWorkspaceState
     let short: ShortDefinition
+    let player: AVPlayer?
     let isSelected: Bool
     let onSelect: () -> Void
     let onDuplicate: () -> Void
@@ -860,7 +876,7 @@ private struct ShortsLibraryCard: View {
 
         Button(action: onSelect) {
             HStack(alignment: .top, spacing: 10) {
-                thumbnail
+                ShortsLibraryThumbnail(theme: theme, player: player, short: short)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(short.title)
@@ -949,25 +965,32 @@ private struct ShortsLibraryCard: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    private var thumbnail: some View {
-        ZStack(alignment: .bottom) {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.078, green: 0.086, blue: 0.11),
-                            Color(red: 0.031, green: 0.035, blue: 0.043),
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+}
 
-            Ellipse()
-                .fill(Color.accentColor.opacity(0.55))
-                .frame(width: 34, height: 40)
-                .blur(radius: 10)
-                .offset(x: -8, y: -18)
+/// A real still frame from the source video at the short's start time.
+private struct ShortsLibraryThumbnail: View {
+    let theme: ShortsTheme
+    let player: AVPlayer?
+    let short: ShortDefinition
+
+    @State private var image: CGImage?
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.078, green: 0.086, blue: 0.11),
+                    Color(red: 0.031, green: 0.035, blue: 0.043),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            if let image {
+                Image(decorative: image, scale: 1)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            }
 
             Capsule()
                 .fill(Color.white.opacity(0.35))
@@ -981,6 +1004,55 @@ private struct ShortsLibraryCard: View {
             RoundedRectangle(cornerRadius: 6)
                 .stroke(theme.line2, lineWidth: 0.5)
         )
+        .task(id: "\(short.id)-\(short.startMs)") {
+            await loadThumbnail()
+        }
+    }
+
+    @MainActor
+    private func loadThumbnail() async {
+        guard let asset = player?.currentItem?.asset else {
+            return
+        }
+
+        let cacheKey = "\(ObjectIdentifier(asset).hashValue)-\(short.startMs)"
+        if let cached = ShortsThumbnailCache.shared.image(for: cacheKey) {
+            image = cached
+            return
+        }
+
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 320, height: 320)
+        let tolerance = CMTime(seconds: 0.5, preferredTimescale: 600)
+        generator.requestedTimeToleranceBefore = tolerance
+        generator.requestedTimeToleranceAfter = tolerance
+
+        let time = CMTime(value: CMTimeValue(short.startMs), timescale: 1_000)
+        guard let result = try? await generator.image(at: time) else {
+            return
+        }
+
+        ShortsThumbnailCache.shared.store(result.image, for: cacheKey)
+        image = result.image
+    }
+}
+
+@MainActor
+private final class ShortsThumbnailCache {
+    static let shared = ShortsThumbnailCache()
+
+    private var storage: [String: CGImage] = [:]
+
+    func image(for key: String) -> CGImage? {
+        storage[key]
+    }
+
+    func store(_ image: CGImage, for key: String) {
+        if storage.count > 64 {
+            storage.removeAll()
+        }
+        storage[key] = image
     }
 }
 
@@ -1057,7 +1129,7 @@ private struct ShortsInspectorView: View {
                     }
                     .fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(maxHeight: 248)
+                .frame(height: 250)
             }
         }
         .background(theme.panel2)

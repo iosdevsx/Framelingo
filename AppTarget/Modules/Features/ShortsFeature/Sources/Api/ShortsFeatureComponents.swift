@@ -33,12 +33,23 @@ public struct ShortsWorkspaceRequest {
 @MainActor
 public struct ShortsFeatureFactory {
     private let makeWorkspaceAction: (ShortsWorkspaceRequest) -> AnyView
+    private let makeInspectorAction: (ShortsWorkspaceRequest) -> AnyView
 
-    public init(makeWorkspace: @escaping (ShortsWorkspaceRequest) -> AnyView) {
+    public init(
+        makeWorkspace: @escaping (ShortsWorkspaceRequest) -> AnyView,
+        makeInspector: @escaping (ShortsWorkspaceRequest) -> AnyView = { _ in AnyView(EmptyView()) }
+    ) {
         self.makeWorkspaceAction = makeWorkspace
+        self.makeInspectorAction = makeInspector
     }
 
     public func makeWorkspace(_ request: ShortsWorkspaceRequest) -> AnyView {
         makeWorkspaceAction(request)
+    }
+
+    /// The selected-short inspector, placed by the host BELOW the shared
+    /// timeline (matching the design mock's stage → source → inspector order).
+    public func makeInspector(_ request: ShortsWorkspaceRequest) -> AnyView {
+        makeInspectorAction(request)
     }
 }
