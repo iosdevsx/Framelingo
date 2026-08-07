@@ -13,6 +13,7 @@
 /Manifests.xcworkspace/
 /Tuist/Dependencies/
 /.tuist-cache/
+/.cache/
 /.env.local
 /*.mobileprovision
 /*.provisionprofile
