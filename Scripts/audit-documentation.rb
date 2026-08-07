@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require "fileutils"
+require "json"
 require "open3"
 require "pathname"
 require "rbconfig"
@@ -136,15 +137,21 @@ module DocumentationAudit
         next
       end
 
-      expected = File.binread(temporary.path)
-      unless canonical.binread == expected
+      expected = File.read(temporary.path, encoding: Encoding::UTF_8)
+      unless equivalent_json?(canonical.read(encoding: Encoding::UTF_8), expected)
         errors << "docs/architecture/framelingo-architecture.json is stale; run `mise run architecture:export`"
       end
-      unless site.binread == expected
+      unless equivalent_json?(site.read(encoding: Encoding::UTF_8), expected)
         errors << "Tools/ArchitectureSite/app/architecture-data.json is stale; run `mise run architecture:export`"
       end
     end
     errors
+  end
+
+  def equivalent_json?(left, right)
+    JSON.parse(left) == JSON.parse(right)
+  rescue JSON::ParserError
+    false
   end
 
   def run(root)
@@ -196,6 +203,23 @@ def run_self_tests
         MARKDOWN
         assert_empty DocumentationAudit.validate_package_readme(package.join("Package.swift"), root)
       end
+    end
+
+    define_method(:test_json_equivalence_ignores_serialization_formatting) do
+      compact = '{"modules":[{"name":"Example"}]}'
+      pretty = <<~JSON
+        {
+          "modules": [
+            {
+              "name": "Example"
+            }
+          ]
+        }
+      JSON
+
+      assert DocumentationAudit.equivalent_json?(compact, pretty)
+      refute DocumentationAudit.equivalent_json?(compact, '{"modules":[]}')
+      refute DocumentationAudit.equivalent_json?(compact, "not json")
     end
   end
 end
