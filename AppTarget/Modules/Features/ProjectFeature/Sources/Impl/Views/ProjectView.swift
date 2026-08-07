@@ -311,7 +311,9 @@ struct ProjectView: View {
                     state: shortsWorkspaceState(project),
                     actions: shortsWorkspaceActions,
                     player: player,
-                    onSeek: { seek(to: $0) }
+                    isPlaying: isPlaying,
+                    onSeek: { seek(to: $0) },
+                    onTogglePlayback: { togglePlayback() }
                 )
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -902,7 +904,10 @@ struct ProjectView: View {
             selectedShortID: viewModel.shortsSelectedShortID,
             suggestions: viewModel.shortsSuggestions,
             suggestionMessage: viewModel.shortsSuggestionMessage,
-            videoSourceInfo: viewModel.videoSourceInfo
+            videoSourceInfo: viewModel.videoSourceInfo,
+            speakers: project.speakers.map {
+                ShortsSpeakerBadge(id: $0.id, name: $0.name, colorHex: $0.colorHex)
+            }
         )
     }
 

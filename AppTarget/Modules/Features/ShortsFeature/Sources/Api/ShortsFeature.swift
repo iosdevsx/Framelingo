@@ -5,6 +5,20 @@ import VideoRendering
 
 public enum ShortsFeature {}
 
+/// Minimal speaker info the shorts workspace needs for the on-frame speaker
+/// chip, kept local to the feature so it does not depend on SpeakerAnalysis.
+public struct ShortsSpeakerBadge: Identifiable, Equatable {
+    public let id: String
+    public let name: String
+    public let colorHex: String
+
+    public init(id: String, name: String, colorHex: String) {
+        self.id = id
+        self.name = name
+        self.colorHex = colorHex
+    }
+}
+
 public struct ShortsWorkspaceState: Equatable {
     public let subtitles: [SubtitleSegment]
     public let shorts: [ShortDefinition]
@@ -14,6 +28,7 @@ public struct ShortsWorkspaceState: Equatable {
     public let suggestions: [ShortSuggestion]
     public let suggestionMessage: String?
     public let videoSourceInfo: VideoSourceInfo?
+    public let speakers: [ShortsSpeakerBadge]
 
     public init(
         subtitles: [SubtitleSegment],
@@ -23,7 +38,8 @@ public struct ShortsWorkspaceState: Equatable {
         selectedShortID: UUID?,
         suggestions: [ShortSuggestion],
         suggestionMessage: String?,
-        videoSourceInfo: VideoSourceInfo?
+        videoSourceInfo: VideoSourceInfo?,
+        speakers: [ShortsSpeakerBadge] = []
     ) {
         self.subtitles = subtitles
         self.shorts = shorts
@@ -33,6 +49,7 @@ public struct ShortsWorkspaceState: Equatable {
         self.suggestions = suggestions
         self.suggestionMessage = suggestionMessage
         self.videoSourceInfo = videoSourceInfo
+        self.speakers = speakers
     }
 
     public var selectedShort: ShortDefinition? {
@@ -46,6 +63,7 @@ public struct ShortsWorkspaceActions {
     private let selectShortAction: (UUID?) -> Void
     private let addShortAtPlayheadAction: () -> Void
     private let deleteShortAction: (UUID) -> Void
+    private let duplicateShortAction: (UUID) -> Void
     private let updateShortAction: (UUID, String?, (inout ShortDefinition) -> Void) -> Void
     private let beginInteractiveShortEditAction: () -> Void
     private let endInteractiveShortEditAction: (String) -> Void
@@ -65,6 +83,7 @@ public struct ShortsWorkspaceActions {
         selectShort: @escaping (UUID?) -> Void,
         addShortAtPlayhead: @escaping () -> Void,
         deleteShort: @escaping (UUID) -> Void,
+        duplicateShort: @escaping (UUID) -> Void = { _ in },
         updateShort: @escaping (UUID, String?, (inout ShortDefinition) -> Void) -> Void,
         beginInteractiveShortEdit: @escaping () -> Void,
         endInteractiveShortEdit: @escaping (String) -> Void,
@@ -83,6 +102,7 @@ public struct ShortsWorkspaceActions {
         self.selectShortAction = selectShort
         self.addShortAtPlayheadAction = addShortAtPlayhead
         self.deleteShortAction = deleteShort
+        self.duplicateShortAction = duplicateShort
         self.updateShortAction = updateShort
         self.beginInteractiveShortEditAction = beginInteractiveShortEdit
         self.endInteractiveShortEditAction = endInteractiveShortEdit
@@ -102,6 +122,7 @@ public struct ShortsWorkspaceActions {
     public func selectShort(id: UUID?) { selectShortAction(id) }
     public func addShortAtPlayhead() { addShortAtPlayheadAction() }
     public func deleteShort(id: UUID) { deleteShortAction(id) }
+    public func duplicateShort(id: UUID) { duplicateShortAction(id) }
 
     public func updateShort(
         id: UUID,

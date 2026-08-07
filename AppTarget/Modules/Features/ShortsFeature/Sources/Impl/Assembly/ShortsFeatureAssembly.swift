@@ -11,7 +11,9 @@ public enum ShortsFeatureAssembly {
                     state: request.state,
                     actions: request.actions,
                     player: request.player,
-                    onSeek: request.seek
+                    isPlaying: request.isPlaying,
+                    onSeek: request.seek,
+                    onTogglePlayback: request.togglePlayback
                 )
             )
         }
