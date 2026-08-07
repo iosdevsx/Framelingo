@@ -23,7 +23,7 @@ printf '%s\n' "$sdk_list" | grep -q -- '-sdk iphoneos' || fail "The iOS device S
 printf '%s\n' "$sdk_list" | grep -q -- '-sdk iphonesimulator' || fail "The iOS simulator SDK is missing from Xcode."
 
 package_count=$(find AppTarget/Modules -mindepth 3 -maxdepth 3 -name Package.swift | wc -l | tr -d ' ')
-[ "$package_count" = "27" ] || fail "Found $package_count module manifests; expected 27. Run the module audit before changing the inventory."
+[ "$package_count" = "28" ] || fail "Found $package_count module manifests; expected 28. Run the module audit before changing the inventory."
 
 test_target_count=$(jq '.testTargets | length' TestPlan.xctestplan)
 [ "$test_target_count" = "33" ] || fail "TestPlan.xctestplan contains $test_target_count targets; expected 33."

@@ -14,13 +14,13 @@ if grep -Eq '\.package\(path:' Project.swift Tuist/ProjectDescriptionHelpers/*.s
 fi
 
 membership_exclusion_count=$(grep -Ec '"Modules/.+"' Tuist/ProjectDescriptionHelpers/FramelingoPackages.swift)
-[ "$membership_exclusion_count" = "27" ] || fail "Found $membership_exclusion_count package membership exclusions; expected 27."
+[ "$membership_exclusion_count" = "28" ] || fail "Found $membership_exclusion_count package membership exclusions; expected 28."
 
 flat_package_count=$(find AppTarget/Modules -mindepth 2 -maxdepth 2 -name Package.swift | wc -l | tr -d ' ')
 [ "$flat_package_count" = "0" ] || fail "Packages must live inside logical module groups, not directly under AppTarget/Modules."
 
 grouped_package_count=$(find AppTarget/Modules -mindepth 3 -maxdepth 3 -name Package.swift | wc -l | tr -d ' ')
-[ "$grouped_package_count" = "27" ] || fail "Found $grouped_package_count grouped packages; expected 27."
+[ "$grouped_package_count" = "28" ] || fail "Found $grouped_package_count grouped packages; expected 28."
 
 grep -Eq 'buildableFolders:' Tuist/ProjectDescriptionHelpers/FramelingoTargets.swift || \
     fail "The app target must expose AppTarget through an Xcode synchronized folder."

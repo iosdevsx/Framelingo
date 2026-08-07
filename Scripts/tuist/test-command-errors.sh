@@ -32,7 +32,7 @@ assert_fails_with \
     ./Scripts/tuist/project.sh focused
 
 assert_fails_with \
-    "Complete add-ios-app-composition" \
+    "Generated workspace is missing" \
     ./Scripts/tuist/project.sh build ios
 
 assert_fails_with \
