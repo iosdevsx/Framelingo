@@ -110,24 +110,7 @@ Framelingo поддерживает два движка распознавани
 
 ## Структура проекта
 
-```text
-Framelingo/
-├── App/                  # состояние приложения
-├── Models/               # проекты, субтитры, спикеры и настройки
-├── Views/                # SwiftUI-интерфейс
-├── ViewModels/           # логика экранов
-├── SpeechToText/         # Whisper и Parakeet
-├── SpeakerDiarization/   # определение и выравнивание спикеров
-├── Timeline/             # таймлайны субтитров и монтажа
-├── Import/               # импорт файлов субтитров
-├── Export/               # экспорт SRT, VTT, TXT и ASS для рендеринга
-└── Media/                # FFmpeg, метаданные и волновая форма
-
-FramelingoTests/          # модульные тесты
-BundledTools/Whisper/     # встроенный whisper-cli и библиотеки
-External/FFmpegKit/       # встроенные FFmpeg-фреймворки
-Scripts/                  # сборка инструментов и публикация релиза
-```
+<img width="803" height="862" alt="Снимок экрана — 2026-08-07 в 12 40 19" src="https://github.com/user-attachments/assets/bbe4fc7e-63ba-4d35-a098-a8b8ed5d04fa" />
 
 ## Тесты
 
