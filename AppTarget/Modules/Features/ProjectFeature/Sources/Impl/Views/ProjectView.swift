@@ -305,17 +305,18 @@ struct ProjectView: View {
         timelineHeight: Double
     ) -> some View {
         let shortsEditing = viewModel.shortsEditingPort
+        let shortsRequest = ShortsWorkspaceRequest(
+            state: shortsWorkspaceState(project),
+            actions: shortsWorkspaceActions,
+            player: player,
+            isPlaying: isPlaying,
+            onSeek: { seek(to: $0) },
+            onTogglePlayback: { togglePlayback() }
+        )
         return VStack(spacing: 0) {
-            components.shorts.makeWorkspace(
-                ShortsWorkspaceRequest(
-                    state: shortsWorkspaceState(project),
-                    actions: shortsWorkspaceActions,
-                    player: player,
-                    onSeek: { seek(to: $0) }
-                )
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .frame(minHeight: 260)
+            components.shorts.makeWorkspace(shortsRequest)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minHeight: 220)
 
             timelineResizeHandle(totalHeight: geometry.size.height)
 
@@ -339,6 +340,9 @@ struct ProjectView: View {
                 )
             )
             .frame(height: timelineHeight)
+
+            // Inspector sits below the shared timeline, per the design mock.
+            components.shorts.makeInspector(shortsRequest)
         }
         .clipped()
     }
@@ -902,7 +906,10 @@ struct ProjectView: View {
             selectedShortID: viewModel.shortsSelectedShortID,
             suggestions: viewModel.shortsSuggestions,
             suggestionMessage: viewModel.shortsSuggestionMessage,
-            videoSourceInfo: viewModel.videoSourceInfo
+            videoSourceInfo: viewModel.videoSourceInfo,
+            speakers: project.speakers.map {
+                ShortsSpeakerBadge(id: $0.id, name: $0.name, colorHex: $0.colorHex)
+            }
         )
     }
 

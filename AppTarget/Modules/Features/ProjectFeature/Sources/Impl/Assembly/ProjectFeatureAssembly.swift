@@ -1,6 +1,7 @@
 import ExportFeature
 import ProjectFeature
 import ProjectSession
+import Shorts
 import ShortsFeature
 import SubtitleEditorFeature
 import SwiftUI
@@ -79,6 +80,24 @@ private struct ProjectFeatureRootView: View {
             selectShort: { editing.selectShort(id: $0) },
             addShortAtPlayhead: { _ = editing.addShortAtPlayhead() },
             deleteShort: { _ = editing.deleteShort(id: $0) },
+            duplicateShort: { id in
+                guard let short = observing.snapshot.project?.shorts.first(where: { $0.id == id }) else { return }
+                let added = editing.addShort(
+                    startMs: short.startMs,
+                    endMs: short.endMs,
+                    title: short.title + " copy"
+                )
+                guard let newID = added.selectedID,
+                      var copy = observing.snapshot.project?.shorts.first(where: { $0.id == newID }) else { return }
+                copy.reframing = short.reframing
+                copy.cropOffsetX = short.cropOffsetX
+                copy.cropKeyframes = short.cropKeyframes.map {
+                    ShortCropKeyframe(timeMs: $0.timeMs, offsetX: $0.offsetX)
+                }
+                copy.hookText = short.hookText
+                copy.platformOverride = short.platformOverride
+                _ = editing.replaceShort(copy)
+            },
             updateShort: { id, undoActionName, mutate in
                 guard var short = observing.snapshot.project?.shorts.first(where: { $0.id == id }) else { return }
                 mutate(&short)
