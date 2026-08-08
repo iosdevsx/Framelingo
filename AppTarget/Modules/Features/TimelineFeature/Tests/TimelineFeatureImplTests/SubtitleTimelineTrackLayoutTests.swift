@@ -1,7 +1,16 @@
 @testable import TimelineFeatureImpl
+import TimelineFeature
 import Testing
 
 struct SubtitleTimelineTrackLayoutTests {
+    @Test
+    func presentationDefaultsPreserveSubtitleEditingAndSimplifyShorts() {
+        #expect(SubtitleTimelinePresentation.subtitleEditor.content == .subtitles)
+        #expect(SubtitleTimelinePresentation.subtitleEditor.showsCueTrack)
+        #expect(SubtitleTimelinePresentation.shorts.content == .shorts)
+        #expect(!SubtitleTimelinePresentation.shorts.showsCueTrack)
+    }
+
     @Test
     func compactShortsTrackStaysBetweenRulerAndCues() {
         let layout = SubtitleTimelineTrackLayout(

@@ -8,11 +8,9 @@ import AVFoundation
 import AVKit
 import SwiftUI
 
-/// The `.shorts` workspace mode, redesigned after the Claude Design mock
-/// (`ShortsMode.jsx`): header bar on top, 9:16 stage with its own clip
-/// transport in the middle, a library rail of short cards on the right and a
-/// collapsible three-column inspector at the bottom. The shared source
-/// timeline below is owned by `ProjectView`, as in the other modes.
+/// Preview-first Shorts workspace. The shared source timeline remains owned by
+/// `ProjectView`; this surface owns the stage and one contextual Clips/Edit
+/// panel so feature controls never compete with a second bottom inspector.
 struct ShortsWorkspaceView: View {
     let state: ShortsWorkspaceState
     let actions: ShortsWorkspaceActions
@@ -27,42 +25,33 @@ struct ShortsWorkspaceView: View {
     var body: some View {
         let theme = ShortsTheme(dark: colorScheme == .dark)
 
-        VStack(spacing: 0) {
-            ShortsHeaderBar(
+        HStack(spacing: 0) {
+            ShortsStageView(
                 theme: theme,
                 state: state,
                 actions: actions,
-                onExportAll: {
-                    exportRequest = ShortsExportRequest(shortIDs: state.shorts.map(\.id))
+                player: player,
+                isPlaying: isPlaying,
+                onSeek: onSeek,
+                onTogglePlayback: onTogglePlayback
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            hairline(theme, vertical: true)
+
+            ShortsContextPanel(
+                theme: theme,
+                state: state,
+                actions: actions,
+                player: player,
+                onSeek: onSeek,
+                onExport: { shortIDs in
+                    exportRequest = ShortsExportRequest(shortIDs: shortIDs)
                 }
             )
-
-            hairline(theme)
-
-            HStack(spacing: 0) {
-                ShortsStageView(
-                    theme: theme,
-                    state: state,
-                    actions: actions,
-                    player: player,
-                    isPlaying: isPlaying,
-                    onSeek: onSeek,
-                    onTogglePlayback: onTogglePlayback
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                hairline(theme, vertical: true)
-
-                ShortsLibraryRail(
-                    theme: theme,
-                    state: state,
-                    actions: actions,
-                    player: player,
-                    onSeek: onSeek
-                )
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(minWidth: 280, idealWidth: 310, maxWidth: 340)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.bg)
         .popover(item: $exportRequest) { request in
             ShortsExportOptionsPopover(
@@ -74,41 +63,151 @@ struct ShortsWorkspaceView: View {
     }
 }
 
-/// Hosts the selected-short inspector. `ProjectView` places it below the
-/// shared timeline so the vertical order matches the design mock:
-/// stage → source timeline → inspector.
-struct ShortsInspectorHost: View {
+enum ShortsContextPanelMode: String, CaseIterable, Identifiable {
+    case clips
+    case edit
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .clips: "Clips"
+        case .edit: "Edit"
+        }
+    }
+}
+
+private struct ShortsContextPanel: View {
+    let theme: ShortsTheme
     let state: ShortsWorkspaceState
     let actions: ShortsWorkspaceActions
     let player: AVPlayer?
     let onSeek: (Int) -> Void
+    let onExport: ([UUID]) -> Void
 
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var open = true
-    @State private var exportRequest: ShortsExportRequest?
+    @State private var mode: ShortsContextPanelMode = .clips
+    @State private var showsSettings = false
 
     var body: some View {
-        if let short = state.selectedShort {
-            ShortsInspectorView(
-                theme: ShortsTheme(dark: colorScheme == .dark),
-                state: state,
-                actions: actions,
-                short: short,
-                player: player,
-                open: $open,
-                onSeek: onSeek,
-                onExport: {
-                    exportRequest = ShortsExportRequest(shortIDs: [short.id])
-                }
-            )
-            .popover(item: $exportRequest) { request in
-                ShortsExportOptionsPopover(
-                    settings: state.exportSettings,
-                    shorts: state.shorts.filter { request.shortIDs.contains($0.id) },
-                    actions: actions
+        VStack(spacing: 0) {
+            header
+            hairline(theme)
+
+            switch mode {
+            case .clips:
+                ShortsLibraryRail(
+                    theme: theme,
+                    state: state,
+                    actions: actions,
+                    player: player,
+                    onSeek: onSeek,
+                    onEditSelected: { mode = .edit }
                 )
+            case .edit:
+                if let short = state.selectedShort {
+                    ShortsInspectorView(
+                        theme: theme,
+                        state: state,
+                        actions: actions,
+                        short: short,
+                        onSeek: onSeek
+                    )
+                } else {
+                    ContentUnavailableView(
+                        "Select a short",
+                        systemImage: "rectangle.portrait.on.rectangle.portrait",
+                        description: Text("Choose a clip or create one at the playhead before editing.")
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+
+            hairline(theme)
+            footer
+        }
+        .background(.regularMaterial)
+        .onChange(of: state.selectedShortID) { previousID, selectedID in
+            if selectedID != nil, selectedID != previousID {
+                mode = .edit
             }
         }
+    }
+
+    private var header: some View {
+        VStack(spacing: DesignSpacing.small) {
+            Picker("Shorts panel", selection: $mode) {
+                ForEach(ShortsContextPanelMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
+            HStack(spacing: DesignSpacing.small) {
+                Button {
+                    actions.generateSuggestions()
+                    mode = .clips
+                } label: {
+                    Label("Suggest", systemImage: "sparkles")
+                }
+                .help("Suggest clips from pauses and speaker changes")
+
+                Button {
+                    actions.addShortAtPlayhead()
+                    mode = .edit
+                } label: {
+                    Label("New", systemImage: "plus")
+                }
+                .help("Create a short at the playhead")
+
+                Spacer(minLength: 0)
+
+                Button {
+                    showsSettings.toggle()
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .help("Shorts defaults")
+                .popover(isPresented: $showsSettings) {
+                    ShortsSettingsPopover(settings: state.exportSettings, actions: actions)
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(DesignSpacing.medium)
+    }
+
+    @ViewBuilder
+    private var footer: some View {
+        let selectedIDs = state.selectedShort.map { [$0.id] } ?? []
+        let exportsSelection = mode == .edit && !selectedIDs.isEmpty
+        let exportIDs = exportsSelection ? selectedIDs : state.shorts.map(\.id)
+
+        HStack(spacing: DesignSpacing.small) {
+            Button {
+                onExport(exportIDs)
+            } label: {
+                Label(exportsSelection ? "Export short" : "Export all", systemImage: "square.and.arrow.up")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
+            .disabled(exportIDs.isEmpty)
+
+            if exportsSelection, state.shorts.count > 1 {
+                Menu {
+                    Button("Export all \(state.shorts.count) shorts") {
+                        onExport(state.shorts.map(\.id))
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+                .menuStyle(.borderlessButton)
+                .help("More export actions")
+            }
+        }
+        .padding(DesignSpacing.medium)
     }
 }
 
@@ -194,21 +293,6 @@ private extension View {
             .contentShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    func shortsPrimaryChrome(height: CGFloat = 30) -> some View {
-        font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 13)
-            .frame(height: height)
-            .background(
-                LinearGradient(
-                    colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ),
-                in: RoundedRectangle(cornerRadius: 8)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 8))
-    }
 }
 
 private extension ShortsPlatform {
@@ -236,99 +320,6 @@ private func shortsClockText(_ milliseconds: Int) -> String {
 private func shortsMinSecText(_ milliseconds: Int) -> String {
     let totalSeconds = max(0, milliseconds) / 1_000
     return String(format: "%02d:%02d", totalSeconds / 60, totalSeconds % 60)
-}
-
-// MARK: - Header bar
-
-private struct ShortsHeaderBar: View {
-    let theme: ShortsTheme
-    let state: ShortsWorkspaceState
-    let actions: ShortsWorkspaceActions
-    let onExportAll: () -> Void
-
-    @State private var showsSettings = false
-
-    var body: some View {
-        let totalMs = state.shorts.reduce(0) { $0 + $1.durationMs }
-
-        HStack(spacing: 10) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.accentColor, Color.accentColor.opacity(0.6)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                Image(systemName: "rectangle.portrait.badge.plus")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            .frame(width: 28, height: 28)
-            .shadow(color: Color.accentColor.opacity(0.33), radius: 5, y: 2)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Shorts")
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundStyle(theme.fg)
-                Text("\(state.shorts.count) marked · \(shortsClockText(totalMs)) total")
-                    .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(theme.fg3)
-            }
-
-            Spacer()
-
-            Button {
-                actions.generateSuggestions()
-            } label: {
-                Label("Suggest clips", systemImage: "sparkles")
-                    .labelStyle(.titleAndIcon)
-                    .shortsGhostChrome(theme)
-            }
-            .buttonStyle(.plain)
-            .help("Suggest shorts from pauses and speaker changes")
-
-            Button {
-                actions.addShortAtPlayhead()
-            } label: {
-                Label("New", systemImage: "plus")
-                    .labelStyle(.titleAndIcon)
-                    .shortsGhostChrome(theme)
-            }
-            .buttonStyle(.plain)
-            .help("New short at the playhead")
-
-            Button {
-                showsSettings.toggle()
-            } label: {
-                Image(systemName: "gearshape")
-                    .shortsGhostChrome(theme)
-            }
-            .buttonStyle(.plain)
-            .help("Shorts defaults")
-            .popover(isPresented: $showsSettings) {
-                ShortsSettingsPopover(settings: state.exportSettings, actions: actions)
-            }
-
-            Rectangle()
-                .fill(theme.line)
-                .frame(width: 1, height: 20)
-                .padding(.horizontal, 4)
-
-            Button(action: onExportAll) {
-                Label("Export all", systemImage: "square.and.arrow.up")
-                    .labelStyle(.titleAndIcon)
-                    .shortsPrimaryChrome()
-            }
-            .buttonStyle(.plain)
-            .disabled(state.shorts.isEmpty)
-            .opacity(state.shorts.isEmpty ? 0.5 : 1)
-        }
-        .padding(.horizontal, 16)
-        .frame(height: 52)
-        .background(theme.panel)
-    }
 }
 
 // MARK: - Stage (9:16 player + transport)
@@ -762,10 +753,19 @@ private struct ShortsLibraryRail: View {
     let actions: ShortsWorkspaceActions
     let player: AVPlayer?
     let onSeek: (Int) -> Void
+    let onEditSelected: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ShortsEyebrow(theme: theme, text: "Library")
+            HStack {
+                Text("Your shorts")
+                    .font(.headline)
+                    .foregroundStyle(theme.fg)
+                Spacer()
+                Text("\(state.shorts.count)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(theme.fg2)
+            }
                 .padding(.horizontal, 14)
                 .padding(.top, 14)
                 .padding(.bottom, 8)
@@ -789,6 +789,7 @@ private struct ShortsLibraryRail: View {
                             onSelect: {
                                 actions.selectShort(id: short.id)
                                 onSeek(short.startMs)
+                                onEditSelected()
                             },
                             onDuplicate: { actions.duplicateShort(id: short.id) },
                             onDelete: { actions.deleteShort(id: short.id) }
@@ -815,7 +816,7 @@ private struct ShortsLibraryRail: View {
                 .padding(.bottom, 14)
             }
         }
-        .frame(width: 268)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.panel)
     }
 
@@ -874,76 +875,59 @@ private struct ShortsLibraryCard: View {
         let reframing = short.effectiveReframing(default: state.exportSettings.reframing)
         let overLimit = short.durationMs > platform.durationLimitMs
 
-        Button(action: onSelect) {
-            HStack(alignment: .top, spacing: 10) {
-                ShortsLibraryThumbnail(theme: theme, player: player, short: short)
+        HStack(alignment: .top, spacing: DesignSpacing.extraSmall) {
+            Button(action: onSelect) {
+                HStack(alignment: .top, spacing: DesignSpacing.small) {
+                    ShortsLibraryThumbnail(theme: theme, player: player, short: short)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(short.title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(theme.fg)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
+                    VStack(alignment: .leading, spacing: DesignSpacing.extraSmall) {
+                        Text(short.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(theme.fg)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
 
-                    HStack(spacing: 5) {
-                        ShortsTagView(theme: theme, text: platform.badgeName)
-                        ShortsTagView(
-                            theme: theme,
-                            text: reframing == .blurPad ? "Blur" : "Crop",
-                            icon: reframing == .blurPad ? "drop.halffull" : "crop"
-                        )
-                        if short.cropKeyframes.count > 1 {
+                        HStack(spacing: DesignSpacing.extraSmall) {
+                            ShortsTagView(theme: theme, text: platform.badgeName)
                             ShortsTagView(
                                 theme: theme,
-                                text: "\(short.cropKeyframes.count)",
-                                icon: "diamond.fill"
+                                text: reframing == .blurPad ? "Blur" : "Crop",
+                                icon: reframing == .blurPad ? "drop.halffull" : "crop"
                             )
                         }
+
+                        HStack(spacing: DesignSpacing.extraSmall) {
+                            Text(shortsClockText(short.durationMs))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(overLimit ? shortsWarnColor : theme.fg2)
+                            if overLimit {
+                                Label("Over limit", systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(shortsWarnColor)
+                            }
+                        }
                     }
-
-                    HStack(spacing: 6) {
-                        Text(shortsClockText(short.durationMs))
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(overLimit ? shortsWarnColor : theme.fg3)
-                            .help(overLimit
-                                ? "Exceeds the \(platform.displayName) limit of \(shortsClockText(platform.durationLimitMs))"
-                                : "Within the \(platform.displayName) limit")
-                        if overLimit {
-                            Text("over limit")
-                                .font(.system(size: 9.5))
-                                .foregroundStyle(shortsWarnColor)
-                        }
-
-                        Spacer(minLength: 0)
-
-                        Button(action: onDuplicate) {
-                            Image(systemName: "plus.square.on.square")
-                                .font(.system(size: 10))
-                                .foregroundStyle(theme.fg3)
-                                .frame(width: 20, height: 20)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .help("Duplicate short")
-
-                        Button(action: onDelete) {
-                            Image(systemName: "trash")
-                                .font(.system(size: 10))
-                                .foregroundStyle(theme.fg3)
-                                .frame(width: 20, height: 20)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .help("Delete short")
-                    }
-                    .padding(.top, 1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(8)
-            .contentShape(RoundedRectangle(cornerRadius: 11))
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
+
+            Menu {
+                Button("Duplicate", systemImage: "plus.square.on.square", action: onDuplicate)
+                Divider()
+                Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.borderlessButton)
+            .help("Short actions")
+            .accessibilityLabel("Actions for \(short.title)")
         }
-        .buttonStyle(.plain)
+        .padding(DesignSpacing.small)
         .background(
             isSelected
                 ? Color.accentColor.opacity(theme.dark ? 0.11 : 0.07)
@@ -962,7 +946,6 @@ private struct ShortsLibraryCard: View {
             radius: 9,
             y: 3
         )
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
 }
@@ -1063,73 +1046,39 @@ private struct ShortsInspectorView: View {
     let state: ShortsWorkspaceState
     let actions: ShortsWorkspaceActions
     let short: ShortDefinition
-    let player: AVPlayer?
-    @Binding var open: Bool
     let onSeek: (Int) -> Void
-    let onExport: () -> Void
+
+    @State private var showsSubtitleAppearance = false
 
     var body: some View {
-        let platform = short.effectivePlatform(default: state.exportSettings.platform)
-
-        VStack(spacing: 0) {
-            hairline(theme)
-
-            // handle row
-            HStack(spacing: 9) {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(theme.fg3)
-                    .rotationEffect(.degrees(open ? 90 : 0))
-                    .animation(.easeInOut(duration: 0.15), value: open)
-
-                Text(short.title)
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(theme.fg)
-                    .lineLimit(1)
-
-                ShortsTagView(theme: theme, text: platform.badgeName)
-
-                Text(shortsClockText(short.durationMs))
-                    .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(theme.fg3)
-
-                Spacer()
-
-                Button(action: onExport) {
-                    Label("Export short", systemImage: "square.and.arrow.up")
-                        .labelStyle(.titleAndIcon)
-                        .shortsPrimaryChrome(height: 26)
+        ScrollView {
+            VStack(spacing: 0) {
+                HStack(spacing: DesignSpacing.small) {
+                    Image(systemName: "slider.horizontal.3")
+                        .foregroundStyle(Color.accentColor)
+                    Text(short.title)
+                        .font(.headline)
+                        .foregroundStyle(theme.fg)
+                        .lineLimit(1)
+                    Spacer()
+                    Text(shortsClockText(short.durationMs))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(theme.fg2)
                 }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 16)
-            .frame(height: 34)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                open.toggle()
-            }
+                .padding(DesignSpacing.medium)
 
-            if open {
                 hairline(theme)
+                detailsSection
+                hairline(theme)
+                framingSection
 
-                ScrollView {
-                    HStack(alignment: .top, spacing: 0) {
-                        framingSection
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
-
-                        hairline(theme, vertical: true)
-
-                        focusSection
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
-
-                        hairline(theme, vertical: true)
-
-                        detailsSection
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
-                    }
-                    .fixedSize(horizontal: false, vertical: true)
+                if short.effectiveReframing(default: state.exportSettings.reframing) == .crop {
+                    hairline(theme)
+                    focusSection
                 }
-                .frame(height: 250)
+
+                hairline(theme)
+                captionsSection
             }
         }
         .background(theme.panel2)
@@ -1141,28 +1090,22 @@ private struct ShortsInspectorView: View {
         let effectiveReframing = short.effectiveReframing(default: state.exportSettings.reframing)
         let effectivePlatform = short.effectivePlatform(default: state.exportSettings.platform)
 
-        return VStack(alignment: .leading, spacing: 0) {
-            ShortsEyebrow(theme: theme, text: "Framing")
-                .padding(.bottom, 10)
+        return VStack(alignment: .leading, spacing: DesignSpacing.small) {
+            Text("Frame")
+                .font(.headline)
 
-            HStack(spacing: 8) {
-                ShortsFramingCard(
-                    theme: theme,
-                    kind: .crop,
-                    isOn: effectiveReframing == .crop,
-                    onClick: { setReframing(.crop) }
-                )
-                ShortsFramingCard(
-                    theme: theme,
-                    kind: .blurPad,
-                    isOn: effectiveReframing == .blurPad,
-                    onClick: { setReframing(.blurPad) }
-                )
+            Picker("Framing", selection: Binding(
+                get: { effectiveReframing },
+                set: { setReframing($0) }
+            )) {
+                Text("Crop").tag(ShortsReframing.crop)
+                Text("Blur").tag(ShortsReframing.blurPad)
             }
+            .pickerStyle(.segmented)
 
-            ShortsEyebrow(theme: theme, text: "Platform")
-                .padding(.top, 12)
-                .padding(.bottom, 10)
+            Text("Platform")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(theme.fg2)
 
             HStack(spacing: 4) {
                 ForEach(ShortsPlatform.allCases) { platform in
@@ -1170,7 +1113,7 @@ private struct ShortsInspectorView: View {
                 }
             }
         }
-        .padding(EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16))
+        .padding(DesignSpacing.medium)
     }
 
     private func setReframing(_ reframing: ShortsReframing) {
@@ -1240,15 +1183,38 @@ private struct ShortsInspectorView: View {
             }
             .padding(.bottom, 10)
 
-            ShortsCropCanvas(
-                theme: theme,
-                state: state,
-                actions: actions,
-                short: short,
-                player: player,
-                sourceAspect: sourceAspectRatio,
-                disabled: short.effectiveReframing(default: state.exportSettings.reframing) != .crop
+            HStack {
+                Text("Horizontal focus")
+                    .font(.subheadline)
+                    .foregroundStyle(theme.fg2)
+                Spacer()
+                Text("\(Int((currentCropOffset * 100).rounded()))%")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(theme.fg2)
+            }
+
+            Slider(
+                value: Binding(
+                    get: { currentCropOffset },
+                    set: { newValue in
+                        actions.updateShortCropOffset(
+                            id: short.id,
+                            timelineTimeMs: cropTimelineTimeMs,
+                            offsetX: newValue
+                        )
+                    }
+                ),
+                in: 0...1,
+                onEditingChanged: { isEditing in
+                    if isEditing {
+                        actions.beginInteractiveShortEdit()
+                    } else {
+                        actions.endInteractiveShortEdit(undoActionName: "Adjust Crop Framing")
+                    }
+                }
             )
+            .accessibilityLabel("Horizontal crop focus")
+            .accessibilityValue("\(Int((currentCropOffset * 100).rounded())) percent")
 
             ShortsKeyframeLane(
                 theme: theme,
@@ -1260,15 +1226,15 @@ private struct ShortsInspectorView: View {
                 }
             )
         }
-        .padding(EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16))
+        .padding(DesignSpacing.medium)
     }
 
-    private var sourceAspectRatio: CGFloat {
-        guard let info = state.videoSourceInfo, info.width > 0, info.height > 0 else {
-            return 16.0 / 9.0
-        }
+    private var cropTimelineTimeMs: Int {
+        min(max(state.currentTimeMs, short.startMs), short.endMs)
+    }
 
-        return CGFloat(info.width) / CGFloat(info.height)
+    private var currentCropOffset: Double {
+        short.cropOffset(atTimelineTimeMs: cropTimelineTimeMs)
     }
 
     // ── Details ──
@@ -1278,8 +1244,9 @@ private struct ShortsInspectorView: View {
         let overLimit = short.durationMs > platform.durationLimitMs
 
         return VStack(alignment: .leading, spacing: 0) {
-            ShortsEyebrow(theme: theme, text: "Details")
-                .padding(.bottom, 10)
+            Text("Clip")
+                .font(.headline)
+                .padding(.bottom, DesignSpacing.small)
 
             fieldLabel("Title")
             textField(
@@ -1321,7 +1288,30 @@ private struct ShortsInspectorView: View {
                 )
             }
         }
-        .padding(EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16))
+        .padding(DesignSpacing.medium)
+    }
+
+    private var captionsSection: some View {
+        VStack(alignment: .leading, spacing: DesignSpacing.small) {
+            Text("Captions")
+                .font(.headline)
+
+            Text("Position captions directly on the preview. Open appearance for font, background, and burn-in settings.")
+                .font(.caption)
+                .foregroundStyle(theme.fg2)
+
+            Button {
+                showsSubtitleAppearance.toggle()
+            } label: {
+                Label("Caption appearance", systemImage: "textformat")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .popover(isPresented: $showsSubtitleAppearance) {
+                ShortsSubtitleAppearancePopover(state: state, actions: actions)
+            }
+        }
+        .padding(DesignSpacing.medium)
     }
 
     private func fieldLabel(_ text: String) -> some View {
@@ -1615,26 +1605,33 @@ private struct ShortsKeyframeLane: View {
                     ForEach(keyframes) { keyframe in
                         let x = CGFloat(keyframe.timeMs) / CGFloat(durationMs) * width
 
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(Color.accentColor)
-                            .frame(width: 18, height: 18)
-                            .overlay(
-                                Image(systemName: "diamond.fill")
-                                    .font(.system(size: 7))
-                                    .foregroundStyle(.white)
-                            )
-                            .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
-                            .position(x: min(max(9, x), width - 9), y: 13)
-                            .help("\(shortsClockText(keyframe.timeMs)) · focus \(Int((keyframe.offsetX * 100).rounded()))%")
-                            .onTapGesture(count: 2) {
+                        Menu {
+                            Button("Go to point", systemImage: "scope") {
+                                onSeek(keyframe.timeMs)
+                            }
+                            Divider()
+                            Button("Delete point", systemImage: "trash", role: .destructive) {
                                 actions.deleteShortCropKeyframe(
                                     shortID: short.id,
                                     keyframeID: keyframe.id
                                 )
                             }
-                            .onTapGesture {
-                                onSeek(keyframe.timeMs)
-                            }
+                        } label: {
+                            RoundedRectangle(cornerRadius: 5)
+                                .fill(Color.accentColor)
+                                .frame(width: 18, height: 18)
+                                .overlay(
+                                    Image(systemName: "diamond.fill")
+                                        .font(.system(size: 7))
+                                        .foregroundStyle(.white)
+                                )
+                                .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+                        }
+                        .menuStyle(.borderlessButton)
+                        .menuIndicator(.hidden)
+                        .position(x: min(max(9, x), width - 9), y: 13)
+                        .help("\(shortsClockText(keyframe.timeMs)) · focus \(Int((keyframe.offsetX * 100).rounded()))% · click for actions")
+                        .accessibilityLabel("Crop point at \(shortsClockText(keyframe.timeMs))")
                     }
 
                     Rectangle()
@@ -1646,7 +1643,7 @@ private struct ShortsKeyframeLane: View {
             }
             .frame(height: 26)
 
-            Text("\(keyframes.count) crop point\(keyframes.count == 1 ? "" : "s") · double-click to remove")
+            Text("\(keyframes.count) crop point\(keyframes.count == 1 ? "" : "s") · click a point for actions")
                 .font(.system(size: 9.5))
                 .foregroundStyle(theme.fg3)
         }

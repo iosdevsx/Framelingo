@@ -40,6 +40,7 @@ let package = Package(
             name: "ShortsFeatureTests",
             dependencies: [
                 "ShortsFeature",
+                "ShortsFeatureImpl",
                 .product(name: "Shorts", package: "Shorts"),
             ],
             path: "Tests/ShortsFeatureTests"

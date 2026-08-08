@@ -1,6 +1,7 @@
 import Foundation
 import Shorts
 import ShortsFeature
+@testable import ShortsFeatureImpl
 import Testing
 
 @MainActor
@@ -20,5 +21,12 @@ struct ShortsWorkspaceContractsTests {
         )
 
         #expect(state.selectedShort == short)
+    }
+
+    @Test
+    func contextualPanelKeepsClipsAndEditingMutuallyExclusive() {
+        #expect(ShortsContextPanelMode.allCases == [.clips, .edit])
+        #expect(ShortsContextPanelMode.clips.title == "Clips")
+        #expect(ShortsContextPanelMode.edit.title == "Edit")
     }
 }
